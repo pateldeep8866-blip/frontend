@@ -32,7 +32,11 @@ export async function GET(req) {
       ticker: data.ticker || symbol,
       logo: data.logo || null,
       exchange: data.exchange || null,
+      sector: data.finnhubIndustry || null,
       finnhubIndustry: data.finnhubIndustry || null,
+      marketCapitalization: data.marketCapitalization ?? null,
+      ipo: data.ipo || null,
+      country: data.country || null,
       weburl: data.weburl || null,
     });
   } catch (e) {

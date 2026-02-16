@@ -40,6 +40,10 @@ export async function GET(req) {
       symbol,
       t: data.t,
       c: data.c,
+      h: data.h,
+      l: data.l,
+      o: data.o,
+      v: data.v,
     });
   } catch (e) {
     return NextResponse.json({ error: "Server error" }, { status: 500 });

@@ -48,6 +48,22 @@ Return ONLY valid JSON with these keys:
 {
   "ticker": "AAPL",
   "recommendation": "BUY|HOLD|AVOID",
+  "ai_score": 0-100,
+  "confidence": 0-100,
+  "bull_probability": 0-100,
+  "bear_probability": 0-100,
+  "horizon": "SHORT_TERM|LONG_TERM",
+  "risk_level": "LOW|MEDIUM|HIGH",
+  "risk_explanation": "1-2 sentences",
+  "short_summary": "1 concise sentence",
+  "long_summary": "3-5 concise sentences",
+  "reasoning_categories": {
+    "fundamental": 0-100,
+    "technical": 0-100,
+    "sentiment": 0-100
+  },
+  "strengths": ["s1","s2","s3"],
+  "outlook": "1-2 sentences",
   "why": ["bullet1","bullet2","bullet3","bullet4"],
   "risks": ["risk1","risk2"],
   "day_plan": "1-2 sentences",
@@ -55,6 +71,7 @@ Return ONLY valid JSON with these keys:
 }
 
 Pick ONE US stock for TODAY. Keep it simple and realistic.
+Return raw JSON only. No markdown, no code fences.
 `.trim();
 
     const symbolPrompt = `
@@ -62,6 +79,22 @@ Return ONLY valid JSON with these keys:
 {
   "ticker": "${symbol}",
   "recommendation": "BUY|HOLD|AVOID",
+  "ai_score": 0-100,
+  "confidence": 0-100,
+  "bull_probability": 0-100,
+  "bear_probability": 0-100,
+  "horizon": "SHORT_TERM|LONG_TERM",
+  "risk_level": "LOW|MEDIUM|HIGH",
+  "risk_explanation": "1-2 sentences",
+  "short_summary": "1 concise sentence",
+  "long_summary": "3-5 concise sentences",
+  "reasoning_categories": {
+    "fundamental": 0-100,
+    "technical": 0-100,
+    "sentiment": 0-100
+  },
+  "strengths": ["s1","s2","s3"],
+  "outlook": "1-2 sentences",
   "why": ["bullet1","bullet2","bullet3","bullet4"],
   "risks": ["risk1","risk2"],
   "day_plan": "1-2 sentences",
@@ -70,6 +103,7 @@ Return ONLY valid JSON with these keys:
 
 Analyze ${symbol}. Price (if provided): ${price || "unknown"}.
 Keep it beginner friendly.
+Return raw JSON only. No markdown, no code fences.
 `.trim();
 
     const chatPrompt = `
@@ -106,13 +140,13 @@ User question: ${question}
         Authorization: `Bearer ${OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
         "HTTP-Referer": "http://localhost:3000",
-        "X-Title": "Investment Guru AI",
+        "X-Title": "Arthastra AI",
       },
       body: JSON.stringify({
         model: OPENROUTER_MODEL,
         messages: [{ role: "user", content: promptToUse }],
         temperature: 0.35,
-        max_tokens: 320,
+        max_tokens: 700,
       }),
     });
 
