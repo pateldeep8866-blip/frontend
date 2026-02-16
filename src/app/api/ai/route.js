@@ -25,10 +25,20 @@ export async function GET(req) {
     const mode = (searchParams.get("mode") || "").toLowerCase(); // "daily"
     const symbol = (searchParams.get("symbol") || "").toUpperCase();
     const price = searchParams.get("price") || "";
+    const question = (searchParams.get("question") || "").trim();
+    const isDaily = mode === "daily";
+    const isChat = mode === "chat";
 
-    if (mode !== "daily" && !symbol) {
+    if (!isDaily && !isChat && !symbol) {
       return NextResponse.json(
         { error: "Missing symbol. Use /api/ai?symbol=AAPL or /api/ai?mode=daily" },
+        { status: 400 }
+      );
+    }
+
+    if (isChat && !question) {
+      return NextResponse.json(
+        { error: "Missing question. Use /api/ai?mode=chat&question=your%20question" },
         { status: 400 }
       );
     }
@@ -62,7 +72,33 @@ Analyze ${symbol}. Price (if provided): ${price || "unknown"}.
 Keep it beginner friendly.
 `.trim();
 
-    const promptToUse = mode === "daily" ? dailyPrompt : symbolPrompt;
+    const chatPrompt = `
+You are ASTRA, a professional equity research assistant for retail investors.
+Write clear, practical answers with a calm, confident tone.
+
+Rules:
+- Keep response between 80 and 160 words.
+- Avoid markdown code fences, headings symbols, and decorative formatting.
+- Give direct advice framework, not hype.
+- If details are uncertain, say what to verify.
+- Use this structure exactly:
+Summary: <1-2 lines>
+Key Points:
+- <point 1>
+- <point 2>
+- <point 3>
+Risks:
+- <risk 1>
+- <risk 2>
+Next Step: <one actionable next step>
+Educational only. Not financial advice.
+
+Context symbol: ${symbol || "none"}
+Context price: ${price || "unknown"}
+User question: ${question}
+`.trim();
+
+    const promptToUse = isDaily ? dailyPrompt : isChat ? chatPrompt : symbolPrompt;
 
     const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
@@ -75,8 +111,8 @@ Keep it beginner friendly.
       body: JSON.stringify({
         model: OPENROUTER_MODEL,
         messages: [{ role: "user", content: promptToUse }],
-        temperature: 0.6,
-        max_tokens: 450,
+        temperature: 0.35,
+        max_tokens: 320,
       }),
     });
 
@@ -90,19 +126,28 @@ Keep it beginner friendly.
     }
 
     const raw = data?.choices?.[0]?.message?.content?.trim() || "";
+    if (isChat) {
+      return NextResponse.json({
+        mode: "chat",
+        model_used: OPENROUTER_MODEL,
+        answer: raw,
+        raw,
+      });
+    }
+
     const parsed = safeJsonParse(raw);
 
     if (!parsed) {
       // fallback: still return raw so UI can show something
       return NextResponse.json({
-        mode: mode === "daily" ? "daily" : "symbol",
+        mode: isDaily ? "daily" : "symbol",
         model_used: OPENROUTER_MODEL,
         raw,
       });
     }
 
     return NextResponse.json({
-      mode: mode === "daily" ? "daily" : "symbol",
+      mode: isDaily ? "daily" : "symbol",
       model_used: OPENROUTER_MODEL,
       ...parsed,
       raw,

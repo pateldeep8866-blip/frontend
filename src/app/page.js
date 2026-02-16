@@ -34,6 +34,16 @@ function cleanAiText(value) {
     .trim();
 }
 
+function cleanChatAnswer(value) {
+  const text = cleanAiText(value)
+    .replace(/\*\*/g, "")
+    .replace(/^#{1,6}\s*/gm, "")
+    .replace(/^\s*[-*]\s*/gm, "- ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  return text;
+}
+
 function parseJsonLike(text) {
   const cleaned = cleanAiText(text);
   if (!cleaned) return null;
@@ -53,13 +63,56 @@ function parseJsonLike(text) {
   return null;
 }
 
+function extractQuotedField(text, key) {
+  const fieldPattern = new RegExp(
+    `"${key}"\\s*:\\s*"([\\s\\S]*?)"\\s*(?=,\\s*"(?:ticker|recommendation|why|risks|day_plan|note)"\\s*:|,\\s*}|})`,
+    "i"
+  );
+  const match = text.match(fieldPattern);
+  return match?.[1]?.trim() || "";
+}
+
+function extractArrayField(text, key) {
+  const sectionPattern = new RegExp(`"${key}"\\s*:\\s*\\[([\\s\\S]*?)\\]`, "i");
+  const section = text.match(sectionPattern)?.[1] || "";
+  if (!section) return [];
+
+  const items = [];
+  const itemRegex = /"([^"]+)"/g;
+  let m;
+  while ((m = itemRegex.exec(section)) !== null) {
+    const value = String(m[1] || "").trim();
+    if (value) items.push(value);
+  }
+  return items;
+}
+
+function parseLooseAnalysisText(text) {
+  const cleaned = cleanAiText(text);
+  if (!cleaned) return null;
+
+  const ticker = extractQuotedField(cleaned, "ticker").toUpperCase();
+  const recommendation = extractQuotedField(cleaned, "recommendation").toUpperCase();
+  const why = extractArrayField(cleaned, "why");
+  const risks = extractArrayField(cleaned, "risks");
+  const day_plan = extractQuotedField(cleaned, "day_plan");
+  const note = extractQuotedField(cleaned, "note");
+
+  if (!ticker && !recommendation && !why.length && !risks.length && !day_plan && !note) {
+    return null;
+  }
+
+  return { ticker, recommendation, why, risks, day_plan, note };
+}
+
 function listOfStrings(value) {
   if (!Array.isArray(value)) return [];
   return value.map((x) => String(x || "").trim()).filter(Boolean);
 }
 
 function normalizeAiPayload(payload) {
-  const parsed = parseJsonLike(payload?.raw || payload?.note);
+  const sourceText = payload?.raw || payload?.note;
+  const parsed = parseJsonLike(sourceText) || parseLooseAnalysisText(sourceText);
   const merged = { ...(parsed || {}), ...(payload || {}) };
 
   const ticker = String(merged?.ticker || "").trim().toUpperCase();
@@ -174,6 +227,16 @@ export default function Home() {
 
   const [dailyObj, setDailyObj] = useState(null);
   const [dailyLoading, setDailyLoading] = useState(false);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState([
+    {
+      role: "assistant",
+      content:
+        "I am ASTRA. Ask me anything about a stock, valuation basics, risks, or strategy ideas.",
+    },
+  ]);
 
   // Market overview
   const overviewTickers = useMemo(() => ["SPY", "QQQ", "AAPL", "NVDA", "TSLA"], []);
@@ -398,6 +461,36 @@ export default function Home() {
     setAlerts((prev) => [{ symbol: sym, price: p.toFixed(2) }, ...prev]);
     setAlertSymbol("");
     setAlertPrice("");
+  };
+
+  const sendChatMessage = async () => {
+    const question = chatInput.trim();
+    if (!question || chatLoading) return;
+
+    const ctxSymbol = usingTicker || result?.symbol || "";
+    const priceNum =
+      typeof result?.price === "string" ? Number(result.price.replace(/[^0-9.-]/g, "")) : null;
+    const priceForApi = Number.isFinite(priceNum) ? String(priceNum) : "";
+
+    setChatMessages((prev) => [...prev, { role: "user", content: question }]);
+    setChatInput("");
+    setChatLoading(true);
+
+    try {
+      const res = await fetch(
+        `/api/ai?mode=chat&question=${encodeURIComponent(question)}&symbol=${encodeURIComponent(ctxSymbol)}&price=${encodeURIComponent(priceForApi)}`
+      );
+      const data = await res.json().catch(() => ({}));
+      const answer = cleanChatAnswer(data?.answer || data?.raw || data?.error || "I could not generate a reply.");
+      setChatMessages((prev) => [...prev, { role: "assistant", content: answer }]);
+    } catch {
+      setChatMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "Network issue. Please try again. Educational only. Not financial advice." },
+      ]);
+    } finally {
+      setChatLoading(false);
+    }
   };
 
   const dailyView = normalizeAiPayload(dailyObj);
@@ -753,6 +846,77 @@ export default function Home() {
         )}
 
         <p className="text-center text-xs text-white/40 mt-8">Educational tool only. Not financial advice.</p>
+      </div>
+
+      {/* FLOATING ASTRA CHAT */}
+      <div className="fixed bottom-5 right-5 z-50">
+        {chatOpen ? (
+          <div className="w-[92vw] max-w-sm sm:max-w-md rounded-2xl border border-white/15 bg-[#0e1015] shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-white/[0.04]">
+              <div>
+                <div className="text-sm font-semibold text-white">Chat with ASTRA</div>
+                <div className="text-[11px] text-white/55">
+                  {usingTicker ? `Context: ${usingTicker}` : "No stock selected"}
+                </div>
+              </div>
+              <button
+                onClick={() => setChatOpen(false)}
+                className="h-8 w-8 rounded-full bg-white/10 hover:bg-white/15 text-white/80"
+                aria-label="Close chat"
+              >
+                x
+              </button>
+            </div>
+
+            <div className="h-80 overflow-y-auto p-3 space-y-3">
+              {chatMessages.map((m, i) => (
+                <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div
+                    className={`max-w-[90%] rounded-2xl px-3 py-2 text-sm whitespace-pre-line leading-relaxed ${
+                      m.role === "user"
+                        ? "bg-blue-600 text-white"
+                        : "bg-white/10 text-white/90 border border-white/10"
+                    }`}
+                  >
+                    {m.content}
+                  </div>
+                </div>
+              ))}
+
+              {chatLoading && (
+                <div className="flex justify-start">
+                  <div className="max-w-[90%] rounded-2xl px-3 py-2 text-sm bg-white/10 text-white/75 border border-white/10">
+                    ASTRA is thinking...
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-3 border-t border-white/10 flex gap-2">
+              <input
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && sendChatMessage()}
+                placeholder="Ask about any stock..."
+                className="flex-1 px-3 py-2 rounded-xl bg-white text-black border-2 border-white/20 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
+              />
+              <button
+                onClick={sendChatMessage}
+                disabled={chatLoading || !chatInput.trim()}
+                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 font-semibold disabled:opacity-50"
+              >
+                Send
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => setChatOpen(true)}
+            className="rounded-full bg-blue-600 hover:bg-blue-500 text-white px-5 py-3 font-semibold shadow-xl border border-blue-400/40"
+          >
+            Chat with ASTRA
+          </button>
+        )}
       </div>
     </div>
   );
