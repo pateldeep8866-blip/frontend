@@ -34,6 +34,58 @@ function cleanAiText(value) {
     .trim();
 }
 
+function parseJsonLike(text) {
+  const cleaned = cleanAiText(text);
+  if (!cleaned) return null;
+
+  try {
+    return JSON.parse(cleaned);
+  } catch {}
+
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start >= 0 && end > start) {
+    try {
+      return JSON.parse(cleaned.slice(start, end + 1));
+    } catch {}
+  }
+
+  return null;
+}
+
+function listOfStrings(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map((x) => String(x || "").trim()).filter(Boolean);
+}
+
+function normalizeAiPayload(payload) {
+  const parsed = parseJsonLike(payload?.raw || payload?.note);
+  const merged = { ...(parsed || {}), ...(payload || {}) };
+
+  const ticker = String(merged?.ticker || "").trim().toUpperCase();
+  const recommendation = String(merged?.recommendation || "").trim().toUpperCase();
+  const why = listOfStrings(merged?.why);
+  const risks = listOfStrings(merged?.risks);
+  const dayPlan = String(merged?.day_plan || merged?.dayPlan || "").trim();
+  const note = cleanAiText(merged?.note);
+
+  let fallbackText = "";
+  if (!why.length && !risks.length && !dayPlan) {
+    fallbackText = cleanAiText(merged?.raw || merged?.note);
+    if (parsed) fallbackText = "";
+  }
+
+  return {
+    ticker,
+    recommendation,
+    why,
+    risks,
+    dayPlan,
+    note,
+    fallbackText,
+  };
+}
+
 function drawLineChart(canvas, points) {
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
@@ -348,6 +400,9 @@ export default function Home() {
     setAlertPrice("");
   };
 
+  const dailyView = normalizeAiPayload(dailyObj);
+  const analysisView = normalizeAiPayload(analysisObj);
+
   return (
     <div className="min-h-screen bg-black text-white">
       <div className="mx-auto w-full max-w-5xl px-6 py-10 md:py-14">
@@ -359,6 +414,7 @@ export default function Home() {
           </div>
           <h1 className="text-4xl md:text-5xl font-bold mt-4 tracking-tight">Arthastra AI</h1>
           <p className="text-white/60 mt-2">Your intelligent investing assistant</p>
+          <p className="text-white/45 text-xs mt-3">Founder: Deep Patel • Director: Juan Ramirez</p>
         </div>
 
         {/* MARKET OVERVIEW */}
@@ -407,16 +463,53 @@ export default function Home() {
               </button>
             }
           >
-            {dailyObj?.recommendation && (
+            {(dailyView.recommendation || dailyView.ticker) && (
               <div className="mb-3 flex items-center gap-2">
-                <Badge value={dailyObj.recommendation} />
-                <span className="text-white/80 text-sm">{dailyObj.ticker}</span>
+                <Badge value={dailyView.recommendation} />
+                <span className="text-white/80 text-sm">{dailyView.ticker || "—"}</span>
               </div>
             )}
 
-            <div className="text-sm text-white/90 whitespace-pre-line">
-              {dailyLoading ? "Loading today’s pick..." : cleanAiText(dailyObj?.raw || dailyObj?.note) || "—"}
-            </div>
+            {dailyLoading ? (
+              <div className="text-sm text-white/60">Loading today’s pick...</div>
+            ) : (
+              <div className="space-y-3">
+                {dailyView.why.length > 0 && (
+                  <div>
+                    <div className="text-xs text-white/60 mb-1">Why</div>
+                    <ul className="list-disc pl-5 text-sm text-white/90 space-y-1">
+                      {dailyView.why.slice(0, 4).map((x, i) => (
+                        <li key={i}>{x}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {dailyView.risks.length > 0 && (
+                  <div>
+                    <div className="text-xs text-white/60 mb-1">Risks</div>
+                    <ul className="list-disc pl-5 text-sm text-white/90 space-y-1">
+                      {dailyView.risks.slice(0, 3).map((x, i) => (
+                        <li key={i}>{x}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {dailyView.dayPlan && (
+                  <div>
+                    <div className="text-xs text-white/60 mb-1">Day plan</div>
+                    <div className="text-sm text-white/90">{dailyView.dayPlan}</div>
+                  </div>
+                )}
+
+                {dailyView.note && <div className="text-xs text-white/55">{dailyView.note}</div>}
+
+                {dailyView.fallbackText && (
+                  <div className="text-sm text-white/90 whitespace-pre-line">{dailyView.fallbackText}</div>
+                )}
+              </div>
+            )}
           </Card>
 
           <Card title="Search">
@@ -597,45 +690,47 @@ export default function Home() {
         {/* AI ANALYSIS */}
         {(analysisLoading || analysisObj) && (
           <div className="mb-6">
-            <Card title="AI Investment Analysis" right={<Badge value={analysisObj?.recommendation} />}>
+            <Card title="AI Investment Analysis" right={<Badge value={analysisView.recommendation} />}>
               {analysisLoading ? (
                 <div className="text-white/50 text-sm">Analyzing...</div>
               ) : (
                 <>
-                  {analysisObj?.ticker && <div className="text-sm text-white/80 mb-3">Ticker: {analysisObj.ticker}</div>}
+                  {analysisView.ticker && <div className="text-sm text-white/80 mb-3">Ticker: {analysisView.ticker}</div>}
 
-                  {Array.isArray(analysisObj?.why) && analysisObj.why.length > 0 && (
+                  {analysisView.why.length > 0 && (
                     <div className="mb-4">
                       <div className="text-xs text-white/60 mb-2">Why</div>
                       <ul className="list-disc pl-5 text-sm text-white/90 space-y-1">
-                        {analysisObj.why.slice(0, 6).map((x, i) => (
+                        {analysisView.why.slice(0, 6).map((x, i) => (
                           <li key={i}>{x}</li>
                         ))}
                       </ul>
                     </div>
                   )}
 
-                  {Array.isArray(analysisObj?.risks) && analysisObj.risks.length > 0 && (
+                  {analysisView.risks.length > 0 && (
                     <div className="mb-4">
                       <div className="text-xs text-white/60 mb-2">Risks</div>
                       <ul className="list-disc pl-5 text-sm text-white/90 space-y-1">
-                        {analysisObj.risks.slice(0, 3).map((x, i) => (
+                        {analysisView.risks.slice(0, 3).map((x, i) => (
                           <li key={i}>{x}</li>
                         ))}
                       </ul>
                     </div>
                   )}
 
-                  {analysisObj?.day_plan && (
+                  {analysisView.dayPlan && (
                     <div className="mb-2">
                       <div className="text-xs text-white/60 mb-2">Day plan</div>
-                      <div className="text-sm text-white/90">{analysisObj.day_plan}</div>
+                      <div className="text-sm text-white/90">{analysisView.dayPlan}</div>
                     </div>
                   )}
 
-                  <div className="text-xs text-white/50 mt-4 whitespace-pre-line">
-                    {cleanAiText(analysisObj?.note || analysisObj?.raw)}
-                  </div>
+                  {analysisView.note && <div className="text-xs text-white/55 mt-4">{analysisView.note}</div>}
+
+                  {analysisView.fallbackText && (
+                    <div className="text-xs text-white/50 mt-4 whitespace-pre-line">{analysisView.fallbackText}</div>
+                  )}
                 </>
               )}
             </Card>
