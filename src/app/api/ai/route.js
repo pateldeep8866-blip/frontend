@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 // PASTE YOUR OPENROUTER KEY HERE
-const OPENROUTER_API_KEY = "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";
+const OPENROUTER_API_KEY = "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";
 const OPENROUTER_MODEL = "mistralai/mistral-7b-instruct";
 
 function safeJsonParse(text) {
