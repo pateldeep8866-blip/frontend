@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 const OPENROUTER_MODEL = "mistralai/mistral-7b-instruct";
-const OPENAI_MODEL = "gpt-4o-mini";
+const OPENAI_MODEL = "gpt-4.1-mini";
 
 function safeJsonParse(text) {
   try {
@@ -166,7 +166,13 @@ User question: ${question}
 
     if (!resp.ok) {
       return NextResponse.json(
-        { error: "AI provider error", status: resp.status, details: data },
+        {
+          error: "AI provider error",
+          status: resp.status,
+          provider: useOpenRouter ? "openrouter" : "openai",
+          model: useOpenRouter ? OPENROUTER_MODEL : OPENAI_MODEL,
+          details: data,
+        },
         { status: resp.status }
       );
     }
