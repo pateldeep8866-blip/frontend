@@ -34,3 +34,21 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Environment Variables (Required)
+
+This app uses server-side API routes for AI and stock data. Keep keys on the server only.
+
+1. Copy `.env.example` to `.env.local` for local development.
+2. Set these values:
+   - `OPENAI_API_KEY`
+   - `FINNHUB_API_KEY`
+   - Optional: `OPENROUTER_API_KEY`
+3. In production (Vercel), add the same keys in:
+   - Project Settings -> Environment Variables
+4. Redeploy after saving environment variables.
+
+Important:
+- Do not put secrets in any `NEXT_PUBLIC_*` variable.
+- Do not call OpenAI/Finnhub directly from client components.
+- Client should only call internal routes like `/api/ai`, `/api/quote`, `/api/news`, etc.

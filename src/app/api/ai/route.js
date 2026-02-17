@@ -18,7 +18,7 @@ export async function GET(req) {
     const key = OPENAI_API_KEY || OPENROUTER_API_KEY;
     if (!key || key.includes("PASTE_")) {
       return NextResponse.json(
-        { error: "Missing OPENAI_API_KEY or OPENROUTER_API_KEY" },
+        { error: "Missing AI API key (set OPENAI_API_KEY, or OPENROUTER_API_KEY)" },
         { status: 500 }
       );
     }
@@ -166,7 +166,7 @@ User question: ${question}
 
     if (!resp.ok) {
       return NextResponse.json(
-        { error: "OpenRouter error", status: resp.status, details: data },
+        { error: "AI provider error", status: resp.status, details: data },
         { status: resp.status }
       );
     }
