@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    const API_KEY = "d68ih01r01qq5rjfmhqgd68ih01r01qq5rjfmhr0";
+    const API_KEY = process.env.FINNHUB_API_KEY;
+    if (!API_KEY) {
+      return NextResponse.json({ error: "Missing FINNHUB_API_KEY" }, { status: 500 });
+    }
     const url = `https://finnhub.io/api/v1/news?category=general&token=${API_KEY}`;
     const res = await fetch(url, { cache: "no-store" });
     const data = await res.json().catch(() => []);

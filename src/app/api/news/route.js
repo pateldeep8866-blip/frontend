@@ -6,7 +6,10 @@ export async function GET(request) {
     return Response.json({ error: "Symbol required" }, { status: 400 });
   }
 
-  const API_KEY = "d68ih01r01qq5rjfmhqgd68ih01r01qq5rjfmhr0";
+  const API_KEY = process.env.FINNHUB_API_KEY;
+  if (!API_KEY) {
+    return Response.json({ error: "Missing FINNHUB_API_KEY" }, { status: 500 });
+  }
 
   // last 7 days
   const to = new Date();

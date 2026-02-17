@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 
-// PASTE YOUR OPENROUTER KEY HERE
-const OPENROUTER_API_KEY = "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";
 const OPENROUTER_MODEL = "mistralai/mistral-7b-instruct";
+const OPENAI_MODEL = "gpt-4o-mini";
 
 function safeJsonParse(text) {
   try {
@@ -14,10 +13,13 @@ function safeJsonParse(text) {
 
 export async function GET(req) {
   try {
-    if (!OPENROUTER_API_KEY || OPENROUTER_API_KEY.includes("PASTE_")) {
+    const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+    const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+    const key = OPENAI_API_KEY || OPENROUTER_API_KEY;
+    if (!key || key.includes("PASTE_")) {
       return NextResponse.json(
-        { error: "Paste your OpenRouter key in src/app/api/ai/route.js" },
-        { status: 400 }
+        { error: "Missing OPENAI_API_KEY or OPENROUTER_API_KEY" },
+        { status: 500 }
       );
     }
 
@@ -134,16 +136,26 @@ User question: ${question}
 
     const promptToUse = isDaily ? dailyPrompt : isChat ? chatPrompt : symbolPrompt;
 
-    const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const useOpenRouter = key.startsWith("sk-or-");
+    const url = useOpenRouter
+      ? "https://openrouter.ai/api/v1/chat/completions"
+      : "https://api.openai.com/v1/chat/completions";
+
+    const headers = {
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+    };
+
+    if (useOpenRouter) {
+      headers["HTTP-Referer"] = "http://localhost:3000";
+      headers["X-Title"] = "Arthastra AI";
+    }
+
+    const resp = await fetch(url, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "http://localhost:3000",
-        "X-Title": "Arthastra AI",
-      },
+      headers,
       body: JSON.stringify({
-        model: OPENROUTER_MODEL,
+        model: useOpenRouter ? OPENROUTER_MODEL : OPENAI_MODEL,
         messages: [{ role: "user", content: promptToUse }],
         temperature: 0.35,
         max_tokens: 700,
@@ -163,7 +175,7 @@ User question: ${question}
     if (isChat) {
       return NextResponse.json({
         mode: "chat",
-        model_used: OPENROUTER_MODEL,
+        model_used: useOpenRouter ? OPENROUTER_MODEL : OPENAI_MODEL,
         answer: raw,
         raw,
       });
@@ -175,14 +187,14 @@ User question: ${question}
       // fallback: still return raw so UI can show something
       return NextResponse.json({
         mode: isDaily ? "daily" : "symbol",
-        model_used: OPENROUTER_MODEL,
+        model_used: useOpenRouter ? OPENROUTER_MODEL : OPENAI_MODEL,
         raw,
       });
     }
 
     return NextResponse.json({
       mode: isDaily ? "daily" : "symbol",
-      model_used: OPENROUTER_MODEL,
+      model_used: useOpenRouter ? OPENROUTER_MODEL : OPENAI_MODEL,
       ...parsed,
       raw,
     });

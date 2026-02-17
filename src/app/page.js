@@ -57,6 +57,34 @@ function mapIndustryToSectorETF(industryRaw) {
   return { label: "Broad Market", etf: "SPY" };
 }
 
+function canonicalTicker(input) {
+  const raw = String(input || "").trim().toUpperCase();
+  if (!raw) return "";
+
+  const aliasMap = {
+    GOOGLE: "GOOGL",
+    ALPHABET: "GOOGL",
+    FACEBOOK: "META",
+    HONDA: "HMC",
+    TOYOTA: "TM",
+  };
+  if (aliasMap[raw]) return aliasMap[raw];
+
+  // Convert foreign exchange tickers to base ticker when possible (e.g. HMC.AX -> HMC, 7203.T -> 7203)
+  const parts = raw.split(".");
+  if (parts.length === 2) {
+    const [base, suffix] = parts;
+    const foreignSuffixes = new Set([
+      "AX", "T", "TO", "L", "HK", "AS", "PA", "MI", "SW", "F", "DE", "ST", "OL", "HE", "V", "KS", "KQ",
+    ]);
+    if (foreignSuffixes.has(suffix) && base) {
+      return base;
+    }
+  }
+
+  return raw;
+}
+
 function cleanAiText(value) {
   const text = String(value || "").trim();
   if (!text) return "";
@@ -345,6 +373,9 @@ export default function Home() {
   const [company, setCompany] = useState(null);
   const [news, setNews] = useState([]);
   const [searchHistory, setSearchHistory] = useState([]);
+  const [searchSuggestions, setSearchSuggestions] = useState([]);
+  const [suggestionLoading, setSuggestionLoading] = useState(false);
+  const [suggestionOpen, setSuggestionOpen] = useState(false);
   const [recommendationHistory, setRecommendationHistory] = useState([]);
   const [errorMsg, setErrorMsg] = useState("");
   const [theme, setTheme] = useState("dark");
@@ -440,6 +471,66 @@ export default function Home() {
     localStorage.setItem("theme_mode", theme);
   }, [theme]);
 
+  useEffect(() => {
+    if (loading) {
+      setSuggestionOpen(false);
+      return;
+    }
+
+    const q = ticker.trim();
+    if (q.length < 2) {
+      setSearchSuggestions([]);
+      setSuggestionOpen(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        setSuggestionLoading(true);
+        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`, { signal: controller.signal });
+        const data = await res.json().catch(() => ({}));
+        const matchesRaw = Array.isArray(data?.matches)
+          ? data.matches
+          : data?.best
+            ? [data.best]
+            : [];
+
+        const dedup = new Map();
+        for (const m of matchesRaw) {
+          const symbol = String(m?.symbol || "").toUpperCase();
+          const description = String(m?.description || "").trim();
+          if (!symbol) continue;
+          if (!dedup.has(symbol)) dedup.set(symbol, { symbol, description });
+        }
+        const suggestions = Array.from(dedup.values()).slice(0, 6);
+        setSearchSuggestions(suggestions);
+        setSuggestionOpen(suggestions.length > 0);
+      } catch (e) {
+        if (e?.name !== "AbortError") {
+          setSearchSuggestions([]);
+          setSuggestionOpen(false);
+        }
+      } finally {
+        setSuggestionLoading(false);
+      }
+    }, 280);
+
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [ticker]);
+
+  const applySuggestion = (symbol) => {
+    const sym = canonicalTicker(symbol);
+    if (!sym) return;
+    setTicker(sym);
+    setSearchSuggestions([]);
+    setSuggestionOpen(false);
+    searchStock(sym);
+  };
+
   // Draw chart when points change
   useEffect(() => {
     const c = chartRef.current;
@@ -450,9 +541,9 @@ export default function Home() {
   }, [chartPoints]);
 
   async function resolveSymbol(input) {
-    const raw = input.trim();
+    const raw = String(input || "").trim();
     if (!raw) return "";
-    const fallback = raw.toUpperCase();
+    const fallback = canonicalTicker(raw);
 
     try {
       let res = await fetch(`/api/search?query=${encodeURIComponent(raw)}`);
@@ -460,7 +551,7 @@ export default function Home() {
       if (!res.ok) return fallback;
 
       const data = await res.json();
-      const sym = (data?.symbol || data?.result?.symbol || "").toUpperCase();
+      const sym = canonicalTicker(data?.symbol || data?.result?.symbol || "");
       return sym || fallback;
     } catch {
       return fallback;
@@ -650,8 +741,10 @@ export default function Home() {
   const searchStock = async (forcedInput) => {
     const raw = String(forcedInput ?? ticker).trim();
     if (!raw) return;
+    const rawCanonical = canonicalTicker(raw);
 
     setLoading(true);
+    setSuggestionOpen(false);
     setErrorMsg("");
     setCompany(null);
     setFundamentals(null);
@@ -660,10 +753,10 @@ export default function Home() {
     setAnalysisObj(null);
     setChartPoints([]);
 
-    setResult({ symbol: raw.toUpperCase(), price: "Loading...", info: "Resolving ticker..." });
+    setResult({ symbol: rawCanonical || raw.toUpperCase(), price: "Loading...", info: "Resolving ticker..." });
 
     try {
-      const sym = await resolveSymbol(raw);
+      const sym = await resolveSymbol(rawCanonical || raw);
       if (!sym) {
         setResult({ symbol: "—", price: "—", info: "Enter a ticker or company name." });
         setLoading(false);
@@ -784,13 +877,15 @@ export default function Home() {
   };
 
   const addToWatchlist = async () => {
-    const sym = (await resolveSymbol(ticker)).toUpperCase();
+    const sym = canonicalTicker(await resolveSymbol(ticker));
     if (!sym) return;
     setWatch((prev) => (prev.includes(sym) ? prev : [sym, ...prev]));
   };
 
   const resetAnalysis = () => {
     setTicker("");
+    setSearchSuggestions([]);
+    setSuggestionOpen(false);
     setUsingTicker("");
     setResult(null);
     setCompany(null);
@@ -886,12 +981,13 @@ export default function Home() {
   const overviewLoop = overview.length ? [...overview, ...overview] : [];
 
   return (
-    <div className={`min-h-screen relative overflow-hidden bg-slate-950 text-white ${isLight ? "invert hue-rotate-180" : ""}`}>
-      <div className="pointer-events-none absolute -top-24 -left-20 h-80 w-80 rounded-full bg-cyan-500/12 blur-3xl" />
-      <div className="pointer-events-none absolute top-1/3 -right-28 h-96 w-96 rounded-full bg-blue-500/10 blur-3xl" />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(59,130,246,0.08),transparent_35%),radial-gradient(circle_at_80%_70%,rgba(14,165,233,0.07),transparent_35%)]" />
+    <div className={`min-h-screen relative overflow-hidden ${isLight ? "bg-white text-slate-900" : "bg-slate-950 text-white"}`}>
+      <div className={isLight ? "invert hue-rotate-180 brightness-110 saturate-75" : ""}>
+        <div className="pointer-events-none absolute -top-24 -left-20 h-80 w-80 rounded-full bg-cyan-500/12 blur-3xl" />
+        <div className="pointer-events-none absolute top-1/3 -right-28 h-96 w-96 rounded-full bg-blue-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(59,130,246,0.08),transparent_35%),radial-gradient(circle_at_80%_70%,rgba(14,165,233,0.07),transparent_35%)]" />
 
-      <div className="relative z-10 mx-auto w-full max-w-6xl px-6 py-10 md:py-14">
+        <div className="relative z-10 mx-auto w-full max-w-6xl px-6 py-10 md:py-14">
         {/* HEADER */}
         <div className="text-center mb-10">
           <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-slate-900/70 px-4 py-2 text-sm text-white/85 shadow-sm">
@@ -902,7 +998,7 @@ export default function Home() {
             Arthastra AI
           </h1>
           <p className="text-slate-300/80 mt-3 text-lg">Your intelligent investing assistant</p>
-          <p className="text-slate-400/80 text-xs mt-3">Founder: Deep Patel • Director: Juan Ramirez</p>
+          <p className="text-slate-400/80 text-xs mt-3">Founder: Deep Patel • Co-founder: Juan Ramirez</p>
           <div className="mt-5 inline-flex rounded-xl overflow-hidden border border-white/15 bg-slate-900/60">
             <button
               onClick={() => setTheme("dark")}
@@ -1122,18 +1218,45 @@ export default function Home() {
           >
             <label className="text-sm text-white/60">Search a company name or stock ticker</label>
 
-            <div className="mt-3 flex gap-2">
-              <input
-                type="text"
-                placeholder='Try "Apple" or "AAPL"'
-                value={ticker}
-                onChange={(e) => setTicker(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && searchStock()}
-                className="flex-1 px-4 py-3 rounded-xl bg-white text-black text-lg
-                           border-2 border-white/20 outline-none
-                           focus:border-blue-500 focus:ring-4 focus:ring-blue-500/30
-                           placeholder:text-gray-500 shadow-lg"
-              />
+            <div className="mt-3 flex gap-2 items-start">
+              <div className="flex-1 relative">
+                <input
+                  type="text"
+                  placeholder='Try "Apple" or "AAPL"'
+                  value={ticker}
+                  onChange={(e) => setTicker(e.target.value)}
+                  onFocus={() => searchSuggestions.length > 0 && setSuggestionOpen(true)}
+                  onKeyDown={(e) => e.key === "Enter" && searchStock()}
+                  className="w-full px-4 py-3 rounded-xl bg-white text-black text-lg
+                             border-2 border-white/20 outline-none
+                             focus:border-blue-500 focus:ring-4 focus:ring-blue-500/30
+                             placeholder:text-gray-500 shadow-lg"
+                />
+
+                {suggestionOpen && (
+                  <div className="absolute z-30 mt-2 w-full rounded-xl border border-white/10 bg-slate-950/95 backdrop-blur-md shadow-2xl overflow-hidden">
+                    {suggestionLoading ? (
+                      <div className="px-3 py-2 text-xs text-white/60">Finding matches...</div>
+                    ) : (
+                      <div className="max-h-64 overflow-y-auto">
+                        {searchSuggestions.map((s) => (
+                          <button
+                            key={s.symbol}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              applySuggestion(s.symbol);
+                            }}
+                            className="w-full text-left px-3 py-2.5 hover:bg-white/10 border-b border-white/5 last:border-b-0"
+                          >
+                            <div className="text-sm font-semibold text-white">{s.symbol}</div>
+                            <div className="text-xs text-white/60 truncate">{s.description || "Company"}</div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
               <button
                 onClick={searchStock}
@@ -1642,23 +1765,28 @@ export default function Home() {
           </div>
         )}
 
-        <p className="text-center text-xs text-white/40 mt-8">Educational tool only. Not financial advice.</p>
+          <p className="text-center text-xs text-white/40 mt-8">Educational tool only. Not financial advice.</p>
+        </div>
       </div>
 
       {/* FLOATING ASTRA CHAT */}
       <div className="fixed bottom-5 right-5 z-50">
         {chatOpen ? (
-          <div className="w-[92vw] max-w-sm sm:max-w-md rounded-2xl border border-white/15 bg-[#0e1015] shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-white/[0.04]">
+          <div
+            className={`w-[92vw] max-w-sm sm:max-w-md rounded-2xl shadow-2xl overflow-hidden ${
+              isLight ? "border border-slate-300 bg-white" : "border border-white/15 bg-[#0e1015]"
+            }`}
+          >
+            <div className={`flex items-center justify-between px-4 py-3 ${isLight ? "border-b border-slate-200 bg-slate-50" : "border-b border-white/10 bg-white/[0.04]"}`}>
               <div>
-                <div className="text-sm font-semibold text-white">Chat with ASTRA</div>
-                <div className="text-[11px] text-white/55">
+                <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>ASTRA Virtual Assistant</div>
+                <div className={`text-[11px] ${isLight ? "text-slate-500" : "text-white/55"}`}>
                   {usingTicker ? `Context: ${usingTicker}` : "No stock selected"}
                 </div>
               </div>
               <button
                 onClick={() => setChatOpen(false)}
-                className="h-8 w-8 rounded-full bg-white/10 hover:bg-white/15 text-white/80"
+                className={`h-8 w-8 rounded-full ${isLight ? "bg-slate-200 hover:bg-slate-300 text-slate-700" : "bg-white/10 hover:bg-white/15 text-white/80"}`}
                 aria-label="Close chat"
               >
                 x
@@ -1672,7 +1800,9 @@ export default function Home() {
                     className={`max-w-[90%] rounded-2xl px-3 py-2 text-sm whitespace-pre-line leading-relaxed ${
                       m.role === "user"
                         ? "bg-blue-600 text-white"
-                        : "bg-white/10 text-white/90 border border-white/10"
+                        : isLight
+                          ? "bg-slate-100 text-slate-900 border border-slate-200"
+                          : "bg-white/10 text-white/90 border border-white/10"
                     }`}
                   >
                     {m.content}
@@ -1682,14 +1812,18 @@ export default function Home() {
 
               {chatLoading && (
                 <div className="flex justify-start">
-                  <div className="max-w-[90%] rounded-2xl px-3 py-2 text-sm bg-white/10 text-white/75 border border-white/10">
+                  <div
+                    className={`max-w-[90%] rounded-2xl px-3 py-2 text-sm ${
+                      isLight ? "bg-slate-100 text-slate-600 border border-slate-200" : "bg-white/10 text-white/75 border border-white/10"
+                    }`}
+                  >
                     ASTRA is thinking...
                   </div>
                 </div>
               )}
             </div>
 
-            <div className="p-3 border-t border-white/10 flex gap-2">
+            <div className={`p-3 flex gap-2 ${isLight ? "border-t border-slate-200" : "border-t border-white/10"}`}>
               <input
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
@@ -1711,7 +1845,7 @@ export default function Home() {
             onClick={() => setChatOpen(true)}
             className="rounded-full bg-blue-600 hover:bg-blue-500 text-white px-5 py-3 font-semibold shadow-xl border border-blue-400/40"
           >
-            Chat with ASTRA
+            ASTRA Assistant
           </button>
         )}
       </div>

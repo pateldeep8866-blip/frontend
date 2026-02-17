@@ -9,8 +9,10 @@ export async function GET(req) {
       return NextResponse.json({ error: "Missing symbol" }, { status: 400 });
     }
 
-    // ✅ Paste your Finnhub API key here
-    const API_KEY = "d68ih01r01qq5rjfmhqgd68ih01r01qq5rjfmhr0";
+    const API_KEY = process.env.FINNHUB_API_KEY;
+    if (!API_KEY) {
+      return NextResponse.json({ error: "Missing FINNHUB_API_KEY" }, { status: 500 });
+    }
 
     const url = `https://finnhub.io/api/v1/stock/profile2?symbol=${encodeURIComponent(
       symbol
