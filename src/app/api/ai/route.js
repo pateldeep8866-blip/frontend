@@ -25,11 +25,24 @@ export async function GET(req) {
 
     const { searchParams } = new URL(req.url);
     const mode = (searchParams.get("mode") || "").toLowerCase(); // "daily"
+    const market = (searchParams.get("market") || "stock").toLowerCase();
     const symbol = (searchParams.get("symbol") || "").toUpperCase();
     const price = searchParams.get("price") || "";
     const question = (searchParams.get("question") || "").trim();
     const isDaily = mode === "daily";
     const isChat = mode === "chat";
+    const marketPickLabel =
+      market === "crypto" ? "major cryptocurrency" : market === "metals" ? "precious metal asset" : "US stock";
+    const assistantDomainLabel =
+      market === "crypto"
+        ? "multi-asset (crypto, stocks, metals, FX, macro news)"
+        : market === "metals"
+          ? "multi-asset (crypto, stocks, metals, FX, macro news)"
+          : market === "fx"
+            ? "multi-asset (crypto, stocks, metals, FX, macro news)"
+            : market === "news"
+              ? "multi-asset (crypto, stocks, metals, FX, macro news)"
+              : "multi-asset (crypto, stocks, metals, FX, macro news)";
 
     if (!isDaily && !isChat && !symbol) {
       return NextResponse.json(
@@ -72,7 +85,7 @@ Return ONLY valid JSON with these keys:
   "note": "Educational only. Not financial advice."
 }
 
-Pick ONE US stock for TODAY. Keep it simple and realistic.
+Pick ONE ${marketPickLabel} for TODAY. Keep it simple and realistic.
 Return raw JSON only. No markdown, no code fences.
 `.trim();
 
@@ -103,13 +116,13 @@ Return ONLY valid JSON with these keys:
   "note": "Educational only. Not financial advice."
 }
 
-Analyze ${symbol}. Price (if provided): ${price || "unknown"}.
+Analyze ${symbol} in the ${market} market. Price (if provided): ${price || "unknown"}.
 Keep it beginner friendly.
 Return raw JSON only. No markdown, no code fences.
 `.trim();
 
     const chatPrompt = `
-You are ASTRA, a professional equity research assistant for retail investors.
+You are ASTRA, a professional ${assistantDomainLabel} research assistant for retail investors.
 Write clear, practical answers with a calm, confident tone.
 
 Rules:
@@ -129,6 +142,9 @@ Risks:
 Next Step: <one actionable next step>
 Educational only. Not financial advice.
 
+The user can ask about ANY market regardless of current tab.
+Use tab context only as a hint, not a restriction.
+Context tab: ${market}
 Context symbol: ${symbol || "none"}
 Context price: ${price || "unknown"}
 User question: ${question}

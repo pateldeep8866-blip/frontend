@@ -42,7 +42,8 @@ This app uses server-side API routes for AI and stock data. Keep keys on the ser
 1. Copy `.env.example` to `.env.local` for local development.
 2. Set these values:
    - `OPENAI_API_KEY`
-   - `FINNHUB_API_KEY`
+   - `FINNHUB_API_KEY` (stock data)
+   - `CRYPTO_API_KEY_2` (crypto data)
    - Optional: `OPENROUTER_API_KEY`
 3. In production (Vercel), add the same keys in:
    - Project Settings -> Environment Variables
@@ -50,5 +51,5 @@ This app uses server-side API routes for AI and stock data. Keep keys on the ser
 
 Important:
 - Do not put secrets in any `NEXT_PUBLIC_*` variable.
-- Do not call OpenAI/Finnhub directly from client components.
+- Do not call OpenAI/market-data providers directly from client components.
 - Client should only call internal routes like `/api/ai`, `/api/quote`, `/api/news`, etc.

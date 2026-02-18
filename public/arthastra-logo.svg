@@ -1,0 +1,45 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Arthastra AI Logo</title>
+  <desc id="desc">Rising market bars and star mark for Arthastra AI.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#03122E"/>
+      <stop offset="1" stop-color="#071E4A"/>
+    </linearGradient>
+    <linearGradient id="bar" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#1D4ED8"/>
+      <stop offset="1" stop-color="#22D3EE"/>
+    </linearGradient>
+    <linearGradient id="trail" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#22D3EE"/>
+      <stop offset="1" stop-color="#FCD34D"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.85" cy="0.2" r="0.5">
+      <stop offset="0" stop-color="#FDE68A" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#FDE68A" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="84" fill="url(#bg)"/>
+  <circle cx="420" cy="104" r="120" fill="url(#glow)"/>
+
+  <g transform="translate(68 92)">
+    <rect x="18" y="230" width="48" height="86" rx="8" fill="url(#bar)" opacity="0.6"/>
+    <rect x="88" y="194" width="52" height="122" rx="8" fill="url(#bar)" opacity="0.72"/>
+    <rect x="162" y="158" width="56" height="158" rx="8" fill="url(#bar)" opacity="0.82"/>
+    <rect x="240" y="118" width="60" height="198" rx="8" fill="url(#bar)" opacity="0.9"/>
+    <rect x="322" y="78" width="64" height="238" rx="8" fill="url(#bar)"/>
+
+    <path d="M24 256 L114 214 L190 180 L268 142 L354 94" fill="none" stroke="url(#trail)" stroke-width="8" stroke-linecap="round"/>
+    <circle cx="24" cy="256" r="6" fill="#67E8F9"/>
+    <circle cx="114" cy="214" r="6" fill="#67E8F9"/>
+    <circle cx="190" cy="180" r="6" fill="#67E8F9"/>
+    <circle cx="268" cy="142" r="6" fill="#67E8F9"/>
+    <circle cx="354" cy="94" r="6" fill="#67E8F9"/>
+  </g>
+
+  <g transform="translate(0 -2)">
+    <path d="M414 60 L426 88 L456 90 L432 108 L440 136 L414 120 L388 136 L396 108 L372 90 L402 88 Z" fill="#FCD34D"/>
+    <path d="M414 68 L422 86 L441 87 L426 99 L431 117 L414 107 L397 117 L402 99 L387 87 L406 86 Z" fill="#FFF7D6"/>
+  </g>
+</svg>

@@ -14,6 +14,11 @@ const geistMono = Geist_Mono({
 export const metadata = {
   title: "Arthastra AI",
   description: "AI-powered investment research assistant",
+  icons: {
+    icon: "/arthastra-premium-logo-alt2.svg",
+    shortcut: "/arthastra-premium-logo-alt2.svg",
+    apple: "/arthastra-premium-logo-alt2.svg",
+  },
 };
 
 export default function RootLayout({ children }) {

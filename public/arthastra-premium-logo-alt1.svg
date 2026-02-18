@@ -1,0 +1,31 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Arthastra AI Alt Logo 1</title>
+  <desc id="desc">Premium monogram A with market bars and orbit ring.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07122D"/>
+      <stop offset="1" stop-color="#0B1F45"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#EAB308"/>
+      <stop offset="1" stop-color="#FDE68A"/>
+    </linearGradient>
+    <linearGradient id="cyan" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#1D4ED8"/>
+      <stop offset="1" stop-color="#22D3EE"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <ellipse cx="256" cy="280" rx="188" ry="142" fill="none" stroke="url(#gold)" stroke-width="10" opacity="0.9"/>
+  <circle cx="420" cy="216" r="8" fill="#FDE68A"/>
+
+  <g transform="translate(124 106)">
+    <path d="M132 14 L236 300 H187 L160 226 H102 L76 300 H28 L132 14 Z M116 185 H145 L131 141 Z" fill="#E2E8F0"/>
+    <rect x="24" y="254" width="36" height="50" rx="6" fill="url(#cyan)"/>
+    <rect x="68" y="230" width="36" height="74" rx="6" fill="url(#cyan)"/>
+    <rect x="112" y="205" width="36" height="99" rx="6" fill="url(#cyan)"/>
+    <rect x="156" y="178" width="36" height="126" rx="6" fill="url(#cyan)"/>
+    <rect x="200" y="152" width="36" height="152" rx="6" fill="url(#cyan)"/>
+  </g>
+</svg>

@@ -36,6 +36,63 @@ function fmtLarge(n) {
   return `${v.toFixed(2)}`;
 }
 
+function normalizeHistoryEntry(value) {
+  const raw =
+    typeof value === "string"
+      ? value
+      : typeof value === "number"
+        ? String(value)
+        : value && typeof value === "object"
+          ? String(value.symbol || value.id || value.name || "")
+          : "";
+  const out = String(raw || "").trim().toUpperCase();
+  if (!out || out === "[OBJECT OBJECT]") return "";
+  return out;
+}
+
+function safeDomainFromUrl(rawUrl) {
+  try {
+    return new URL(String(rawUrl || "")).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
+function faviconUrlFor(rawUrl) {
+  const domain = safeDomainFromUrl(rawUrl);
+  if (!domain) return "";
+  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64`;
+}
+
+const FX_CURRENCY_OPTIONS = [
+  { code: "USD", name: "US Dollar", aliases: ["united states", "america", "dollar"] },
+  { code: "EUR", name: "Euro", aliases: ["europe", "eurozone"] },
+  { code: "GBP", name: "British Pound", aliases: ["uk", "united kingdom", "britain", "england", "pound"] },
+  { code: "JPY", name: "Japanese Yen", aliases: ["japan", "yen"] },
+  { code: "INR", name: "Indian Rupee", aliases: ["india", "rupee"] },
+  { code: "CAD", name: "Canadian Dollar", aliases: ["canada"] },
+  { code: "AUD", name: "Australian Dollar", aliases: ["australia"] },
+  { code: "CHF", name: "Swiss Franc", aliases: ["switzerland", "franc"] },
+  { code: "CNY", name: "Chinese Yuan", aliases: ["china", "yuan", "renminbi", "rmb"] },
+  { code: "AED", name: "UAE Dirham", aliases: ["uae", "united arab emirates", "dirham", "dubai"] },
+  { code: "MXN", name: "Mexican Peso", aliases: ["mexico", "peso"] },
+];
+
+function resolveCurrencyInput(input) {
+  const raw = String(input || "").trim();
+  if (!raw) return "";
+  const upper = raw.toUpperCase();
+  if (/^[A-Z]{3}$/.test(upper)) {
+    const exact = FX_CURRENCY_OPTIONS.find((x) => x.code === upper);
+    return exact?.code || "";
+  }
+  const q = raw.toLowerCase();
+  const hit = FX_CURRENCY_OPTIONS.find((x) =>
+    x.name.toLowerCase().includes(q) || x.aliases.some((a) => a.includes(q))
+  );
+  return hit?.code || "";
+}
+
 function mapIndustryToSectorETF(industryRaw) {
   const industry = String(industryRaw || "").toLowerCase();
   if (!industry) return { label: "Unknown", etf: "SPY" };
@@ -366,8 +423,10 @@ function Card({ title, right, children }) {
 }
 
 export default function Home() {
+  const [assetMode, setAssetMode] = useState("stock");
   const [ticker, setTicker] = useState("");
   const [usingTicker, setUsingTicker] = useState("");
+  const [usingAssetId, setUsingAssetId] = useState("");
 
   const [result, setResult] = useState(null);
   const [company, setCompany] = useState(null);
@@ -376,7 +435,7 @@ export default function Home() {
   const [searchSuggestions, setSearchSuggestions] = useState([]);
   const [suggestionLoading, setSuggestionLoading] = useState(false);
   const [suggestionOpen, setSuggestionOpen] = useState(false);
-  const [recommendationHistory, setRecommendationHistory] = useState([]);
+  const [suppressSuggestions, setSuppressSuggestions] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [theme, setTheme] = useState("dark");
   const [analysisViewMode, setAnalysisViewMode] = useState("short");
@@ -386,6 +445,12 @@ export default function Home() {
   const [compareInput, setCompareInput] = useState("AAPL,MSFT,NVDA");
   const [compareRows, setCompareRows] = useState([]);
   const [compareLoading, setCompareLoading] = useState(false);
+  const [fxFrom, setFxFrom] = useState("USD");
+  const [fxTo, setFxTo] = useState("INR");
+  const [fxAmount, setFxAmount] = useState("1");
+  const [fxResult, setFxResult] = useState(null);
+  const [fxLoading, setFxLoading] = useState(false);
+  const [fxError, setFxError] = useState("");
 
   const [loading, setLoading] = useState(false);
 
@@ -402,31 +467,33 @@ export default function Home() {
     {
       role: "assistant",
       content:
-        "I am ASTRA. Ask me anything about a stock, valuation basics, risks, or strategy ideas.",
+        "I am ASTRA. Ask me about the current tab market (stocks, crypto, metals, FX, or world news).",
     },
   ]);
 
   // Market overview
-  const overviewTickers = useMemo(
-    () => [
-      "SPY",
-      "QQQ",
-      "DIA",
-      "IWM",
-      "AAPL",
-      "MSFT",
-      "NVDA",
-      "AMZN",
-      "GOOGL",
-      "META",
-    ],
+  const overviewStockTickers = useMemo(() => ["SPY", "QQQ", "DIA", "IWM", "AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META"], []);
+  const overviewCryptoIds = useMemo(
+    () => ["bitcoin", "ethereum", "solana", "binancecoin", "ripple", "dogecoin", "cardano", "avalanche-2", "chainlink", "tron"],
     []
   );
+  const overviewMetalsIds = useMemo(
+    () => ["XAU", "XAG", "XPT", "XPD"],
+    []
+  );
+  const metalNameBySymbol = useMemo(
+    () => ({
+      XAU: "Gold",
+      XAG: "Silver",
+      XPT: "Platinum",
+      XPD: "Palladium",
+    }),
+    []
+  );
+  const overviewTickers =
+    assetMode === "crypto" ? overviewCryptoIds : assetMode === "metals" ? overviewMetalsIds : assetMode === "fx" ? ["USD/EUR", "USD/GBP", "USD/JPY"] : overviewStockTickers;
   const [overview, setOverview] = useState([]);
   const [fundamentals, setFundamentals] = useState(null);
-
-  // Watchlist
-  const [watch, setWatch] = useState([]);
 
   // Chart
   const [chartPoints, setChartPoints] = useState([]);
@@ -435,19 +502,19 @@ export default function Home() {
   const [latestVolume, setLatestVolume] = useState(null);
   const chartRef = useRef(null);
 
-  // Load saved watchlist
+  const addToSearchHistory = (value) => {
+    const item = normalizeHistoryEntry(value);
+    if (!item) return;
+    setSearchHistory((prev) => {
+      const cleanPrev = prev.map(normalizeHistoryEntry).filter(Boolean);
+      return [item, ...cleanPrev.filter((x) => x !== item)].slice(0, 8);
+    });
+  };
+
   useEffect(() => {
     try {
-      const w = JSON.parse(localStorage.getItem("watchlist") || "[]");
-      if (Array.isArray(w)) setWatch(w);
-    } catch {}
-    try {
       const h = JSON.parse(localStorage.getItem("search_history") || "[]");
-      if (Array.isArray(h)) setSearchHistory(h.slice(0, 8));
-    } catch {}
-    try {
-      const rh = JSON.parse(localStorage.getItem("recommendation_history") || "[]");
-      if (Array.isArray(rh)) setRecommendationHistory(rh.slice(0, 20));
+      if (Array.isArray(h)) setSearchHistory(h.map(normalizeHistoryEntry).filter(Boolean).slice(0, 8));
     } catch {}
     try {
       const t = localStorage.getItem("theme_mode");
@@ -456,20 +523,30 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("watchlist", JSON.stringify(watch));
-  }, [watch]);
-
-  useEffect(() => {
     localStorage.setItem("search_history", JSON.stringify(searchHistory.slice(0, 8)));
   }, [searchHistory]);
 
   useEffect(() => {
-    localStorage.setItem("recommendation_history", JSON.stringify(recommendationHistory.slice(0, 20)));
-  }, [recommendationHistory]);
-
-  useEffect(() => {
     localStorage.setItem("theme_mode", theme);
   }, [theme]);
+
+  useEffect(() => {
+    setTicker("");
+    setUsingTicker("");
+    setUsingAssetId("");
+    setResult(null);
+    setCompany(null);
+    setFundamentals(null);
+    setSectorInfo(null);
+    setNews([]);
+    setAnalysisObj(null);
+    setChartPoints([]);
+    setCompareRows([]);
+    setCompareInput(assetMode === "crypto" ? "BTC,ETH,SOL" : assetMode === "metals" ? "XAU,XAG,XPT" : "AAPL,MSFT,NVDA");
+    setFxResult(null);
+    setFxError("");
+    setErrorMsg("");
+  }, [assetMode]);
 
   useEffect(() => {
     if (loading) {
@@ -477,8 +554,13 @@ export default function Home() {
       return;
     }
 
+    if (suppressSuggestions) {
+      setSuggestionOpen(false);
+      return;
+    }
+
     const q = ticker.trim();
-    if (q.length < 2) {
+    if (q.length < 1) {
       setSearchSuggestions([]);
       setSuggestionOpen(false);
       return;
@@ -488,7 +570,9 @@ export default function Home() {
     const timer = setTimeout(async () => {
       try {
         setSuggestionLoading(true);
-        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`, { signal: controller.signal });
+        const endpoint =
+          assetMode === "crypto" ? "/api/crypto-search" : assetMode === "metals" ? "/api/metals-search" : "/api/search";
+        const res = await fetch(`${endpoint}?q=${encodeURIComponent(q)}`, { signal: controller.signal });
         const data = await res.json().catch(() => ({}));
         const matchesRaw = Array.isArray(data?.matches)
           ? data.matches
@@ -500,8 +584,9 @@ export default function Home() {
         for (const m of matchesRaw) {
           const symbol = String(m?.symbol || "").toUpperCase();
           const description = String(m?.description || "").trim();
+          const id = String(m?.id || "").trim();
           if (!symbol) continue;
-          if (!dedup.has(symbol)) dedup.set(symbol, { symbol, description });
+          if (!dedup.has(symbol)) dedup.set(symbol, { symbol, description, id });
         }
         const suggestions = Array.from(dedup.values()).slice(0, 6);
         setSearchSuggestions(suggestions);
@@ -520,12 +605,17 @@ export default function Home() {
       controller.abort();
       clearTimeout(timer);
     };
-  }, [ticker]);
+  }, [ticker, assetMode, loading, suppressSuggestions]);
 
-  const applySuggestion = (symbol) => {
-    const sym = canonicalTicker(symbol);
+  const applySuggestion = (suggestion) => {
+    const rawSymbol = String(suggestion?.symbol || "");
+    const sym = assetMode === "crypto" || assetMode === "metals" ? rawSymbol.toUpperCase() : canonicalTicker(rawSymbol);
     if (!sym) return;
     setTicker(sym);
+    setSuppressSuggestions(true);
+    if (assetMode === "crypto" || assetMode === "metals") {
+      setUsingAssetId(String(suggestion?.id || ""));
+    }
     setSearchSuggestions([]);
     setSuggestionOpen(false);
     searchStock(sym);
@@ -558,10 +648,70 @@ export default function Home() {
     }
   }
 
+  async function resolveCryptoAsset(input) {
+    const raw = String(input || "").trim();
+    if (!raw) return null;
+    try {
+      const res = await fetch(`/api/crypto-search?q=${encodeURIComponent(raw)}`);
+      const data = await res.json().catch(() => ({}));
+      const best = data?.best || data?.result || data;
+      if (best?.id) {
+        return {
+          id: String(best.id),
+          symbol: String(best.symbol || raw).toUpperCase(),
+          name: String(best.name || best.description || raw),
+        };
+      }
+      return {
+        id: "",
+        symbol: String(raw).toUpperCase(),
+        name: String(raw),
+      };
+    } catch {
+      return {
+        id: "",
+        symbol: String(raw).toUpperCase(),
+        name: String(raw),
+      };
+    }
+  }
+
+  async function resolveMetalAsset(input) {
+    const raw = String(input || "").trim();
+    if (!raw) return null;
+    try {
+      const res = await fetch(`/api/metals-search?q=${encodeURIComponent(raw)}`);
+      const data = await res.json().catch(() => ({}));
+      const best = data?.best || data?.result || data;
+      if (best?.id) {
+        return {
+          id: String(best.id),
+          symbol: String(best.symbol || raw).toUpperCase(),
+          name: String(best.name || best.description || raw),
+        };
+      }
+      return {
+        id: "",
+        symbol: String(raw).toUpperCase(),
+        name: String(raw),
+      };
+    } catch {
+      return {
+        id: "",
+        symbol: String(raw).toUpperCase(),
+        name: String(raw),
+      };
+    }
+  }
+
   async function fetchDailyPick() {
+    if (assetMode === "fx" || assetMode === "news") {
+      setDailyObj(null);
+      return;
+    }
     try {
       setDailyLoading(true);
-      const res = await fetch("/api/ai?mode=daily");
+      const res = await fetch(`/api/ai?mode=daily&market=${assetMode}`);
       const data = await res.json().catch(() => ({}));
       setDailyObj(data);
     } catch {
@@ -573,6 +723,51 @@ export default function Home() {
 
   async function fetchOverview() {
     try {
+      if (assetMode === "news") {
+        setOverview([]);
+        return;
+      }
+
+      if (assetMode === "fx") {
+        const r = await fetch("/api/fx-overview");
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok || !Array.isArray(d?.rows)) {
+          setOverview([]);
+          return;
+        }
+        setOverview(d.rows.map((x) => ({ symbol: x?.symbol, name: x?.name, price: x?.price, percent: x?.percent })));
+        return;
+      }
+
+      if (assetMode === "crypto") {
+        const ids = overviewTickers.join(",");
+        const r = await fetch(`/api/crypto-overview?ids=${encodeURIComponent(ids)}`);
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok || !Array.isArray(d?.rows)) {
+          setOverview([]);
+          return;
+        }
+        setOverview(
+          d.rows.map((x) => ({
+            symbol: x?.symbol,
+            price: x?.price,
+            percent: x?.percent,
+          }))
+        );
+        return;
+      }
+
+      if (assetMode === "metals") {
+        const r = await fetch("/api/metals-overview");
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok || !Array.isArray(d?.rows)) {
+          setOverview([]);
+          return;
+        }
+        setOverview(d.rows.map((x) => ({ symbol: x?.symbol, name: x?.name, price: x?.price, percent: x?.percent })));
+        return;
+      }
+
       const rows = await Promise.all(
         overviewTickers.map(async (sym) => {
           const r = await fetch(`/api/quote?symbol=${encodeURIComponent(sym)}`);
@@ -592,8 +787,20 @@ export default function Home() {
   }
 
   async function fetchMarketNews() {
+    if (assetMode === "fx") {
+      setMarketNews([]);
+      return;
+    }
     try {
-      const res = await fetch("/api/market-news");
+      const res = await fetch(
+        assetMode === "news"
+          ? "/api/global-impact-news"
+          : assetMode === "crypto"
+            ? "/api/crypto-market-news"
+            : assetMode === "metals"
+              ? "/api/metals-market-news"
+              : "/api/market-news"
+      );
       const data = await res.json().catch(() => ({}));
       setMarketNews(Array.isArray(data?.news) ? data.news.slice(0, 8) : []);
     } catch {
@@ -602,8 +809,14 @@ export default function Home() {
   }
 
   async function fetchMovers() {
+    if (assetMode === "fx" || assetMode === "news") {
+      setMovers({ gainers: [], losers: [] });
+      return;
+    }
     try {
-      const res = await fetch("/api/movers");
+      const res = await fetch(
+        assetMode === "crypto" ? "/api/crypto-movers" : assetMode === "metals" ? "/api/metals-movers" : "/api/movers"
+      );
       const data = await res.json().catch(() => ({}));
       setMovers({
         gainers: Array.isArray(data?.gainers) ? data.gainers : [],
@@ -631,6 +844,10 @@ export default function Home() {
   }
 
   async function runComparison() {
+    if (assetMode === "fx" || assetMode === "news") {
+      setCompareRows([]);
+      return;
+    }
     const syms = compareInput
       .split(",")
       .map((s) => s.trim().toUpperCase())
@@ -642,6 +859,49 @@ export default function Home() {
       setCompareLoading(true);
       const rows = await Promise.all(
         syms.map(async (symbol) => {
+          if (assetMode === "crypto") {
+            const qRes = await fetch(`/api/crypto-quote?symbol=${encodeURIComponent(symbol)}`);
+            const q = await qRes.json().catch(() => ({}));
+            const price = Number(q?.price);
+            const percentChange = Number(q?.percentChange);
+            const change = Number.isFinite(Number(q?.change))
+              ? Number(q?.change)
+              : Number.isFinite(price) && Number.isFinite(percentChange)
+                ? (price * percentChange) / 100
+                : null;
+            return {
+              symbol: q?.symbol || symbol,
+              name: q?.name || symbol,
+              price,
+              change,
+              percentChange,
+              peRatio: null,
+              marketCap: q?.marketCap,
+              volume: q?.volume,
+              week52High: null,
+              week52Low: null,
+              sector: "Crypto",
+            };
+          }
+
+          if (assetMode === "metals") {
+            const qRes = await fetch(`/api/metals-quote?symbol=${encodeURIComponent(symbol)}`);
+            const q = await qRes.json().catch(() => ({}));
+            return {
+              symbol: q?.symbol || symbol,
+              name: q?.name || symbol,
+              price: q?.price,
+              change: q?.change,
+              percentChange: q?.percentChange,
+              peRatio: null,
+              marketCap: q?.marketCap,
+              volume: q?.volume,
+              week52High: q?.high,
+              week52Low: q?.low,
+              sector: "Precious Metal",
+            };
+          }
+
           const [quoteRes, metricRes, profileRes] = await Promise.all([
             fetch(`/api/quote?symbol=${encodeURIComponent(symbol)}`),
             fetch(`/api/metrics?symbol=${encodeURIComponent(symbol)}`),
@@ -655,9 +915,13 @@ export default function Home() {
             symbol,
             name: p?.name || symbol,
             price: q?.price,
+            change: q?.change,
             percentChange: q?.percentChange,
             peRatio: m?.peRatio,
             marketCap: p?.marketCapitalization ? Number(p.marketCapitalization) * 1e6 : null,
+            volume: null,
+            week52High: m?.week52High,
+            week52Low: m?.week52Low,
             sector: p?.sector || p?.finnhubIndustry || "—",
           };
         })
@@ -670,6 +934,41 @@ export default function Home() {
     }
   }
 
+  async function convertFx() {
+    const from = resolveCurrencyInput(fxFrom);
+    const to = resolveCurrencyInput(fxTo);
+    const amount = Number(fxAmount);
+    if (!from || !to) {
+      setFxResult(null);
+      setFxError("Use a valid currency code or country name (ex: INR, India, Japan, UK).");
+      return;
+    }
+
+    try {
+      setFxLoading(true);
+      setFxError("");
+      const res = await fetch(
+        `/api/fx-rate?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&amount=${encodeURIComponent(
+          Number.isFinite(amount) && amount > 0 ? amount : 1
+        )}`
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setFxResult(null);
+        setFxError(data?.error || `FX conversion failed (${res.status})`);
+        return;
+      }
+      setFxResult(data);
+      setFxFrom(from);
+      setFxTo(to);
+    } catch {
+      setFxResult(null);
+      setFxError("FX conversion failed");
+    } finally {
+      setFxLoading(false);
+    }
+  }
+
   async function fetchFundamentals(symbol) {
     if (!symbol) return;
     try {
@@ -679,26 +978,41 @@ export default function Home() {
     } catch {}
   }
 
-  async function fetchChart(symbol, range) {
+  async function fetchChart(symbol, range, assetIdOverride = "") {
     if (!symbol) return;
     const key = range || "1M";
     const configByRange = {
-      "1D": { resolution: "5", days: 1 },
-      "1W": { resolution: "30", days: 7 },
-      "1M": { resolution: "D", days: 30 },
-      "1Y": { resolution: "W", days: 365 },
+      "1D": { resolution: "5", days: 1, historyPoints: 1 },
+      "1W": { resolution: "D", days: 7, historyPoints: 7 },
+      "1M": { resolution: "D", days: 30, historyPoints: 30 },
+      "1Y": { resolution: "D", days: 365, historyPoints: 252 },
     };
     const cfg = configByRange[key] || configByRange["1M"];
 
     try {
       setChartLoading(true);
-      const res = await fetch(
-        `/api/candles?symbol=${encodeURIComponent(symbol)}&resolution=${encodeURIComponent(cfg.resolution)}&days=${cfg.days}`
-      );
+      const url =
+        assetMode === "crypto"
+          ? `/api/crypto-candles?id=${encodeURIComponent(assetIdOverride || usingAssetId || symbol)}&days=${cfg.days}`
+          : assetMode === "metals"
+            ? `/api/metals-candles?id=${encodeURIComponent(assetIdOverride || usingAssetId || symbol)}&symbol=${encodeURIComponent(symbol)}&days=${cfg.days}`
+          : `/api/candles?symbol=${encodeURIComponent(symbol)}&resolution=${encodeURIComponent(cfg.resolution)}&days=${cfg.days}`;
+      const res = await fetch(url);
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !Array.isArray(data?.c) || !Array.isArray(data?.t)) {
-        setChartPoints([]);
-        setLatestVolume(null);
+        if (assetMode === "stock") {
+          const histRes = await fetch(`/api/history?symbol=${encodeURIComponent(symbol)}`);
+          const histData = await histRes.json().catch(() => ({}));
+          if (histRes.ok && Array.isArray(histData?.points) && histData.points.length > 1) {
+            const points = histData.points
+              .slice(-cfg.historyPoints)
+              .map((p) => ({ close: Number(p?.close), date: String(p?.date || ""), volume: null }))
+              .filter((p) => Number.isFinite(p.close));
+            setChartPoints(points);
+            setLatestVolume(null);
+            return;
+          }
+        }
         return;
       }
 
@@ -710,12 +1024,39 @@ export default function Home() {
         }))
         .filter((p) => Number.isFinite(p.close));
 
+      if (!points.length && assetMode === "stock") {
+        const histRes = await fetch(`/api/history?symbol=${encodeURIComponent(symbol)}`);
+        const histData = await histRes.json().catch(() => ({}));
+        if (histRes.ok && Array.isArray(histData?.points) && histData.points.length > 1) {
+          const histPoints = histData.points
+            .slice(-cfg.historyPoints)
+            .map((p) => ({ close: Number(p?.close), date: String(p?.date || ""), volume: null }))
+            .filter((p) => Number.isFinite(p.close));
+          setChartPoints(histPoints);
+          setLatestVolume(null);
+          return;
+        }
+      }
+
       setChartPoints(points);
       const last = points[points.length - 1];
       setLatestVolume(Number.isFinite(last?.volume) ? last.volume : null);
     } catch {
-      setChartPoints([]);
-      setLatestVolume(null);
+      if (assetMode === "stock") {
+        try {
+          const histRes = await fetch(`/api/history?symbol=${encodeURIComponent(symbol)}`);
+          const histData = await histRes.json().catch(() => ({}));
+          if (histRes.ok && Array.isArray(histData?.points) && histData.points.length > 1) {
+            const points = histData.points
+              .slice(-cfg.historyPoints)
+              .map((p) => ({ close: Number(p?.close), date: String(p?.date || ""), volume: null }))
+              .filter((p) => Number.isFinite(p.close));
+            setChartPoints(points);
+            setLatestVolume(null);
+            return;
+          }
+        } catch {}
+      }
     } finally {
       setChartLoading(false);
     }
@@ -730,20 +1071,27 @@ export default function Home() {
     const t = setInterval(fetchOverview, 60000);
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [assetMode]);
+
+  useEffect(() => {
+    if (assetMode !== "fx") return;
+    convertFx();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assetMode]);
 
   useEffect(() => {
     if (!usingTicker) return;
     fetchChart(usingTicker, chartRange);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chartRange, usingTicker]);
+  }, [chartRange, usingTicker, usingAssetId, assetMode]);
 
   const searchStock = async (forcedInput) => {
     const raw = String(forcedInput ?? ticker).trim();
     if (!raw) return;
-    const rawCanonical = canonicalTicker(raw);
+    const rawCanonical = assetMode === "crypto" || assetMode === "metals" ? raw.toUpperCase() : canonicalTicker(raw);
 
     setLoading(true);
+    setSuppressSuggestions(true);
     setSuggestionOpen(false);
     setErrorMsg("");
     setCompany(null);
@@ -756,116 +1104,290 @@ export default function Home() {
     setResult({ symbol: rawCanonical || raw.toUpperCase(), price: "Loading...", info: "Resolving ticker..." });
 
     try {
-      const sym = await resolveSymbol(rawCanonical || raw);
-      if (!sym) {
-        setResult({ symbol: "—", price: "—", info: "Enter a ticker or company name." });
-        setLoading(false);
-        return;
-      }
-      setUsingTicker(sym);
-
-      // QUOTE
-      const quoteRes = await fetch(`/api/quote?symbol=${encodeURIComponent(sym)}`);
-      const quote = await quoteRes.json().catch(() => ({}));
-
-      if (!quoteRes.ok) {
-        const msg = quote?.error || `Quote API failed (${quoteRes.status})`;
-        setResult({ symbol: sym, price: "—", info: msg });
-        setErrorMsg(msg);
-        setLoading(false);
-        return;
-      }
-
-      const livePrice = Number(quote?.price);
-      const prevClose = Number(quote?.previousClose);
-      const hasPrice = Number.isFinite(livePrice) && livePrice > 0;
-      const hasPrevClose = Number.isFinite(prevClose) && prevClose > 0;
-
-      if (!hasPrice && !hasPrevClose) {
-        const msg = `Invalid ticker or unavailable quote for ${sym}.`;
-        setResult({ symbol: sym, price: "—", info: msg });
-        setErrorMsg(msg);
-        setLoading(false);
-        return;
-      }
-
-      const displayPrice = hasPrice ? livePrice : prevClose;
-      const fallbackChange = hasPrice && hasPrevClose ? livePrice - prevClose : null;
-      const fallbackPercent = hasPrice && hasPrevClose && prevClose > 0 ? (fallbackChange / prevClose) * 100 : null;
-
-      const priceTxt = Number.isFinite(displayPrice) ? `$${displayPrice.toFixed(2)}` : "—";
-      const changeTxt =
-        typeof quote.change === "number" && typeof quote.percentChange === "number"
-          ? `${quote.change >= 0 ? "+" : ""}${quote.change.toFixed(2)} (${quote.percentChange.toFixed(2)}%)`
-          : Number.isFinite(fallbackChange) && Number.isFinite(fallbackPercent)
-            ? `${fallbackChange >= 0 ? "+" : ""}${fallbackChange.toFixed(2)} (${fallbackPercent.toFixed(2)}%)`
-            : "";
-
-      setResult({
-        symbol: quote.symbol || sym,
-        price: priceTxt,
-        change: changeTxt,
-        high: quote.high,
-        low: quote.low,
-        open: quote.open,
-        previousClose: quote.previousClose,
-        info: quote.priceSource === "previousClose" ? "Using previous close (live quote unavailable)" : "Live market data",
-      });
-      setSearchHistory((prev) => [sym, ...prev.filter((x) => x !== sym)].slice(0, 8));
-
-      // PROFILE
-      try {
-        const profileRes = await fetch(`/api/profile?symbol=${encodeURIComponent(sym)}`);
-        const profileData = await profileRes.json().catch(() => ({}));
-        if (profileRes.ok) {
-          setCompany(profileData);
-          fetchSectorAnalysis(profileData?.sector || profileData?.finnhubIndustry);
+      if (assetMode === "crypto") {
+        const resolved = await resolveCryptoAsset(rawCanonical || raw);
+        const assetId = String(resolved?.id || "").trim();
+        const sym = (resolved?.symbol || rawCanonical || raw).toUpperCase();
+        const name = resolved?.name || sym;
+        if (!sym) {
+          setResult({ symbol: "—", price: "—", info: "Enter a crypto name or symbol." });
+          setLoading(false);
+          return;
         }
-      } catch {}
-      fetchFundamentals(sym);
 
-      // NEWS
-      try {
-        const newsRes = await fetch(`/api/news?symbol=${encodeURIComponent(sym)}`);
-        const newsData = await newsRes.json().catch(() => ({}));
-        const items = Array.isArray(newsData?.news) ? newsData.news : [];
-        const cleaned = items.filter((n) => n?.url && typeof n.url === "string" && n.url.startsWith("http")).slice(0, 5);
-        setNews(cleaned);
-      } catch {}
+        setUsingTicker(sym);
+        setUsingAssetId(assetId);
 
-      fetchChart(sym, chartRange);
-
-      // AI ANALYSIS
-      try {
-        setAnalysisLoading(true);
-        const aiRes = await fetch(
-          `/api/ai?symbol=${encodeURIComponent(sym)}&price=${encodeURIComponent(quote.price ?? "")}`
+        const quoteRes = await fetch(
+          `/api/crypto-quote?${assetId ? `id=${encodeURIComponent(assetId)}` : `symbol=${encodeURIComponent(sym)}`}`
         );
-        const aiData = await aiRes.json().catch(() => ({}));
-        if (!aiRes.ok) {
-          setAnalysisObj({ note: aiData?.error || `AI analysis failed (${aiRes.status}).` });
-        } else {
-          setAnalysisObj(aiData);
-          const normalized = normalizeAiPayload(aiData);
-          if (normalized?.ticker || sym) {
-            setRecommendationHistory((prev) =>
-              [
-                {
-                  ts: Date.now(),
-                  ticker: normalized.ticker || sym,
-                  recommendation: normalized.recommendation || "HOLD",
-                  aiScore: normalized.aiScore || 0,
-                  confidence: normalized.confidence || 0,
-                },
-                ...prev,
-              ].slice(0, 20)
-            );
-          }
+        const quote = await quoteRes.json().catch(() => ({}));
+
+        if (!quoteRes.ok) {
+          const msg = quote?.error || `Crypto quote API failed (${quoteRes.status})`;
+          setResult({ symbol: sym, price: "—", info: msg });
+          setErrorMsg(msg);
+          setLoading(false);
+          return;
         }
-      } catch {
-        setAnalysisObj({ note: "AI analysis unavailable." });
-      } finally {
-        setAnalysisLoading(false);
+
+        const priceNum = Number(quote?.price);
+        if (!Number.isFinite(priceNum) || priceNum <= 0) {
+          const msg = `Unavailable quote for ${sym}.`;
+          setResult({ symbol: sym, price: "—", info: msg });
+          setErrorMsg(msg);
+          setLoading(false);
+          return;
+        }
+
+        const pct = Number(quote?.percentChange);
+        const chg = Number(quote?.change);
+        setResult({
+          symbol: quote.symbol || sym,
+          price: `$${priceNum.toFixed(2)}`,
+          change: Number.isFinite(chg) && Number.isFinite(pct) ? `${chg >= 0 ? "+" : ""}${chg.toFixed(2)} (${pct.toFixed(2)}%)` : "",
+          high: quote.high,
+          low: quote.low,
+          open: null,
+          previousClose: null,
+          info: "Live crypto market data",
+        });
+
+        setCompany({
+          name: quote?.name || name,
+          logo: quote?.logo || "",
+          exchange: "Crypto",
+          finnhubIndustry: quote?.category || "Digital Asset",
+          marketCapitalization: Number(quote?.marketCap) / 1e6,
+          weburl: quote?.homepage || "",
+        });
+        setFundamentals({
+          marketCap: Number(quote?.marketCap) || null,
+          peRatio: null,
+          week52High: null,
+          week52Low: null,
+        });
+        setLatestVolume(Number(quote?.volume) || null);
+        setSectorInfo(null);
+        addToSearchHistory(sym);
+
+        try {
+          const newsRes = await fetch(`/api/crypto-market-news?symbol=${encodeURIComponent(sym)}`);
+          const newsData = await newsRes.json().catch(() => ({}));
+          const items = Array.isArray(newsData?.news) ? newsData.news : [];
+          const cleaned = items.filter((n) => n?.url && typeof n.url === "string" && n.url.startsWith("http")).slice(0, 5);
+          setNews(cleaned);
+        } catch {}
+
+        fetchChart(sym, chartRange, assetId);
+
+        try {
+          setAnalysisLoading(true);
+          const aiRes = await fetch(
+            `/api/ai?market=crypto&symbol=${encodeURIComponent(sym)}&price=${encodeURIComponent(quote.price ?? "")}`
+          );
+          const aiData = await aiRes.json().catch(() => ({}));
+          if (!aiRes.ok) {
+            setAnalysisObj({ note: aiData?.error || `AI analysis failed (${aiRes.status}).` });
+          } else {
+            setAnalysisObj(aiData);
+          }
+        } catch {
+          setAnalysisObj({ note: "AI analysis unavailable." });
+        } finally {
+          setAnalysisLoading(false);
+        }
+      } else if (assetMode === "metals") {
+        const resolved = await resolveMetalAsset(rawCanonical || raw);
+        const assetId = String(resolved?.id || "").trim();
+        const sym = (resolved?.symbol || rawCanonical || raw).toUpperCase();
+        const name = resolved?.name || sym;
+        if (!sym) {
+          setResult({ symbol: "—", price: "—", info: "Enter a metal name or symbol." });
+          setLoading(false);
+          return;
+        }
+
+        setUsingTicker(sym);
+        setUsingAssetId(assetId);
+
+        const quoteRes = await fetch(
+          `/api/metals-quote?${assetId ? `id=${encodeURIComponent(assetId)}` : `symbol=${encodeURIComponent(sym)}`}`
+        );
+        const quote = await quoteRes.json().catch(() => ({}));
+
+        if (!quoteRes.ok) {
+          const msg = quote?.error || `Metals quote API failed (${quoteRes.status})`;
+          setResult({ symbol: sym, price: "—", info: msg });
+          setErrorMsg(msg);
+          setLoading(false);
+          return;
+        }
+
+        const priceNum = Number(quote?.price);
+        if (!Number.isFinite(priceNum) || priceNum <= 0) {
+          const msg = `Unavailable quote for ${sym}.`;
+          setResult({ symbol: sym, price: "—", info: msg });
+          setErrorMsg(msg);
+          setLoading(false);
+          return;
+        }
+
+        const pct = Number(quote?.percentChange);
+        const chg = Number(quote?.change);
+        setResult({
+          symbol: quote.symbol || sym,
+          price: `$${priceNum.toFixed(2)}`,
+          change: Number.isFinite(chg) && Number.isFinite(pct) ? `${chg >= 0 ? "+" : ""}${chg.toFixed(2)} (${pct.toFixed(2)}%)` : "",
+          high: quote.high,
+          low: quote.low,
+          open: null,
+          previousClose: null,
+          info: "Live precious metals market data",
+        });
+
+        setCompany({
+          name: quote?.name || name,
+          logo: quote?.logo || "",
+          exchange: "Metals",
+          finnhubIndustry: "Precious Metal",
+          marketCapitalization: Number(quote?.marketCap) / 1e6,
+          weburl: "",
+        });
+        setFundamentals({
+          marketCap: Number(quote?.marketCap) || null,
+          peRatio: null,
+          week52High: null,
+          week52Low: null,
+        });
+        setLatestVolume(Number(quote?.volume) || null);
+        setSectorInfo(null);
+        addToSearchHistory(sym);
+
+        try {
+          const newsRes = await fetch(`/api/metals-market-news?symbol=${encodeURIComponent(sym)}`);
+          const newsData = await newsRes.json().catch(() => ({}));
+          const items = Array.isArray(newsData?.news) ? newsData.news : [];
+          const cleaned = items.filter((n) => n?.url && typeof n.url === "string" && n.url.startsWith("http")).slice(0, 5);
+          setNews(cleaned);
+        } catch {}
+
+        fetchChart(sym, chartRange, assetId);
+
+        try {
+          setAnalysisLoading(true);
+          const aiRes = await fetch(
+            `/api/ai?market=metals&symbol=${encodeURIComponent(sym)}&price=${encodeURIComponent(quote.price ?? "")}`
+          );
+          const aiData = await aiRes.json().catch(() => ({}));
+          if (!aiRes.ok) {
+            setAnalysisObj({ note: aiData?.error || `AI analysis failed (${aiRes.status}).` });
+          } else {
+            setAnalysisObj(aiData);
+          }
+        } catch {
+          setAnalysisObj({ note: "AI analysis unavailable." });
+        } finally {
+          setAnalysisLoading(false);
+        }
+      } else {
+        const sym = await resolveSymbol(rawCanonical || raw);
+        if (!sym) {
+          setResult({ symbol: "—", price: "—", info: "Enter a ticker or company name." });
+          setLoading(false);
+          return;
+        }
+        setUsingTicker(sym);
+        setUsingAssetId("");
+
+        // QUOTE
+        const quoteRes = await fetch(`/api/quote?symbol=${encodeURIComponent(sym)}`);
+        const quote = await quoteRes.json().catch(() => ({}));
+
+        if (!quoteRes.ok) {
+          const msg = quote?.error || `Quote API failed (${quoteRes.status})`;
+          setResult({ symbol: sym, price: "—", info: msg });
+          setErrorMsg(msg);
+          setLoading(false);
+          return;
+        }
+
+        const livePrice = Number(quote?.price);
+        const prevClose = Number(quote?.previousClose);
+        const hasPrice = Number.isFinite(livePrice) && livePrice > 0;
+        const hasPrevClose = Number.isFinite(prevClose) && prevClose > 0;
+
+        if (!hasPrice && !hasPrevClose) {
+          const msg = `Invalid ticker or unavailable quote for ${sym}.`;
+          setResult({ symbol: sym, price: "—", info: msg });
+          setErrorMsg(msg);
+          setLoading(false);
+          return;
+        }
+
+        const displayPrice = hasPrice ? livePrice : prevClose;
+        const fallbackChange = hasPrice && hasPrevClose ? livePrice - prevClose : null;
+        const fallbackPercent = hasPrice && hasPrevClose && prevClose > 0 ? (fallbackChange / prevClose) * 100 : null;
+
+        const priceTxt = Number.isFinite(displayPrice) ? `$${displayPrice.toFixed(2)}` : "—";
+        const changeTxt =
+          typeof quote.change === "number" && typeof quote.percentChange === "number"
+            ? `${quote.change >= 0 ? "+" : ""}${quote.change.toFixed(2)} (${quote.percentChange.toFixed(2)}%)`
+            : Number.isFinite(fallbackChange) && Number.isFinite(fallbackPercent)
+              ? `${fallbackChange >= 0 ? "+" : ""}${fallbackChange.toFixed(2)} (${fallbackPercent.toFixed(2)}%)`
+              : "";
+
+        setResult({
+          symbol: quote.symbol || sym,
+          price: priceTxt,
+          change: changeTxt,
+          high: quote.high,
+          low: quote.low,
+          open: quote.open,
+          previousClose: quote.previousClose,
+          info: quote.priceSource === "previousClose" ? "Using previous close (live quote unavailable)" : "Live market data",
+        });
+        addToSearchHistory(sym);
+
+        // PROFILE
+        try {
+          const profileRes = await fetch(`/api/profile?symbol=${encodeURIComponent(sym)}`);
+          const profileData = await profileRes.json().catch(() => ({}));
+          if (profileRes.ok) {
+            setCompany(profileData);
+            fetchSectorAnalysis(profileData?.sector || profileData?.finnhubIndustry);
+          }
+        } catch {}
+        fetchFundamentals(sym);
+
+        // NEWS
+        try {
+          const newsRes = await fetch(`/api/news?symbol=${encodeURIComponent(sym)}`);
+          const newsData = await newsRes.json().catch(() => ({}));
+          const items = Array.isArray(newsData?.news) ? newsData.news : [];
+          const cleaned = items.filter((n) => n?.url && typeof n.url === "string" && n.url.startsWith("http")).slice(0, 5);
+          setNews(cleaned);
+        } catch {}
+
+        fetchChart(sym, chartRange);
+
+        // AI ANALYSIS
+        try {
+          setAnalysisLoading(true);
+          const aiRes = await fetch(
+            `/api/ai?market=stock&symbol=${encodeURIComponent(sym)}&price=${encodeURIComponent(quote.price ?? "")}`
+          );
+          const aiData = await aiRes.json().catch(() => ({}));
+          if (!aiRes.ok) {
+            setAnalysisObj({ note: aiData?.error || `AI analysis failed (${aiRes.status}).` });
+          } else {
+            setAnalysisObj(aiData);
+          }
+        } catch {
+          setAnalysisObj({ note: "AI analysis unavailable." });
+        } finally {
+          setAnalysisLoading(false);
+        }
       }
     } catch {
       const msg = "Network error";
@@ -876,14 +1398,9 @@ export default function Home() {
     setLoading(false);
   };
 
-  const addToWatchlist = async () => {
-    const sym = canonicalTicker(await resolveSymbol(ticker));
-    if (!sym) return;
-    setWatch((prev) => (prev.includes(sym) ? prev : [sym, ...prev]));
-  };
-
   const resetAnalysis = () => {
     setTicker("");
+    setSuppressSuggestions(false);
     setSearchSuggestions([]);
     setSuggestionOpen(false);
     setUsingTicker("");
@@ -952,7 +1469,7 @@ export default function Home() {
 
     try {
       const res = await fetch(
-        `/api/ai?mode=chat&question=${encodeURIComponent(question)}&symbol=${encodeURIComponent(ctxSymbol)}&price=${encodeURIComponent(priceForApi)}`
+        `/api/ai?mode=chat&market=${assetMode}&question=${encodeURIComponent(question)}&symbol=${encodeURIComponent(ctxSymbol)}&price=${encodeURIComponent(priceForApi)}`
       );
       const data = await res.json().catch(() => ({}));
       const answer = cleanChatAnswer(data?.answer || data?.raw || data?.error || "I could not generate a reply.");
@@ -978,6 +1495,29 @@ export default function Home() {
       : 0;
   const trendLabel =
     chartPoints.length > 1 ? (trendDelta >= 0 ? "Uptrend" : "Downtrend") : "No trend";
+  const isFxMode = assetMode === "fx";
+  const currentTabLabel =
+    assetMode === "crypto"
+      ? "crypto"
+      : assetMode === "metals"
+        ? "metals"
+        : assetMode === "fx"
+          ? "FX"
+          : assetMode === "news"
+            ? "world news"
+            : "stock";
+  const chatInputPlaceholder =
+    assetMode === "crypto"
+      ? "Ask anything (crypto, stocks, metals, FX, news)..."
+      : assetMode === "metals"
+        ? "Ask anything (metals, crypto, stocks, FX, news)..."
+        : assetMode === "fx"
+          ? "Ask anything (FX, stocks, crypto, metals, news)..."
+          : assetMode === "news"
+            ? "Ask anything (world news, markets, crypto, FX, metals)..."
+            : "Ask anything (stocks, crypto, metals, FX, news)...";
+  const isNewsMode = assetMode === "news";
+  const isMetalsMode = assetMode === "metals";
   const overviewLoop = overview.length ? [...overview, ...overview] : [];
 
   return (
@@ -990,25 +1530,68 @@ export default function Home() {
         <div className="relative z-10 mx-auto w-full max-w-6xl px-6 py-10 md:py-14">
         {/* HEADER */}
         <div className="text-center mb-10">
+          <div className="absolute left-6 top-0">
+            <div className="inline-flex rounded-xl overflow-hidden border border-white/15 bg-slate-900/60">
+              <button
+                onClick={() => setAssetMode("stock")}
+                className={`px-3 py-1.5 text-xs font-semibold ${assetMode === "stock" ? "bg-blue-600 text-white" : "bg-transparent text-white/80"}`}
+              >
+                Stock
+              </button>
+              <button
+                onClick={() => setAssetMode("crypto")}
+                className={`px-3 py-1.5 text-xs font-semibold ${assetMode === "crypto" ? "bg-blue-600 text-white" : "bg-transparent text-white/80"}`}
+              >
+                Crypto
+              </button>
+              <button
+                onClick={() => setAssetMode("metals")}
+                className={`px-3 py-1.5 text-xs font-semibold ${assetMode === "metals" ? "bg-blue-600 text-white" : "bg-transparent text-white/80"}`}
+              >
+                Metals
+              </button>
+              <button
+                onClick={() => setAssetMode("fx")}
+                className={`px-3 py-1.5 text-xs font-semibold ${assetMode === "fx" ? "bg-blue-600 text-white" : "bg-transparent text-white/80"}`}
+              >
+                FX
+              </button>
+              <button
+                onClick={() => setAssetMode("news")}
+                className={`px-3 py-1.5 text-xs font-semibold ${assetMode === "news" ? "bg-blue-600 text-white" : "bg-transparent text-white/80"}`}
+              >
+                News
+              </button>
+            </div>
+          </div>
           <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-slate-900/70 px-4 py-2 text-sm text-white/85 shadow-sm">
-            <span className="h-2 w-2 rounded-full bg-blue-400" />
-            Arthastra AI
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/arthastra-premium-logo-alt2.svg" alt="Arthastra AI logo" className="h-7 w-7 rounded-sm ring-1 ring-white/25" />
+            Arthastra AI {assetMode === "crypto" ? "Crypto" : assetMode === "metals" ? "Metals" : assetMode === "fx" ? "FX" : assetMode === "news" ? "News" : "Stock"}
+          </div>
+          <div className="mt-4 flex justify-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/arthastra-premium-logo-alt2.svg"
+              alt="Arthastra AI emblem"
+              className="h-20 w-20 md:h-24 md:w-24 rounded-2xl border border-white/20 shadow-[0_10px_30px_-18px_rgba(34,211,238,0.8)] bg-slate-900/60 p-2"
+            />
           </div>
           <h1 className="text-4xl md:text-6xl font-semibold mt-4 tracking-tight bg-gradient-to-r from-white via-cyan-100 to-sky-200 bg-clip-text text-transparent">
             Arthastra AI
           </h1>
-          <p className="text-slate-300/80 mt-3 text-lg">Your intelligent investing assistant</p>
+          <p className="text-slate-300/80 mt-3 text-lg">Clarity in Every Market.</p>
           <p className="text-slate-400/80 text-xs mt-3">Founder: Deep Patel • Co-founder: Juan Ramirez</p>
           <div className="mt-5 inline-flex rounded-xl overflow-hidden border border-white/15 bg-slate-900/60">
             <button
               onClick={() => setTheme("dark")}
-              className={`px-3 py-1.5 text-xs font-semibold ${theme === "dark" ? "bg-blue-600 text-white" : "bg-transparent"}`}
+              className={`px-3 py-1.5 text-xs font-semibold ${theme === "dark" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-800" : "bg-transparent text-white/85"}`}
             >
               Dark
             </button>
             <button
               onClick={() => setTheme("light")}
-              className={`px-3 py-1.5 text-xs font-semibold ${theme === "light" ? "bg-blue-600 text-white" : "bg-transparent"}`}
+              className={`px-3 py-1.5 text-xs font-semibold ${theme === "light" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-800" : "bg-transparent text-white/85"}`}
             >
               Light
             </button>
@@ -1016,9 +1599,10 @@ export default function Home() {
         </div>
 
         {/* MARKET OVERVIEW */}
+        {!isNewsMode && (
         <div className="mb-6">
           <Card
-            title="Market Overview"
+            title={isFxMode ? "FX Market Overview" : "Market Overview"}
             right={
               <button
                 onClick={fetchOverview}
@@ -1030,21 +1614,31 @@ export default function Home() {
           >
             <div className="overflow-hidden pb-1">
               <div
-                className="market-ticker-track flex gap-3 w-max"
-                style={{ animationDuration: `${Math.max(18, overview.length * 4)}s` }}
+                className={`${
+                  isMetalsMode
+                    ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+                    : "market-ticker-track flex gap-3 w-max"
+                }`}
+                style={isMetalsMode ? undefined : { animationDuration: `${Math.max(18, overview.length * 4)}s` }}
               >
-                {overviewLoop.map((o, idx) => (
-                  <div key={`${o.symbol}-${idx}`} className="w-28 shrink-0 rounded-xl bg-slate-900/70 border border-white/10 p-3 shadow-[0_6px_20px_-16px_rgba(14,165,233,0.7)]">
-                  <div className="text-sm font-semibold">{o.symbol}</div>
-                  <div className="text-xs text-slate-300/85">
-                    {fmt(o.price) != null ? `$${Number(o.price).toFixed(2)}` : "—"}
+                {(isMetalsMode ? overview : overviewLoop).map((o, idx) => (
+                  <div key={`${o.symbol}-${idx}`} className={`${isMetalsMode ? "w-full min-h-[180px] md:min-h-[200px] p-5" : isFxMode ? "w-36 p-3" : "w-28 p-3"} shrink-0 rounded-xl bg-slate-900/70 border border-white/10 shadow-[0_6px_20px_-16px_rgba(14,165,233,0.7)]`}>
+                  <div className={`${isMetalsMode ? "text-3xl" : isFxMode ? "text-lg" : "text-sm"} font-semibold leading-tight`}>{isMetalsMode ? (o.name || metalNameBySymbol[o.symbol] || o.symbol) : o.symbol}</div>
+                  {isMetalsMode && (
+                    <div className="text-base text-slate-400 mt-1">{o.symbol}</div>
+                  )}
+                  {isFxMode && (
+                    <div className="text-[11px] text-slate-400 mt-1">{o.name || ""}</div>
+                  )}
+                  <div className={`${isMetalsMode ? "text-2xl mt-5" : isFxMode ? "text-sm mt-2" : "text-xs"} text-slate-300/85`}>
+                    {fmt(o.price) != null ? `${isFxMode ? Number(o.price).toFixed(4) : `$${Number(o.price).toFixed(2)}`}` : "—"}
                   </div>
                   <div
-                    className={`text-xs ${
-                      fmt(o.percent) != null && o.percent >= 0 ? "text-green-300" : "text-red-300"
+                    className={`${isMetalsMode ? "text-3xl mt-2" : "text-xs"} ${
+                      fmt(o.percent) == null ? "text-slate-400" : o.percent >= 0 ? "text-green-300" : "text-red-300"
                     }`}
                   >
-                    {fmt(o.percent) != null ? `${o.percent >= 0 ? "+" : ""}${Number(o.percent).toFixed(2)}%` : "—"}
+                    {fmt(o.percent) != null ? `${o.percent >= 0 ? "+" : ""}${Number(o.percent).toFixed(2)}%` : (isFxMode ? "Live FX" : "—")}
                   </div>
                 </div>
               ))}
@@ -1052,53 +1646,149 @@ export default function Home() {
             </div>
           </Card>
         </div>
+        )}
+
+        {isFxMode && !isNewsMode && (
+          <div className="mb-6">
+            <Card
+              title="Exchange Rate Converter"
+              right={
+                <button
+                  onClick={convertFx}
+                  disabled={fxLoading}
+                  className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs disabled:opacity-50"
+                >
+                  {fxLoading ? "Converting..." : "Convert"}
+                </button>
+              }
+            >
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <input
+                  value={fxAmount}
+                  onChange={(e) => setFxAmount(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && convertFx()}
+                  placeholder="Amount (ex: 1)"
+                  className="px-4 py-3 rounded-xl bg-white text-black border-2 border-white/20 outline-none"
+                />
+                <input
+                  value={fxFrom}
+                  onChange={(e) => setFxFrom(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && convertFx()}
+                  placeholder="From (USD or India)"
+                  list="fx-currency-options"
+                  className="px-4 py-3 rounded-xl bg-white text-black border-2 border-white/20 outline-none"
+                />
+                <input
+                  value={fxTo}
+                  onChange={(e) => setFxTo(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && convertFx()}
+                  placeholder="To (INR or Japan)"
+                  list="fx-currency-options"
+                  className="px-4 py-3 rounded-xl bg-white text-black border-2 border-white/20 outline-none"
+                />
+                <button
+                  onClick={() => {
+                    const a = fxFrom;
+                    setFxFrom(fxTo);
+                    setFxTo(a);
+                  }}
+                  className="px-4 py-3 rounded-xl bg-white/10 hover:bg-white/15 text-sm"
+                >
+                  Swap
+                </button>
+              </div>
+              <datalist id="fx-currency-options">
+                {FX_CURRENCY_OPTIONS.map((c) => (
+                  <option key={c.code} value={c.code} label={`${c.name} (${c.code})`} />
+                ))}
+                {FX_CURRENCY_OPTIONS.map((c) => (
+                  <option key={`${c.code}-name`} value={c.name} />
+                ))}
+              </datalist>
+
+              <div className="mt-2 text-xs text-white/60">
+                Tip: use code (`INR`) or country/currency name (`India`, `Japanese Yen`, `UK`).
+              </div>
+
+              {fxError && (
+                <div className="mt-3 rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                  {fxError}
+                </div>
+              )}
+
+              {fxResult && (
+                <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="rounded-lg border border-white/10 bg-white/5 p-3">
+                    <div className="text-xs text-white/60 mb-1">Rate</div>
+                    <div className="text-lg font-semibold">
+                      1 {fxResult.from} = {Number(fxResult.rate).toFixed(6)} {fxResult.to}
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-white/10 bg-white/5 p-3">
+                    <div className="text-xs text-white/60 mb-1">Converted</div>
+                    <div className="text-lg font-semibold">
+                      {Number(fxResult.amount).toFixed(2)} {fxResult.from} = {Number(fxResult.converted).toFixed(4)} {fxResult.to}
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-white/10 bg-white/5 p-3">
+                    <div className="text-xs text-white/60 mb-1">As Of</div>
+                    <div className="text-lg font-semibold">{fxResult.asOf || "—"}</div>
+                  </div>
+                </div>
+              )}
+            </Card>
+          </div>
+        )}
 
         {/* MOVERS + MARKET NEWS */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <Card
-            title="Top Gainers / Losers"
-            right={
-              <button onClick={fetchMovers} className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs">
-                Refresh
-              </button>
-            }
-          >
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <div className="text-xs text-green-300 mb-2">Top Gainers</div>
-                <div className="space-y-2">
-                  {movers.gainers.slice(0, 5).map((m) => (
-                    <div key={`g-${m.symbol}`} className="rounded-lg border border-white/10 bg-white/5 p-2 text-xs">
-                      <div className="font-semibold">{m.symbol}</div>
-                      <div className="text-white/70">${Number(m.price || 0).toFixed(2)}</div>
-                      <div className="text-green-300">
-                        {Number(m.percentChange) >= 0 ? "+" : ""}
-                        {Number(m.percentChange || 0).toFixed(2)}%
+        {!isFxMode && !isNewsMode && (
+        <div className={`grid grid-cols-1 ${isMetalsMode ? "" : "lg:grid-cols-2"} gap-6 mb-6`}>
+          {!isMetalsMode && (
+            <Card
+              title="Top Gainers / Losers"
+              right={
+                <button onClick={fetchMovers} className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs">
+                  Refresh
+                </button>
+              }
+            >
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <div className="text-xs text-green-300 mb-2">Top Gainers</div>
+                  <div className="space-y-2">
+                    {movers.gainers.slice(0, 5).map((m) => (
+                      <div key={`g-${m.symbol}`} className="rounded-lg border border-white/10 bg-white/5 p-2 text-xs">
+                        <div className="font-semibold">{m.symbol}</div>
+                        <div className="text-white/70">${Number(m.price || 0).toFixed(2)}</div>
+                        <div className="text-green-300">
+                          {Number(m.percentChange) >= 0 ? "+" : ""}
+                          {Number(m.percentChange || 0).toFixed(2)}%
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-red-300 mb-2">Top Losers</div>
+                  <div className="space-y-2">
+                    {movers.losers.slice(0, 5).map((m) => (
+                      <div key={`l-${m.symbol}`} className="rounded-lg border border-white/10 bg-white/5 p-2 text-xs">
+                        <div className="font-semibold">{m.symbol}</div>
+                        <div className="text-white/70">${Number(m.price || 0).toFixed(2)}</div>
+                        <div className="text-red-300">
+                          {Number(m.percentChange) >= 0 ? "+" : ""}
+                          {Number(m.percentChange || 0).toFixed(2)}%
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
-              <div>
-                <div className="text-xs text-red-300 mb-2">Top Losers</div>
-                <div className="space-y-2">
-                  {movers.losers.slice(0, 5).map((m) => (
-                    <div key={`l-${m.symbol}`} className="rounded-lg border border-white/10 bg-white/5 p-2 text-xs">
-                      <div className="font-semibold">{m.symbol}</div>
-                      <div className="text-white/70">${Number(m.price || 0).toFixed(2)}</div>
-                      <div className="text-red-300">
-                        {Number(m.percentChange) >= 0 ? "+" : ""}
-                        {Number(m.percentChange || 0).toFixed(2)}%
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </Card>
+            </Card>
+          )}
 
           <Card
-            title="Market News"
+            title={isMetalsMode ? "Metals News" : "Market News"}
             right={
               <button
                 onClick={fetchMarketNews}
@@ -1120,15 +1810,19 @@ export default function Home() {
                   • {n.headline}
                 </a>
               ))}
-              {marketNews.length === 0 && <div className="text-sm text-white/60">No market headlines yet.</div>}
+              {marketNews.length === 0 && (
+                <div className="text-sm text-white/60">{isMetalsMode ? "No metals headlines yet." : "No market headlines yet."}</div>
+              )}
             </div>
           </Card>
         </div>
+        )}
 
         {/* DAILY PICK + SEARCH ROW */}
+        {!isFxMode && !isNewsMode && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <Card
-            title="Today’s AI Pick"
+            title={`Today’s AI ${assetMode === "crypto" ? "Crypto" : assetMode === "metals" ? "Metals" : "Stock"} Pick`}
             right={
               <button
                 onClick={fetchDailyPick}
@@ -1206,6 +1900,79 @@ export default function Home() {
           </Card>
 
           <Card
+            title={`Multi-${assetMode === "crypto" ? "Crypto" : assetMode === "metals" ? "Metals" : "Stock"} Comparison`}
+            right={
+              <button
+                onClick={runComparison}
+                disabled={compareLoading}
+                className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs disabled:opacity-50"
+              >
+                {compareLoading ? "Comparing..." : "Compare"}
+              </button>
+            }
+          >
+            <div className="flex gap-2 mb-3">
+              <input
+                value={compareInput}
+                onChange={(e) => setCompareInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && runComparison()}
+                placeholder={assetMode === "crypto" ? "BTC,ETH,SOL" : assetMode === "metals" ? "XAU,XAG,XPT" : "AAPL,MSFT,NVDA"}
+                className="flex-1 px-4 py-2 rounded-xl bg-white text-black border-2 border-white/20 outline-none"
+              />
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="text-white/60">
+                  <tr className="text-left border-b border-white/10">
+                    <th className="py-2 pr-2">Ticker</th>
+                    <th className="py-2 pr-2">Name</th>
+                    <th className="py-2 pr-2">Price</th>
+                    <th className="py-2 pr-2">Day $</th>
+                    <th className="py-2 pr-2">Change %</th>
+                    <th className="py-2 pr-2">Volume</th>
+                    <th className="py-2 pr-2">52W High/Low</th>
+                    <th className="py-2 pr-2">P/E</th>
+                    <th className="py-2 pr-2">Market Cap</th>
+                    <th className="py-2 pr-2">Sector</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {compareRows.map((r) => (
+                    <tr key={r.symbol} className="border-b border-white/5">
+                      <td className="py-2 pr-2 font-semibold">{r.symbol}</td>
+                      <td className="py-2 pr-2 text-white/80">{r.name || "—"}</td>
+                      <td className="py-2 pr-2">{fmt(r.price) != null ? `$${Number(r.price).toFixed(2)}` : "—"}</td>
+                      <td className={`py-2 pr-2 ${Number(r.change) >= 0 ? "text-green-300" : "text-red-300"}`}>
+                        {fmt(r.change) != null ? `${Number(r.change) >= 0 ? "+" : ""}${Number(r.change).toFixed(2)}` : "—"}
+                      </td>
+                      <td className={`py-2 pr-2 ${Number(r.percentChange) >= 0 ? "text-green-300" : "text-red-300"}`}>
+                        {fmt(r.percentChange) != null
+                          ? `${Number(r.percentChange) >= 0 ? "+" : ""}${Number(r.percentChange).toFixed(2)}%`
+                          : "—"}
+                      </td>
+                      <td className="py-2 pr-2">{fmt(r.volume) != null ? fmtLarge(r.volume) : "—"}</td>
+                      <td className="py-2 pr-2">
+                        {fmt(r.week52High) != null || fmt(r.week52Low) != null
+                          ? `${fmt(r.week52Low) != null ? Number(r.week52Low).toFixed(2) : "—"} / ${fmt(r.week52High) != null ? Number(r.week52High).toFixed(2) : "—"}`
+                          : "—"}
+                      </td>
+                      <td className="py-2 pr-2">{fmt(r.peRatio) != null ? Number(r.peRatio).toFixed(2) : "—"}</td>
+                      <td className="py-2 pr-2">{fmt(r.marketCap) != null ? `$${fmtLarge(r.marketCap)}` : "—"}</td>
+                      <td className="py-2 pr-2">{r.sector || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+        )}
+
+        {/* SEARCH */}
+        {!isFxMode && !isNewsMode && (
+        <div className="mb-6">
+          <Card
             title="Search"
             right={
               <button
@@ -1216,15 +1983,30 @@ export default function Home() {
               </button>
             }
           >
-            <label className="text-sm text-white/60">Search a company name or stock ticker</label>
+            <label className="text-sm text-white/60">
+              {assetMode === "crypto"
+                ? "Search a crypto name or symbol"
+                : assetMode === "metals"
+                  ? "Search a metal symbol (XAU, XAG, XPT, XPD)"
+                  : "Search a company name or stock ticker"}
+            </label>
 
             <div className="mt-3 flex gap-2 items-start">
               <div className="flex-1 relative">
                 <input
                   type="text"
-                  placeholder='Try "Apple" or "AAPL"'
+                  placeholder={
+                    assetMode === "crypto"
+                      ? 'Try "Bitcoin" or "BTC"'
+                      : assetMode === "metals"
+                        ? 'Try "XAU" or "XAG"'
+                        : 'Try "Apple" or "AAPL"'
+                  }
                   value={ticker}
-                  onChange={(e) => setTicker(e.target.value)}
+                  onChange={(e) => {
+                    setSuppressSuggestions(false);
+                    setTicker(e.target.value);
+                  }}
                   onFocus={() => searchSuggestions.length > 0 && setSuggestionOpen(true)}
                   onKeyDown={(e) => e.key === "Enter" && searchStock()}
                   className="w-full px-4 py-3 rounded-xl bg-white text-black text-lg
@@ -1244,7 +2026,7 @@ export default function Home() {
                             key={s.symbol}
                             onMouseDown={(e) => {
                               e.preventDefault();
-                              applySuggestion(s.symbol);
+                              applySuggestion(s);
                             }}
                             className="w-full text-left px-3 py-2.5 hover:bg-white/10 border-b border-white/5 last:border-b-0"
                           >
@@ -1276,7 +2058,7 @@ export default function Home() {
 
             {usingTicker && (
               <div className="text-xs text-white/50 mt-2">
-                Using ticker: <span className="text-white/70">{usingTicker}</span>
+                Using {assetMode === "stock" ? "ticker" : "asset"}: <span className="text-white/70">{usingTicker}</span>
               </div>
             )}
 
@@ -1301,101 +2083,66 @@ export default function Home() {
             )}
           </Card>
         </div>
+        )}
 
-        {/* FAVORITES */}
-        <div className="mb-6">
-          <Card title="Favorite Stocks">
-            {watch.length === 0 ? (
-              <div className="text-sm text-white/60">No favorites yet.</div>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {watch.map((sym) => (
-                  <div
-                    key={sym}
-                    className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5"
+        {isNewsMode && (
+          <div className="mb-6">
+            <Card
+              title="World Market Impact News"
+              right={
+                <button
+                  onClick={fetchMarketNews}
+                  className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs"
+                >
+                  Refresh
+                </button>
+              }
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {marketNews.slice(0, 24).map((n, idx) => (
+                  <a
+                    key={`${n.url}-${idx}`}
+                    href={n.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="group block rounded-xl border border-white/10 bg-white/5 p-3 hover:bg-white/10 transition-all"
                   >
-                    <span className="text-sm">{sym}</span>
-                    <button
-                      onClick={() => setWatch((prev) => prev.filter((x) => x !== sym))}
-                      className="text-white/50 hover:text-white text-xs"
-                      title="Remove"
-                    >
-                      ✕
-                    </button>
-                  </div>
+                    <div className="flex gap-3">
+                      <div className="relative w-20 h-20 shrink-0 rounded-lg overflow-hidden border border-white/10">
+                        <div className="absolute inset-0 bg-gradient-to-br from-blue-600/35 via-cyan-500/20 to-slate-800/30" />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          {faviconUrlFor(n.url) ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={faviconUrlFor(n.url)}
+                              alt="Source"
+                              className="h-9 w-9 rounded-full bg-white/90 p-1.5 ring-1 ring-white/30"
+                            />
+                          ) : (
+                            <div className="h-9 w-9 rounded-full bg-white/20" />
+                          )}
+                        </div>
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-sm text-blue-300 group-hover:underline line-clamp-3">{n.headline}</div>
+                        <div className="mt-2 text-[11px] text-white/50">
+                          {[n.source || safeDomainFromUrl(n.url), n.datetime].filter(Boolean).join(" • ") || "Global feed"}
+                        </div>
+                        <div className="mt-1 text-[11px] text-white/40 truncate">{safeDomainFromUrl(n.url)}</div>
+                      </div>
+                    </div>
+                  </a>
                 ))}
+                {marketNews.length === 0 && <div className="text-sm text-white/60">No world-impact headlines yet.</div>}
               </div>
-            )}
-
-            <div className="mt-4">
-              <button onClick={addToWatchlist} className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-sm">
-                Save current input as favorite
-              </button>
-            </div>
-          </Card>
-        </div>
-
-        {/* MULTI-STOCK COMPARISON */}
-        <div className="mb-6">
-          <Card
-            title="Multi-Stock Comparison"
-            right={
-              <button
-                onClick={runComparison}
-                disabled={compareLoading}
-                className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs disabled:opacity-50"
-              >
-                {compareLoading ? "Comparing..." : "Compare"}
-              </button>
-            }
-          >
-            <div className="flex gap-2 mb-3">
-              <input
-                value={compareInput}
-                onChange={(e) => setCompareInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && runComparison()}
-                placeholder="AAPL,MSFT,NVDA"
-                className="flex-1 px-4 py-2 rounded-xl bg-white text-black border-2 border-white/20 outline-none"
-              />
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead className="text-white/60">
-                  <tr className="text-left border-b border-white/10">
-                    <th className="py-2 pr-2">Ticker</th>
-                    <th className="py-2 pr-2">Price</th>
-                    <th className="py-2 pr-2">Change %</th>
-                    <th className="py-2 pr-2">P/E</th>
-                    <th className="py-2 pr-2">Market Cap</th>
-                    <th className="py-2 pr-2">Sector</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {compareRows.map((r) => (
-                    <tr key={r.symbol} className="border-b border-white/5">
-                      <td className="py-2 pr-2 font-semibold">{r.symbol}</td>
-                      <td className="py-2 pr-2">{fmt(r.price) != null ? `$${Number(r.price).toFixed(2)}` : "—"}</td>
-                      <td className={`py-2 pr-2 ${Number(r.percentChange) >= 0 ? "text-green-300" : "text-red-300"}`}>
-                        {fmt(r.percentChange) != null
-                          ? `${Number(r.percentChange) >= 0 ? "+" : ""}${Number(r.percentChange).toFixed(2)}%`
-                          : "—"}
-                      </td>
-                      <td className="py-2 pr-2">{fmt(r.peRatio) != null ? Number(r.peRatio).toFixed(2) : "—"}</td>
-                      <td className="py-2 pr-2">{fmt(r.marketCap) != null ? `$${fmtLarge(r.marketCap)}` : "—"}</td>
-                      <td className="py-2 pr-2">{r.sector || "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        </div>
+            </Card>
+          </div>
+        )}
 
         {/* COMPANY */}
-        {company?.name && (
+        {!isNewsMode && company?.name && (
           <div className="mb-6">
-            <Card title="Company">
+            <Card title={assetMode === "stock" ? "Company" : "Market Asset"}>
               <div className="flex items-center gap-3">
                 {company.logo && (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -1437,7 +2184,7 @@ export default function Home() {
           </div>
         )}
 
-        {sectorInfo && (
+        {assetMode === "stock" && !isNewsMode && sectorInfo && (
           <div className="mb-6">
             <Card title="Sector Analysis">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
@@ -1463,20 +2210,10 @@ export default function Home() {
         )}
 
         {/* QUOTE + CHART */}
-        {(result || chartLoading || (chartPoints?.length > 0)) && (
+        {!isNewsMode && (result || chartLoading || (chartPoints?.length > 0)) && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             {result && (
-              <Card
-                title="Quote"
-                right={
-                  <button
-                    onClick={addToWatchlist}
-                    className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs"
-                  >
-                    Save Favorite
-                  </button>
-                }
-              >
+              <Card title="Quote">
                 <div className="text-xl font-semibold">{result.symbol}</div>
                 <div className="text-3xl font-bold mt-1">{result.price}</div>
 
@@ -1512,9 +2249,9 @@ export default function Home() {
               </Card>
             )}
 
-            {(chartLoading || chartPoints?.length > 0) && (
+            {(result || chartLoading || chartPoints?.length > 0) && (
               <Card
-                title="Stock Chart"
+                title={`${assetMode === "crypto" ? "Crypto" : assetMode === "metals" ? "Metals" : "Stock"} Chart`}
                 right={
                   <div className="inline-flex rounded-lg overflow-hidden border border-white/10">
                     {["1D", "1W", "1M", "1Y"].map((r) => (
@@ -1533,8 +2270,16 @@ export default function Home() {
                   <div className="text-sm text-white/60 animate-pulse">Loading chart...</div>
                 ) : (
                   <>
-                <canvas ref={chartRef} className="w-full h-[180px] rounded-xl bg-black/30" />
-                <div className="text-xs text-white/50 mt-2">Data source: Finnhub candles. Educational view.</div>
+                    {chartPoints?.length > 0 ? (
+                      <>
+                        <canvas ref={chartRef} className="w-full h-[180px] rounded-xl bg-black/30" />
+                        <div className="text-xs text-white/50 mt-2">
+                          Data source: {assetMode === "stock" ? "Finnhub/Stooq" : assetMode === "metals" ? "Yahoo/Alpha Vantage" : "CoinGecko"} candles. Educational view.
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-sm text-white/60">No chart data for this range. Try another range.</div>
+                    )}
                   </>
                 )}
               </Card>
@@ -1543,7 +2288,7 @@ export default function Home() {
         )}
 
         {/* AI ANALYSIS */}
-        {(analysisLoading || analysisObj) && (
+        {!isNewsMode && (analysisLoading || analysisObj) && (
           <div className="mb-6">
             <Card
               title="AI Investment Analysis"
@@ -1720,38 +2465,8 @@ export default function Home() {
           </div>
         )}
 
-        {recommendationHistory.length > 0 && (
-          <div className="mb-6">
-            <Card
-              title="Recommendation History"
-              right={
-                <button
-                  onClick={() => setRecommendationHistory([])}
-                  className="px-2.5 py-1 rounded-md bg-white/10 hover:bg-white/15 text-[11px]"
-                >
-                  Clear
-                </button>
-              }
-            >
-              <div className="space-y-2">
-                {recommendationHistory.slice(0, 10).map((r, idx) => (
-                  <div key={`${r.ts}-${idx}`} className="rounded-lg border border-white/10 bg-white/5 p-2.5 text-xs">
-                    <div className="flex items-center justify-between">
-                      <div className="font-semibold">{r.ticker}</div>
-                      <div className="text-white/60">{new Date(r.ts).toLocaleString()}</div>
-                    </div>
-                    <div className="mt-1 text-white/80">
-                      {r.recommendation} • AI Score {r.aiScore}/100 • Confidence {r.confidence}%
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          </div>
-        )}
-
         {/* NEWS */}
-        {news.length > 0 && (
+        {!isNewsMode && news.length > 0 && (
           <div className="mb-6">
             <Card title="Latest News">
               <div className="space-y-2">
@@ -1765,7 +2480,9 @@ export default function Home() {
           </div>
         )}
 
-          <p className="text-center text-xs text-white/40 mt-8">Educational tool only. Not financial advice.</p>
+          <p className="text-center text-[11px] text-white/40 mt-8">
+            For informational purposes only. This platform does not provide financial, investment, legal, tax, or accounting advice. All decisions and outcomes are solely your responsibility.
+          </p>
         </div>
       </div>
 
@@ -1781,7 +2498,7 @@ export default function Home() {
               <div>
                 <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>ASTRA Virtual Assistant</div>
                 <div className={`text-[11px] ${isLight ? "text-slate-500" : "text-white/55"}`}>
-                  {usingTicker ? `Context: ${usingTicker}` : "No stock selected"}
+                  {usingTicker ? `Context (${currentTabLabel}): ${usingTicker}` : "Context optional. Ask anything."}
                 </div>
               </div>
               <button
@@ -1828,7 +2545,7 @@ export default function Home() {
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && sendChatMessage()}
-                placeholder="Ask about any stock..."
+                placeholder={chatInputPlaceholder}
                 className="flex-1 px-3 py-2 rounded-xl bg-white text-black border-2 border-white/20 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
               />
               <button
@@ -1838,6 +2555,9 @@ export default function Home() {
               >
                 Send
               </button>
+            </div>
+            <div className={`px-3 pb-3 text-[10px] leading-relaxed ${isLight ? "text-slate-500" : "text-white/45"}`}>
+              For informational purposes only. This platform does not provide financial, investment, legal, tax, or accounting advice. All decisions and outcomes are solely your responsibility.
             </div>
           </div>
         ) : (

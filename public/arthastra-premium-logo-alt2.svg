@@ -1,0 +1,40 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Arthastra AI Alt Logo 2</title>
+  <desc id="desc">Premium abstract compass-star over ascending candlesticks.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#030E23"/>
+      <stop offset="1" stop-color="#0A214B"/>
+    </linearGradient>
+    <linearGradient id="line" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#22D3EE"/>
+      <stop offset="1" stop-color="#FACC15"/>
+    </linearGradient>
+    <linearGradient id="bar" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#1E3A8A"/>
+      <stop offset="1" stop-color="#67E8F9"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+
+  <g transform="translate(70 92)">
+    <rect x="24" y="212" width="44" height="124" rx="7" fill="url(#bar)" opacity="0.45"/>
+    <rect x="84" y="184" width="46" height="152" rx="7" fill="url(#bar)" opacity="0.58"/>
+    <rect x="146" y="154" width="48" height="182" rx="7" fill="url(#bar)" opacity="0.7"/>
+    <rect x="210" y="122" width="50" height="214" rx="7" fill="url(#bar)" opacity="0.82"/>
+    <rect x="276" y="88" width="52" height="248" rx="7" fill="url(#bar)"/>
+
+    <path d="M18 256 L102 218 L168 184 L236 148 L304 106" fill="none" stroke="url(#line)" stroke-width="9" stroke-linecap="round"/>
+    <circle cx="18" cy="256" r="4" fill="#7DD3FC"/>
+    <circle cx="102" cy="218" r="4" fill="#7DD3FC"/>
+    <circle cx="168" cy="184" r="4" fill="#7DD3FC"/>
+    <circle cx="236" cy="148" r="4" fill="#7DD3FC"/>
+    <circle cx="304" cy="106" r="4" fill="#7DD3FC"/>
+  </g>
+
+  <g transform="translate(338 58)">
+    <circle cx="58" cy="58" r="46" fill="none" stroke="#1E40AF" stroke-width="4"/>
+    <path d="M58 8 L68 44 L104 58 L68 72 L58 108 L48 72 L12 58 L48 44 Z" fill="#FCD34D"/>
+    <circle cx="58" cy="58" r="7" fill="#FFF7D6"/>
+  </g>
+</svg>

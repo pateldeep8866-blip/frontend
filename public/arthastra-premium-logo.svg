@@ -1,0 +1,48 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Arthastra AI Premium Logo</title>
+  <desc id="desc">Custom premium logo with astral star and rising market arc.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#031128"/>
+      <stop offset="1" stop-color="#0B234A"/>
+    </linearGradient>
+    <linearGradient id="arc" x1="0.1" y1="0.9" x2="0.9" y2="0.1">
+      <stop offset="0" stop-color="#34D399"/>
+      <stop offset="0.55" stop-color="#60A5FA"/>
+      <stop offset="1" stop-color="#FCD34D"/>
+    </linearGradient>
+    <linearGradient id="bars" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#1D4ED8"/>
+      <stop offset="1" stop-color="#67E8F9"/>
+    </linearGradient>
+    <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+
+  <g transform="translate(80 118)">
+    <rect x="10" y="188" width="42" height="86" rx="8" fill="url(#bars)" opacity="0.5"/>
+    <rect x="76" y="155" width="46" height="119" rx="8" fill="url(#bars)" opacity="0.63"/>
+    <rect x="146" y="122" width="50" height="152" rx="8" fill="url(#bars)" opacity="0.75"/>
+    <rect x="220" y="86" width="54" height="188" rx="8" fill="url(#bars)" opacity="0.86"/>
+    <rect x="298" y="54" width="58" height="220" rx="8" fill="url(#bars)"/>
+
+    <path d="M14 220 C82 206, 136 172, 192 148 C246 124, 292 97, 346 64" fill="none" stroke="url(#arc)" stroke-width="10" stroke-linecap="round" filter="url(#softGlow)"/>
+    <circle cx="14" cy="220" r="4" fill="#93C5FD"/>
+    <circle cx="106" cy="182" r="4" fill="#93C5FD"/>
+    <circle cx="192" cy="148" r="4" fill="#93C5FD"/>
+    <circle cx="274" cy="112" r="4" fill="#93C5FD"/>
+    <circle cx="346" cy="64" r="4" fill="#93C5FD"/>
+  </g>
+
+  <g transform="translate(0 -4)">
+    <path d="M426 72 L438 100 L468 102 L444 120 L452 148 L426 132 L400 148 L408 120 L384 102 L414 100 Z" fill="#FCD34D"/>
+    <path d="M426 80 L434 97 L452 98 L438 110 L442 127 L426 118 L410 127 L414 110 L400 98 L418 97 Z" fill="#FFF7D6"/>
+  </g>
+</svg>
