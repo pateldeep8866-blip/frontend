@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { getSupabaseClient } from "@/app/api/_lib/supabaseClient";
 
 function Badge({ value }) {
   const v = (value || "").toUpperCase();
@@ -77,6 +78,40 @@ const FX_CURRENCY_OPTIONS = [
   { code: "AED", name: "UAE Dirham", aliases: ["uae", "united arab emirates", "dirham", "dubai"] },
   { code: "MXN", name: "Mexican Peso", aliases: ["mexico", "peso"] },
 ];
+
+const DEFAULT_QUIZ_ANSWERS = {
+  goal: "",
+  horizon: "",
+  drawdownAction: "",
+  riskTolerance: "",
+  incomeStability: "",
+  experience: "",
+  analysisStyle: "",
+  reviewFrequency: "",
+  assetClasses: [],
+  regionFocus: "",
+  sectorPreferences: [],
+  exclusions: "",
+  liquidityNeeds: "",
+  ethicalPreference: "",
+  ethicalOther: "",
+  dayTradingInterest: "",
+  dayTradingMarkets: [],
+  dayTradingTime: "",
+  followupChange: "",
+  followupNotes: "",
+};
+
+function normalizeQuizAnswers(value) {
+  const raw = value && typeof value === "object" ? value : {};
+  return {
+    ...DEFAULT_QUIZ_ANSWERS,
+    ...raw,
+    assetClasses: Array.isArray(raw.assetClasses) ? raw.assetClasses : [],
+    sectorPreferences: Array.isArray(raw.sectorPreferences) ? raw.sectorPreferences : [],
+    dayTradingMarkets: Array.isArray(raw.dayTradingMarkets) ? raw.dayTradingMarkets : [],
+  };
+}
 
 function resolveCurrencyInput(input) {
   const raw = String(input || "").trim();
@@ -470,6 +505,41 @@ export default function Home() {
         "I am ASTRA. Ask me about the current tab market (stocks, crypto, metals, FX, or world news).",
     },
   ]);
+  const [authReady, setAuthReady] = useState(false);
+  const [authUser, setAuthUser] = useState(null);
+  const [authMode, setAuthMode] = useState("signin");
+  const [authFirstName, setAuthFirstName] = useState("");
+  const [authLastName, setAuthLastName] = useState("");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authConfirmPassword, setAuthConfirmPassword] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState("");
+  const [authNotice, setAuthNotice] = useState("");
+  const [authPanelOpen, setAuthPanelOpen] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [profilePanelOpen, setProfilePanelOpen] = useState(false);
+  const [profileFirstName, setProfileFirstName] = useState("");
+  const [profileLastName, setProfileLastName] = useState("");
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState("");
+  const [profileNotice, setProfileNotice] = useState("");
+  const [welcomeBanner, setWelcomeBanner] = useState({ show: false, text: "" });
+  const [quizAnswers, setQuizAnswers] = useState(DEFAULT_QUIZ_ANSWERS);
+  const [quizCompleted, setQuizCompleted] = useState(false);
+  const [quizPanelOpen, setQuizPanelOpen] = useState(false);
+  const [quizDismissed, setQuizDismissed] = useState(false);
+  const [quizSaving, setQuizSaving] = useState(false);
+  const [quizError, setQuizError] = useState("");
+  const [quizCompletedAt, setQuizCompletedAt] = useState("");
+  const [quizFollowupMode, setQuizFollowupMode] = useState(false);
+  const [quizFollowupDue, setQuizFollowupDue] = useState(false);
+  const [dayTraderObj, setDayTraderObj] = useState(null);
+  const [dayTraderLoading, setDayTraderLoading] = useState(false);
+  const quizPromptTimerRef = useRef(null);
+  const initialQuizPromptedRef = useRef(false);
+  const followupQuizPromptedRef = useRef(false);
 
   // Market overview
   const overviewStockTickers = useMemo(() => ["SPY", "QQQ", "DIA", "IWM", "AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META"], []);
@@ -529,6 +599,189 @@ export default function Home() {
   useEffect(() => {
     localStorage.setItem("theme_mode", theme);
   }, [theme]);
+
+  useEffect(() => {
+    let mounted = true;
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setAuthReady(true);
+      return;
+    }
+
+    const inRecoveryFlow =
+      (typeof window !== "undefined" && window.location.hash.includes("type=recovery")) ||
+      (typeof window !== "undefined" && window.location.search.includes("type=recovery"));
+    if (inRecoveryFlow) {
+      setAuthPanelOpen(true);
+      setAuthMode("reset");
+      setAuthNotice("Reset flow detected. Enter and confirm your new password.");
+    }
+
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (!mounted) return;
+        setAuthUser(data?.session?.user || null);
+        setAuthReady(true);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setAuthUser(null);
+        setAuthReady(true);
+      });
+
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      setAuthUser(session?.user || null);
+      if (event === "PASSWORD_RECOVERY") {
+        setAuthPanelOpen(true);
+        setAuthMode("reset");
+        setAuthNotice("Recovery confirmed. Set your new password.");
+      }
+    });
+
+    return () => {
+      mounted = false;
+      data?.subscription?.unsubscribe();
+    };
+  }, []);
+
+  const displayName = useMemo(() => {
+    const md = authUser?.user_metadata || {};
+    const full = String(md?.full_name || "").trim();
+    const first = String(md?.first_name || "").trim();
+    const last = String(md?.last_name || "").trim();
+    const email = String(authUser?.email || "").trim();
+    if (full) return full;
+    if (first || last) return `${first} ${last}`.trim();
+    if (email.includes("@")) return email.split("@")[0];
+    return "Investor";
+  }, [authUser]);
+
+  const userInitials = useMemo(() => {
+    const name = String(displayName || "").trim();
+    if (!name) return "U";
+    const parts = name.split(/\s+/).filter(Boolean);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return `${parts[0][0] || ""}${parts[1][0] || ""}`.toUpperCase();
+  }, [displayName]);
+
+  useEffect(() => {
+    if (!authUser?.id) {
+      setWelcomeBanner({ show: false, text: "" });
+      return;
+    }
+
+    try {
+      const key = `auth_welcome_seen_${authUser.id}`;
+      const hasSeen = localStorage.getItem(key) === "true";
+      const msg = hasSeen ? `Welcome back, ${displayName}.` : `Welcome, ${displayName}.`;
+      setWelcomeBanner({ show: true, text: msg });
+      localStorage.setItem(key, "true");
+      const t = setTimeout(() => setWelcomeBanner({ show: false, text: "" }), 60000);
+      return () => clearTimeout(t);
+    } catch {
+      setWelcomeBanner({ show: true, text: `Welcome, ${displayName}.` });
+      const t = setTimeout(() => setWelcomeBanner({ show: false, text: "" }), 60000);
+      return () => clearTimeout(t);
+    }
+  }, [authUser?.id, displayName]);
+
+  useEffect(() => {
+    if (!authUser) return;
+    const md = authUser.user_metadata || {};
+    setProfileFirstName(String(md.first_name || ""));
+    setProfileLastName(String(md.last_name || ""));
+  }, [authUser]);
+
+  useEffect(() => {
+    initialQuizPromptedRef.current = false;
+    followupQuizPromptedRef.current = false;
+    if (quizPromptTimerRef.current) {
+      clearTimeout(quizPromptTimerRef.current);
+      quizPromptTimerRef.current = null;
+    }
+
+    if (!authUser?.id) {
+      setQuizCompleted(false);
+      setQuizAnswers(DEFAULT_QUIZ_ANSWERS);
+      setQuizPanelOpen(false);
+      setQuizFollowupMode(false);
+      setQuizFollowupDue(false);
+      setQuizCompletedAt("");
+      setQuizDismissed(false);
+      return;
+    }
+
+    const metaQuiz = normalizeQuizAnswers(authUser?.user_metadata?.profile_quiz);
+    const metaCompleted = Boolean(authUser?.user_metadata?.profile_quiz_completed);
+
+    let localQuiz = DEFAULT_QUIZ_ANSWERS;
+    let localCompleted = false;
+    let localCompletedAt = "";
+    try {
+      const q = localStorage.getItem(`profile_quiz_answers_${authUser.id}`);
+      const c = localStorage.getItem(`profile_quiz_completed_${authUser.id}`);
+      const at = localStorage.getItem(`profile_quiz_completed_at_${authUser.id}`);
+      if (q) localQuiz = normalizeQuizAnswers(JSON.parse(q));
+      localCompleted = c === "true";
+      localCompletedAt = at || "";
+    } catch {}
+
+    const useMeta = metaCompleted || Object.values(metaQuiz).some((v) => (Array.isArray(v) ? v.length > 0 : Boolean(v)));
+    const mergedQuiz = useMeta ? metaQuiz : localQuiz;
+    const completed = useMeta ? metaCompleted : localCompleted;
+    const metaCompletedAt = String(authUser?.user_metadata?.profile_quiz_completed_at || "");
+    const completedAt = metaCompletedAt || localCompletedAt || "";
+
+    setQuizAnswers(mergedQuiz);
+    setQuizCompleted(completed);
+    setQuizDismissed(false);
+    setQuizCompletedAt(completedAt);
+
+    const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+    const due = Boolean(completedAt) && Date.now() - new Date(completedAt).getTime() >= THIRTY_DAYS_MS;
+    setQuizFollowupDue(due);
+    setQuizFollowupMode(due);
+  }, [authUser]);
+
+  useEffect(() => {
+    if (!authUser?.id) return;
+    try {
+      localStorage.setItem(`profile_quiz_answers_${authUser.id}`, JSON.stringify(quizAnswers));
+      localStorage.setItem(`profile_quiz_completed_${authUser.id}`, String(quizCompleted));
+      localStorage.setItem(`profile_quiz_completed_at_${authUser.id}`, String(quizCompletedAt || ""));
+    } catch {}
+  }, [authUser, quizAnswers, quizCompleted, quizCompletedAt]);
+
+  useEffect(() => {
+    if (!authUser?.id) return;
+    if (quizPanelOpen) return;
+
+    if (!quizCompleted && !quizDismissed && !initialQuizPromptedRef.current) {
+      initialQuizPromptedRef.current = true;
+      if (quizPromptTimerRef.current) clearTimeout(quizPromptTimerRef.current);
+      quizPromptTimerRef.current = setTimeout(() => {
+        setQuizPanelOpen(true);
+        setQuizDismissed(false);
+      }, 30000);
+      return () => {
+        if (quizPromptTimerRef.current) clearTimeout(quizPromptTimerRef.current);
+      };
+    }
+
+    if (quizCompleted && quizFollowupDue && !quizDismissed && !followupQuizPromptedRef.current) {
+      followupQuizPromptedRef.current = true;
+      if (quizPromptTimerRef.current) clearTimeout(quizPromptTimerRef.current);
+      quizPromptTimerRef.current = setTimeout(() => {
+        setQuizFollowupMode(true);
+        setQuizPanelOpen(true);
+        setQuizDismissed(false);
+      }, 30000);
+      return () => {
+        if (quizPromptTimerRef.current) clearTimeout(quizPromptTimerRef.current);
+      };
+    }
+  }, [authUser, quizCompleted, quizFollowupDue, quizPanelOpen, quizDismissed]);
 
   useEffect(() => {
     setTicker("");
@@ -1065,6 +1318,7 @@ export default function Home() {
   // Initial loads
   useEffect(() => {
     fetchDailyPick();
+    fetchDayTraderPick();
     fetchOverview();
     fetchMarketNews();
     setTimeout(fetchMovers, 1200);
@@ -1072,6 +1326,11 @@ export default function Home() {
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assetMode]);
+
+  useEffect(() => {
+    fetchDayTraderPick();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUser, quizCompleted, quizAnswers.dayTradingInterest, quizAnswers.dayTradingMarkets, quizAnswers.dayTradingTime, assetMode]);
 
   useEffect(() => {
     if (assetMode !== "fx") return;
@@ -1188,12 +1447,12 @@ export default function Home() {
           );
           const aiData = await aiRes.json().catch(() => ({}));
           if (!aiRes.ok) {
-            setAnalysisObj({ note: aiData?.error || `AI analysis failed (${aiRes.status}).` });
+            setAnalysisObj({ note: aiData?.error || `Analytical information failed (${aiRes.status}).` });
           } else {
             setAnalysisObj(aiData);
           }
         } catch {
-          setAnalysisObj({ note: "AI analysis unavailable." });
+          setAnalysisObj({ note: "Analytical information unavailable." });
         } finally {
           setAnalysisLoading(false);
         }
@@ -1281,12 +1540,12 @@ export default function Home() {
           );
           const aiData = await aiRes.json().catch(() => ({}));
           if (!aiRes.ok) {
-            setAnalysisObj({ note: aiData?.error || `AI analysis failed (${aiRes.status}).` });
+            setAnalysisObj({ note: aiData?.error || `Analytical information failed (${aiRes.status}).` });
           } else {
             setAnalysisObj(aiData);
           }
         } catch {
-          setAnalysisObj({ note: "AI analysis unavailable." });
+          setAnalysisObj({ note: "Analytical information unavailable." });
         } finally {
           setAnalysisLoading(false);
         }
@@ -1379,12 +1638,12 @@ export default function Home() {
           );
           const aiData = await aiRes.json().catch(() => ({}));
           if (!aiRes.ok) {
-            setAnalysisObj({ note: aiData?.error || `AI analysis failed (${aiRes.status}).` });
+            setAnalysisObj({ note: aiData?.error || `Analytical information failed (${aiRes.status}).` });
           } else {
             setAnalysisObj(aiData);
           }
         } catch {
-          setAnalysisObj({ note: "AI analysis unavailable." });
+          setAnalysisObj({ note: "Analytical information unavailable." });
         } finally {
           setAnalysisLoading(false);
         }
@@ -1411,6 +1670,295 @@ export default function Home() {
     setAnalysisObj(null);
     setChartPoints([]);
     setErrorMsg("");
+  };
+
+  const handleAuthSubmit = async () => {
+    const email = authEmail.trim();
+    const password = authPassword;
+    const confirmPassword = authConfirmPassword;
+    const firstName = authFirstName.trim();
+    const lastName = authLastName.trim();
+
+    if (authMode === "forgot") return;
+
+    if (authMode === "reset") {
+      if (!password || !confirmPassword) {
+        setAuthError("New password and confirm password are required.");
+        return;
+      }
+      if (password !== confirmPassword) {
+        setAuthError("Passwords do not match.");
+        return;
+      }
+      if (password.length < 8) {
+        setAuthError("Password must be at least 8 characters.");
+        return;
+      }
+    } else {
+      if (!email || !password) {
+        setAuthError("Email and password are required.");
+        return;
+      }
+    }
+
+    if (authMode === "signup" && (!firstName || !lastName)) {
+      setAuthError("First name and last name are required for sign up.");
+      return;
+    }
+    if (authMode !== "forgot" && authMode !== "reset" && password.length < 8) {
+      setAuthError("Password must be at least 8 characters.");
+      return;
+    }
+    if (authMode === "signup" && password !== confirmPassword) {
+      setAuthError("Passwords do not match.");
+      return;
+    }
+
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setAuthError("Authentication is not configured. Add Supabase env vars.");
+      return;
+    }
+
+    try {
+      setAuthLoading(true);
+      setAuthError("");
+      setAuthNotice("");
+
+      if (authMode === "reset") {
+        const { error } = await supabase.auth.updateUser({ password });
+        if (error) {
+          setAuthError(error.message || "Password reset failed.");
+          return;
+        }
+        setAuthNotice("Password updated successfully. You can now continue.");
+        setAuthPassword("");
+        setAuthConfirmPassword("");
+        setAuthMode("signin");
+        if (typeof window !== "undefined") {
+          window.history.replaceState({}, "", window.location.pathname);
+        }
+      } else if (authMode === "signup") {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              first_name: firstName,
+              last_name: lastName,
+              full_name: `${firstName} ${lastName}`.trim(),
+            },
+            emailRedirectTo: typeof window !== "undefined" ? window.location.origin : undefined,
+          },
+        });
+        if (error) {
+          setAuthError(error.message || "Sign up failed.");
+          return;
+        }
+        setAuthNotice("Account created. You can now sign in.");
+        setAuthMode("signin");
+        setAuthFirstName("");
+        setAuthLastName("");
+        setAuthPassword("");
+        setAuthConfirmPassword("");
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) {
+          setAuthError(error.message || "Sign in failed.");
+          return;
+        }
+        setAuthPassword("");
+        setAuthConfirmPassword("");
+        setAuthPanelOpen(false);
+      }
+    } catch {
+      setAuthError("Authentication failed. Please try again.");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    const email = authEmail.trim();
+    if (!email) {
+      setAuthError("Enter your email first.");
+      return;
+    }
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setAuthError("Authentication is not configured. Add Supabase env vars.");
+      return;
+    }
+    try {
+      setAuthLoading(true);
+      setAuthError("");
+      setAuthNotice("");
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: typeof window !== "undefined" ? window.location.origin : undefined,
+      });
+      if (error) {
+        setAuthError(error.message || "Could not send reset email.");
+        return;
+      }
+      setAuthNotice("Reset email sent. Open the email link, then set your new password.");
+    } catch {
+      setAuthError("Could not send reset email. Please try again.");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
+    await supabase.auth.signOut();
+    setAuthUser(null);
+    setUserMenuOpen(false);
+    setProfilePanelOpen(false);
+  };
+
+  const handleSaveProfileName = async () => {
+    const supabase = getSupabaseClient();
+    if (!supabase || !authUser) {
+      setProfileError("Profile update is unavailable.");
+      return;
+    }
+    const first = profileFirstName.trim();
+    const last = profileLastName.trim();
+    if (!first || !last) {
+      setProfileError("First name and last name are required.");
+      return;
+    }
+    try {
+      setProfileLoading(true);
+      setProfileError("");
+      setProfileNotice("");
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          first_name: first,
+          last_name: last,
+          full_name: `${first} ${last}`.trim(),
+        },
+      });
+      if (error) {
+        setProfileError(error.message || "Could not update profile.");
+        return;
+      }
+      setProfileNotice("Profile updated.");
+    } catch {
+      setProfileError("Could not update profile.");
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
+  const updateQuizField = (field, value) => {
+    setQuizAnswers((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const toggleQuizArrayValue = (field, value) => {
+    setQuizAnswers((prev) => {
+      const current = Array.isArray(prev[field]) ? prev[field] : [];
+      const next = current.includes(value) ? current.filter((x) => x !== value) : [...current, value];
+      return { ...prev, [field]: next };
+    });
+  };
+
+  const validateQuiz = () => {
+    if (quizFollowupMode) {
+      if (!quizAnswers.followupChange) return "Please answer the follow-up question.";
+      return "";
+    }
+
+    const required = [
+      ["goal", "Goal"],
+      ["horizon", "Investment horizon"],
+      ["drawdownAction", "Drawdown behavior"],
+      ["riskTolerance", "Risk tolerance"],
+      ["incomeStability", "Income stability"],
+      ["experience", "Experience"],
+      ["analysisStyle", "Analysis style"],
+      ["reviewFrequency", "Review frequency"],
+      ["regionFocus", "Region focus"],
+      ["liquidityNeeds", "Liquidity needs"],
+      ["ethicalPreference", "Ethical preference"],
+      ["dayTradingInterest", "Day trading interest"],
+    ];
+    for (const [key, label] of required) {
+      if (!String(quizAnswers[key] || "").trim()) return `${label} is required.`;
+    }
+    if (!Array.isArray(quizAnswers.assetClasses) || quizAnswers.assetClasses.length === 0) {
+      return "Select at least one preferred asset class.";
+    }
+    if (quizAnswers.dayTradingInterest.startsWith("yes") && quizAnswers.dayTradingMarkets.length === 0) {
+      return "Select at least one day-trading market.";
+    }
+    if (quizAnswers.dayTradingInterest.startsWith("yes") && !quizAnswers.dayTradingTime) {
+      return "Select time available per day for day trading.";
+    }
+    return "";
+  };
+
+  const submitQuiz = async () => {
+    const err = validateQuiz();
+    if (err) {
+      setQuizError(err);
+      return;
+    }
+    setQuizError("");
+    setQuizSaving(true);
+    setQuizCompleted(true);
+    setQuizDismissed(false);
+    setQuizPanelOpen(false);
+    const completedAtIso = new Date().toISOString();
+    setQuizCompletedAt(completedAtIso);
+    setQuizFollowupDue(false);
+    setQuizFollowupMode(false);
+
+    const supabase = getSupabaseClient();
+    if (supabase && authUser) {
+      try {
+        await supabase.auth.updateUser({
+          data: {
+            profile_quiz: quizAnswers,
+            profile_quiz_completed: true,
+            profile_quiz_completed_at: completedAtIso,
+            profile_quiz_last_followup_change: quizAnswers.followupChange || "",
+            profile_quiz_last_followup_notes: quizAnswers.followupNotes || "",
+          },
+        });
+      } catch {}
+    }
+    setQuizSaving(false);
+  };
+
+  const fetchDayTraderPick = async () => {
+    const enabled = Boolean(authUser && quizCompleted && String(quizAnswers.dayTradingInterest || "").startsWith("yes"));
+    if (!enabled || assetMode === "fx" || assetMode === "news") {
+      setDayTraderObj(null);
+      return;
+    }
+    try {
+      setDayTraderLoading(true);
+      const profileHint = encodeURIComponent(
+        JSON.stringify({
+          riskTolerance: quizAnswers.riskTolerance,
+          horizon: quizAnswers.horizon,
+          dayTradingInterest: quizAnswers.dayTradingInterest,
+          dayTradingMarkets: quizAnswers.dayTradingMarkets,
+          dayTradingTime: quizAnswers.dayTradingTime,
+          analysisStyle: quizAnswers.analysisStyle,
+          experience: quizAnswers.experience,
+        })
+      );
+      const res = await fetch(`/api/ai?mode=day_trader&market=${assetMode}&profile=${profileHint}`);
+      const data = await res.json().catch(() => ({}));
+      setDayTraderObj(data);
+    } catch {
+      setDayTraderObj({ note: "Day trader pick unavailable." });
+    } finally {
+      setDayTraderLoading(false);
+    }
   };
 
   const analysisSummaryText = () => {
@@ -1447,7 +1995,7 @@ export default function Home() {
     if (!text) return;
     try {
       if (navigator.share) {
-        await navigator.share({ title: `Arthastra AI: ${analysisView.ticker}`, text });
+        await navigator.share({ title: `Arthastra Analytical Information: ${analysisView.ticker}`, text });
       } else {
         await navigator.clipboard.writeText(text);
       }
@@ -1468,8 +2016,22 @@ export default function Home() {
     setChatLoading(true);
 
     try {
+      const profileHint =
+        authUser && quizCompleted
+          ? encodeURIComponent(
+              JSON.stringify({
+                goal: quizAnswers.goal,
+                horizon: quizAnswers.horizon,
+                riskTolerance: quizAnswers.riskTolerance,
+                experience: quizAnswers.experience,
+                analysisStyle: quizAnswers.analysisStyle,
+                dayTradingInterest: quizAnswers.dayTradingInterest,
+                dayTradingMarkets: quizAnswers.dayTradingMarkets,
+              })
+            )
+          : "";
       const res = await fetch(
-        `/api/ai?mode=chat&market=${assetMode}&question=${encodeURIComponent(question)}&symbol=${encodeURIComponent(ctxSymbol)}&price=${encodeURIComponent(priceForApi)}`
+        `/api/ai?mode=chat&market=${assetMode}&question=${encodeURIComponent(question)}&symbol=${encodeURIComponent(ctxSymbol)}&price=${encodeURIComponent(priceForApi)}${profileHint ? `&profile=${profileHint}` : ""}`
       );
       const data = await res.json().catch(() => ({}));
       const answer = cleanChatAnswer(data?.answer || data?.raw || data?.error || "I could not generate a reply.");
@@ -1477,7 +2039,7 @@ export default function Home() {
     } catch {
       setChatMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "Network issue. Please try again. Educational only. Not financial advice." },
+        { role: "assistant", content: "Network issue. Please try again. For informational purposes only. Not financial advice." },
       ]);
     } finally {
       setChatLoading(false);
@@ -1485,6 +2047,7 @@ export default function Home() {
   };
 
   const dailyView = normalizeAiPayload(dailyObj);
+  const dayTraderView = normalizeAiPayload(dayTraderObj);
   const analysisView = normalizeAiPayload(analysisObj);
   const isLight = theme === "light";
   const trendDelta =
@@ -1519,13 +2082,15 @@ export default function Home() {
   const isNewsMode = assetMode === "news";
   const isMetalsMode = assetMode === "metals";
   const overviewLoop = overview.length ? [...overview, ...overview] : [];
+  const supabaseConfigured = Boolean(getSupabaseClient());
+  const dayTraderEligible = Boolean(authUser && quizCompleted && String(quizAnswers.dayTradingInterest || "").startsWith("yes"));
 
   return (
-    <div className={`min-h-screen relative overflow-hidden ${isLight ? "bg-white text-slate-900" : "bg-slate-950 text-white"}`}>
-      <div className={isLight ? "invert hue-rotate-180 brightness-110 saturate-75" : ""}>
-        <div className="pointer-events-none absolute -top-24 -left-20 h-80 w-80 rounded-full bg-cyan-500/12 blur-3xl" />
-        <div className="pointer-events-none absolute top-1/3 -right-28 h-96 w-96 rounded-full bg-blue-500/10 blur-3xl" />
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(59,130,246,0.08),transparent_35%),radial-gradient(circle_at_80%_70%,rgba(14,165,233,0.07),transparent_35%)]" />
+    <div className={`min-h-screen relative overflow-hidden ${isLight ? "bg-[#f8fbff] text-slate-900" : "bg-slate-950 text-white"}`}>
+      <div className={isLight ? "invert hue-rotate-180 brightness-102 saturate-62 contrast-95" : ""}>
+        <div className={`pointer-events-none absolute -top-24 -left-20 h-80 w-80 rounded-full blur-3xl ${isLight ? "bg-sky-200/25" : "bg-cyan-500/12"}`} />
+        <div className={`pointer-events-none absolute top-1/3 -right-28 h-96 w-96 rounded-full blur-3xl ${isLight ? "bg-blue-200/25" : "bg-blue-500/10"}`} />
+        <div className={`pointer-events-none absolute inset-0 ${isLight ? "bg-[radial-gradient(circle_at_20%_10%,rgba(56,189,248,0.10),transparent_38%),radial-gradient(circle_at_80%_70%,rgba(147,197,253,0.12),transparent_40%)]" : "bg-[radial-gradient(circle_at_20%_10%,rgba(59,130,246,0.08),transparent_35%),radial-gradient(circle_at_80%_70%,rgba(14,165,233,0.07),transparent_35%)]"}`}/>
 
         <div className="relative z-10 mx-auto w-full max-w-6xl px-6 py-10 md:py-14">
         {/* HEADER */}
@@ -1533,70 +2098,636 @@ export default function Home() {
           <div className="absolute left-6 top-0">
             <div className="inline-flex rounded-xl overflow-hidden border border-white/15 bg-slate-900/60">
               <button
-                onClick={() => setAssetMode("stock")}
-                className={`px-3 py-1.5 text-xs font-semibold ${assetMode === "stock" ? "bg-blue-600 text-white" : "bg-transparent text-white/80"}`}
+                onClick={() => setTheme("dark")}
+                className={`px-3 py-1.5 text-xs font-semibold ${theme === "dark" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-800" : "bg-transparent text-white/85"}`}
               >
-                Stock
+                Dark
               </button>
               <button
-                onClick={() => setAssetMode("crypto")}
-                className={`px-3 py-1.5 text-xs font-semibold ${assetMode === "crypto" ? "bg-blue-600 text-white" : "bg-transparent text-white/80"}`}
+                onClick={() => setTheme("light")}
+                className={`px-3 py-1.5 text-xs font-semibold ${theme === "light" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-800" : "bg-transparent text-white/85"}`}
               >
-                Crypto
-              </button>
-              <button
-                onClick={() => setAssetMode("metals")}
-                className={`px-3 py-1.5 text-xs font-semibold ${assetMode === "metals" ? "bg-blue-600 text-white" : "bg-transparent text-white/80"}`}
-              >
-                Metals
-              </button>
-              <button
-                onClick={() => setAssetMode("fx")}
-                className={`px-3 py-1.5 text-xs font-semibold ${assetMode === "fx" ? "bg-blue-600 text-white" : "bg-transparent text-white/80"}`}
-              >
-                FX
-              </button>
-              <button
-                onClick={() => setAssetMode("news")}
-                className={`px-3 py-1.5 text-xs font-semibold ${assetMode === "news" ? "bg-blue-600 text-white" : "bg-transparent text-white/80"}`}
-              >
-                News
+                Light
               </button>
             </div>
           </div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-slate-900/70 px-4 py-2 text-sm text-white/85 shadow-sm">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/arthastra-premium-logo-alt2.svg" alt="Arthastra AI logo" className="h-7 w-7 rounded-sm ring-1 ring-white/25" />
-            Arthastra AI {assetMode === "crypto" ? "Crypto" : assetMode === "metals" ? "Metals" : assetMode === "fx" ? "FX" : assetMode === "news" ? "News" : "Stock"}
+          <div className="absolute right-6 top-0 z-40 flex items-center gap-2">
+            <div className="relative">
+              <button
+                onClick={() => setSupportOpen((v) => !v)}
+                className="px-3 py-1.5 rounded-lg border border-white/15 bg-slate-900/60 text-xs text-white/85 hover:bg-slate-800/70"
+              >
+                Help
+              </button>
+              {supportOpen && (
+                <div className="absolute right-0 top-full mt-2 w-72 rounded-xl border border-white/15 bg-slate-900/95 p-3 shadow-2xl z-30">
+                  <div className="text-xs text-white/70">Support Email</div>
+                  <a href="mailto:support@arthastraai.com" className="block text-sm text-white mt-1 underline">
+                    support@arthastraai.com
+                  </a>
+                  <button
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText("support@arthastraai.com");
+                      } catch {}
+                    }}
+                    className="mt-2 px-2.5 py-1.5 rounded-md bg-white/10 hover:bg-white/15 text-xs text-white/90"
+                  >
+                    Copy email
+                  </button>
+                </div>
+              )}
+            </div>
+            {authUser ? (
+              <div className="relative">
+                <button
+                  onClick={() => setUserMenuOpen((v) => !v)}
+                  className="h-8 min-w-8 px-2 rounded-full border border-white/20 bg-slate-900/70 text-xs font-semibold text-white shadow"
+                  title={displayName}
+                >
+                  {userInitials}
+                </button>
+                {userMenuOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-52 rounded-xl border border-white/15 bg-slate-900/95 p-2 shadow-2xl z-30">
+                    <button
+                      onClick={() => {
+                        setProfilePanelOpen(true);
+                        setUserMenuOpen(false);
+                        setProfileError("");
+                        setProfileNotice("");
+                      }}
+                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 text-sm text-white/90"
+                    >
+                      Profile
+                    </button>
+                    <button
+                      onClick={() => {
+                        setQuizPanelOpen(true);
+                        setQuizFollowupMode(false);
+                        setQuizDismissed(false);
+                        setUserMenuOpen(false);
+                      }}
+                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 text-sm text-white/90"
+                    >
+                      Change preferences
+                    </button>
+                    <button
+                      onClick={handleSignOut}
+                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 text-sm text-red-200"
+                    >
+                      Sign out
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button
+                onClick={() => {
+                  setAuthPanelOpen((v) => !v);
+                  setAuthError("");
+                  setAuthNotice("");
+                }}
+                className="px-3 py-1.5 rounded-lg border border-white/15 bg-slate-900/60 text-xs text-white/85 hover:bg-slate-800/70"
+              >
+                Login / Signup
+              </button>
+            )}
           </div>
           <div className="mt-4 flex justify-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/arthastra-premium-logo-alt2.svg"
-              alt="Arthastra AI emblem"
+              alt="Arthastra Analytical Information emblem"
               className="h-20 w-20 md:h-24 md:w-24 rounded-2xl border border-white/20 shadow-[0_10px_30px_-18px_rgba(34,211,238,0.8)] bg-slate-900/60 p-2"
             />
           </div>
-          <h1 className="text-4xl md:text-6xl font-semibold mt-4 tracking-tight bg-gradient-to-r from-white via-cyan-100 to-sky-200 bg-clip-text text-transparent">
-            Arthastra AI
+          <h1 className="text-3xl md:text-5xl font-semibold mt-4 tracking-tight bg-gradient-to-r from-white via-cyan-100 to-sky-200 bg-clip-text text-transparent">
+            Arthastra Analytical Information
           </h1>
           <p className="text-slate-300/80 mt-3 text-lg">Clarity in Every Market.</p>
           <p className="text-slate-400/80 text-xs mt-3">Founder: Deep Patel • Co-founder: Juan Ramirez</p>
           <div className="mt-5 inline-flex rounded-xl overflow-hidden border border-white/15 bg-slate-900/60">
             <button
-              onClick={() => setTheme("dark")}
-              className={`px-3 py-1.5 text-xs font-semibold ${theme === "dark" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-800" : "bg-transparent text-white/85"}`}
+              onClick={() => setAssetMode("stock")}
+              className={`px-3 py-1.5 text-xs font-semibold ${assetMode === "stock" ? "bg-blue-600 text-white" : "bg-transparent text-white/80"}`}
             >
-              Dark
+              Stock
             </button>
             <button
-              onClick={() => setTheme("light")}
-              className={`px-3 py-1.5 text-xs font-semibold ${theme === "light" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-800" : "bg-transparent text-white/85"}`}
+              onClick={() => setAssetMode("crypto")}
+              className={`px-3 py-1.5 text-xs font-semibold ${assetMode === "crypto" ? "bg-blue-600 text-white" : "bg-transparent text-white/80"}`}
             >
-              Light
+              Crypto
+            </button>
+            <button
+              onClick={() => setAssetMode("metals")}
+              className={`px-3 py-1.5 text-xs font-semibold ${assetMode === "metals" ? "bg-blue-600 text-white" : "bg-transparent text-white/80"}`}
+            >
+              Metals
+            </button>
+            <button
+              onClick={() => setAssetMode("fx")}
+              className={`px-3 py-1.5 text-xs font-semibold ${assetMode === "fx" ? "bg-blue-600 text-white" : "bg-transparent text-white/80"}`}
+            >
+              FX
+            </button>
+            <button
+              onClick={() => setAssetMode("news")}
+              className={`px-3 py-1.5 text-xs font-semibold ${assetMode === "news" ? "bg-blue-600 text-white" : "bg-transparent text-white/80"}`}
+            >
+              News
             </button>
           </div>
         </div>
+
+        {welcomeBanner.show && (
+          <div className="mb-6">
+            <Card title="Welcome">
+              <div className="text-sm text-white/90">{welcomeBanner.text}</div>
+            </Card>
+          </div>
+        )}
+
+        {!authUser && authPanelOpen && (
+          <div className="mb-6">
+            <Card
+              title="Account Access"
+              right={
+                <button
+                  onClick={() => setAuthPanelOpen(false)}
+                  className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs"
+                >
+                  Close
+                </button>
+              }
+            >
+              <div className="text-sm text-white/80">
+                Optional now. Required later for advanced member-only features.
+              </div>
+              {!supabaseConfigured ? (
+                <div className="mt-3 rounded-xl border border-amber-400/30 bg-amber-500/10 text-amber-200 px-3 py-2 text-sm">
+                  Auth is not configured yet. Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+                </div>
+              ) : (
+                <>
+                  <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {authMode === "signup" && (
+                      <>
+                        <input
+                          type="text"
+                          value={authFirstName}
+                          onChange={(e) => setAuthFirstName(e.target.value)}
+                          placeholder="First name"
+                          className="w-full px-4 py-3 rounded-xl bg-white text-black border-2 border-white/20 outline-none focus:border-blue-500"
+                        />
+                        <input
+                          type="text"
+                          value={authLastName}
+                          onChange={(e) => setAuthLastName(e.target.value)}
+                          placeholder="Last name"
+                          className="w-full px-4 py-3 rounded-xl bg-white text-black border-2 border-white/20 outline-none focus:border-blue-500"
+                        />
+                      </>
+                    )}
+                    {authMode !== "reset" && (
+                      <input
+                        type="email"
+                        value={authEmail}
+                        onChange={(e) => setAuthEmail(e.target.value)}
+                        placeholder="Email"
+                        className="w-full px-4 py-3 rounded-xl bg-white text-black border-2 border-white/20 outline-none focus:border-blue-500"
+                      />
+                    )}
+                    {(authMode === "signin" || authMode === "signup" || authMode === "reset") && (
+                      <input
+                        type="password"
+                        value={authPassword}
+                        onChange={(e) => setAuthPassword(e.target.value)}
+                        placeholder={authMode === "reset" ? "New password (min 8 chars)" : "Password (min 8 chars)"}
+                        className="w-full px-4 py-3 rounded-xl bg-white text-black border-2 border-white/20 outline-none focus:border-blue-500"
+                      />
+                    )}
+                    {(authMode === "signup" || authMode === "reset") && (
+                      <input
+                        type="password"
+                        value={authConfirmPassword}
+                        onChange={(e) => setAuthConfirmPassword(e.target.value)}
+                        placeholder="Confirm password"
+                        className="w-full px-4 py-3 rounded-xl bg-white text-black border-2 border-white/20 outline-none focus:border-blue-500"
+                      />
+                    )}
+                  </div>
+
+                  {authError && (
+                    <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-200 px-3 py-2 text-sm">
+                      {authError}
+                    </div>
+                  )}
+                  {authNotice && (
+                    <div className="mt-3 rounded-lg border border-emerald-400/30 bg-emerald-500/10 text-emerald-200 px-3 py-2 text-sm">
+                      {authNotice}
+                    </div>
+                  )}
+
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
+                    {authMode !== "forgot" && (
+                      <button
+                        onClick={handleAuthSubmit}
+                        disabled={authLoading || !authReady}
+                        className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold disabled:opacity-60"
+                      >
+                        {authLoading
+                          ? "Please wait..."
+                          : authMode === "signup"
+                            ? "Create Account"
+                            : authMode === "reset"
+                              ? "Update Password"
+                              : "Sign In"}
+                      </button>
+                    )}
+                    {authMode === "signin" && (
+                      <button
+                        onClick={() => {
+                          setAuthMode("forgot");
+                          setAuthError("");
+                          setAuthNotice("");
+                        }}
+                        className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white/90 text-sm"
+                      >
+                        Forgot Password
+                      </button>
+                    )}
+                    {authMode === "forgot" && (
+                      <>
+                        <button
+                          onClick={handleForgotPassword}
+                          disabled={authLoading || !authReady}
+                          className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold disabled:opacity-60"
+                        >
+                          Send Reset Email
+                        </button>
+                        <button
+                          onClick={() => {
+                            setAuthMode("signin");
+                            setAuthError("");
+                            setAuthNotice("");
+                          }}
+                          className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white/90 text-sm"
+                        >
+                          Back to Sign in
+                        </button>
+                      </>
+                    )}
+                    <button
+                      onClick={() => {
+                        setAuthMode((prev) => (prev === "signin" ? "signup" : "signin"));
+                        setAuthError("");
+                        setAuthNotice("");
+                        setAuthFirstName("");
+                        setAuthLastName("");
+                        setAuthConfirmPassword("");
+                      }}
+                      disabled={authMode === "forgot" || authMode === "reset"}
+                      className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white/90 text-sm"
+                    >
+                      {authMode === "signin" ? "Switch to Sign up" : "Switch to Sign in"}
+                    </button>
+                    <span className="text-xs text-white/60">
+                      {authReady ? (authUser?.email ? `Signed in as ${authUser.email}` : "Guest mode active") : "Checking session..."}
+                    </span>
+                  </div>
+                </>
+              )}
+            </Card>
+          </div>
+        )}
+
+        {authUser && profilePanelOpen && (
+          <div className="mb-6">
+            <Card
+              title="Profile"
+              right={
+                <button
+                  onClick={() => setProfilePanelOpen(false)}
+                  className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs"
+                >
+                  Close
+                </button>
+              }
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <input
+                  type="text"
+                  value={profileFirstName}
+                  onChange={(e) => setProfileFirstName(e.target.value)}
+                  placeholder="First name"
+                  className="w-full px-4 py-3 rounded-xl bg-white text-black border-2 border-white/20 outline-none focus:border-blue-500"
+                />
+                <input
+                  type="text"
+                  value={profileLastName}
+                  onChange={(e) => setProfileLastName(e.target.value)}
+                  placeholder="Last name"
+                  className="w-full px-4 py-3 rounded-xl bg-white text-black border-2 border-white/20 outline-none focus:border-blue-500"
+                />
+              </div>
+              <div className="mt-3 flex gap-2">
+                <button
+                  onClick={handleSaveProfileName}
+                  disabled={profileLoading}
+                  className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-xs font-semibold disabled:opacity-60"
+                >
+                  Save name
+                </button>
+              </div>
+
+              {profileError && (
+                <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-200 px-3 py-2 text-sm">
+                  {profileError}
+                </div>
+              )}
+              {profileNotice && (
+                <div className="mt-3 rounded-lg border border-emerald-400/30 bg-emerald-500/10 text-emerald-200 px-3 py-2 text-sm">
+                  {profileNotice}
+                </div>
+              )}
+            </Card>
+          </div>
+        )}
+
+        {authUser && !quizDismissed && (!quizCompleted || quizFollowupDue) && (
+          <div className="mb-6">
+            <Card
+              title={quizFollowupDue ? "30-Day Profile Follow-up" : "Personalization Quiz"}
+              right={
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setQuizPanelOpen(true);
+                      if (quizFollowupDue) setQuizFollowupMode(true);
+                      setQuizDismissed(false);
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-xs"
+                  >
+                    {quizFollowupDue ? "Take follow-up" : "Take quiz"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setQuizPanelOpen(false);
+                      setQuizDismissed(true);
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs"
+                  >
+                    Do it later
+                  </button>
+                </div>
+              }
+            >
+              <div className="text-sm text-white/85">
+                {quizFollowupDue
+                  ? "It has been 30 days since your last profile update. Complete a quick follow-up for better analytical picks and ASTRA support."
+                  : "Complete this optional quiz for better analytical picks and more personalized ASTRA responses."}
+              </div>
+              {!quizPanelOpen && (
+                <div className="mt-2 text-xs text-amber-200/90">
+                  Reminder: {quizFollowupDue ? "please confirm if your preferences changed." : "your profile is not complete yet, so analytical guidance is less personalized."}
+                </div>
+              )}
+            </Card>
+          </div>
+        )}
+
+        {authUser && quizPanelOpen && (
+          <div className="mb-6">
+            <Card
+              title={quizFollowupMode ? "30-Day Profile Follow-up" : "Investor Profile Quiz"}
+              right={
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setQuizPanelOpen(false);
+                      setQuizDismissed(true);
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs"
+                  >
+                    Do it later
+                  </button>
+                  <button
+                    onClick={submitQuiz}
+                    disabled={quizSaving}
+                    className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-xs disabled:opacity-60"
+                  >
+                    {quizSaving ? "Saving..." : "Save Quiz"}
+                  </button>
+                </div>
+              }
+            >
+              {quizFollowupMode && (
+                <div className="mb-4 rounded-lg border border-indigo-400/30 bg-indigo-500/10 p-3">
+                  <div className="text-sm text-indigo-100 mb-2">Any preference changes since your last quiz?</div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => updateQuizField("followupChange", "no_change")}
+                      className={`px-3 py-1.5 rounded-full border text-xs ${quizAnswers.followupChange === "no_change" ? "border-indigo-300 bg-indigo-400/25 text-indigo-100" : "border-white/15 bg-white/5 text-white/75"}`}
+                    >
+                      No, same preferences
+                    </button>
+                    <button
+                      onClick={() => updateQuizField("followupChange", "changed")}
+                      className={`px-3 py-1.5 rounded-full border text-xs ${quizAnswers.followupChange === "changed" ? "border-indigo-300 bg-indigo-400/25 text-indigo-100" : "border-white/15 bg-white/5 text-white/75"}`}
+                    >
+                      Yes, preferences changed
+                    </button>
+                  </div>
+                  {quizAnswers.followupChange === "changed" && (
+                    <input
+                      value={quizAnswers.followupNotes}
+                      onChange={(e) => updateQuizField("followupNotes", e.target.value)}
+                      placeholder="What changed? (optional notes)"
+                      className="mt-3 w-full px-3 py-2 rounded-lg bg-white text-black"
+                    />
+                  )}
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                <label className="space-y-1">
+                  <span className="text-white/70">Primary goal</span>
+                  <select value={quizAnswers.goal} onChange={(e) => updateQuizField("goal", e.target.value)} className="w-full px-3 py-2 rounded-lg bg-white text-black">
+                    <option value="">Select</option>
+                    <option value="long_term_wealth">Long-term wealth</option>
+                    <option value="passive_income">Passive income</option>
+                    <option value="active_trading">Active trading</option>
+                    <option value="capital_preservation">Capital preservation</option>
+                  </select>
+                </label>
+                <label className="space-y-1">
+                  <span className="text-white/70">Investment horizon</span>
+                  <select value={quizAnswers.horizon} onChange={(e) => updateQuizField("horizon", e.target.value)} className="w-full px-3 py-2 rounded-lg bg-white text-black">
+                    <option value="">Select</option>
+                    <option value="under_6m">Less than 6 months</option>
+                    <option value="6m_24m">6 to 24 months</option>
+                    <option value="2y_5y">2 to 5 years</option>
+                    <option value="5y_plus">5+ years</option>
+                  </select>
+                </label>
+                <label className="space-y-1">
+                  <span className="text-white/70">If portfolio drops 20%</span>
+                  <select value={quizAnswers.drawdownAction} onChange={(e) => updateQuizField("drawdownAction", e.target.value)} className="w-full px-3 py-2 rounded-lg bg-white text-black">
+                    <option value="">Select</option>
+                    <option value="sell_most">Sell most positions</option>
+                    <option value="reduce_risk">Reduce some risk</option>
+                    <option value="hold">Hold</option>
+                    <option value="buy_more">Buy more</option>
+                  </select>
+                </label>
+                <label className="space-y-1">
+                  <span className="text-white/70">Risk tolerance</span>
+                  <select value={quizAnswers.riskTolerance} onChange={(e) => updateQuizField("riskTolerance", e.target.value)} className="w-full px-3 py-2 rounded-lg bg-white text-black">
+                    <option value="">Select</option>
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                  </select>
+                </label>
+                <label className="space-y-1">
+                  <span className="text-white/70">Income stability / emergency fund</span>
+                  <select value={quizAnswers.incomeStability} onChange={(e) => updateQuizField("incomeStability", e.target.value)} className="w-full px-3 py-2 rounded-lg bg-white text-black">
+                    <option value="">Select</option>
+                    <option value="not_stable">Not stable</option>
+                    <option value="somewhat_stable">Somewhat stable</option>
+                    <option value="stable">Stable</option>
+                  </select>
+                </label>
+                <label className="space-y-1">
+                  <span className="text-white/70">Experience</span>
+                  <select value={quizAnswers.experience} onChange={(e) => updateQuizField("experience", e.target.value)} className="w-full px-3 py-2 rounded-lg bg-white text-black">
+                    <option value="">Select</option>
+                    <option value="beginner">Beginner</option>
+                    <option value="intermediate">Intermediate</option>
+                    <option value="advanced">Advanced</option>
+                  </select>
+                </label>
+                <label className="space-y-1">
+                  <span className="text-white/70">Analysis style</span>
+                  <select value={quizAnswers.analysisStyle} onChange={(e) => updateQuizField("analysisStyle", e.target.value)} className="w-full px-3 py-2 rounded-lg bg-white text-black">
+                    <option value="">Select</option>
+                    <option value="fundamental">Fundamental</option>
+                    <option value="technical">Technical</option>
+                    <option value="balanced">Balanced</option>
+                    <option value="sentiment">News / Sentiment</option>
+                  </select>
+                </label>
+                <label className="space-y-1">
+                  <span className="text-white/70">Review frequency</span>
+                  <select value={quizAnswers.reviewFrequency} onChange={(e) => updateQuizField("reviewFrequency", e.target.value)} className="w-full px-3 py-2 rounded-lg bg-white text-black">
+                    <option value="">Select</option>
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="quarterly_plus">Quarterly+</option>
+                  </select>
+                </label>
+                <label className="space-y-1">
+                  <span className="text-white/70">Region focus</span>
+                  <select value={quizAnswers.regionFocus} onChange={(e) => updateQuizField("regionFocus", e.target.value)} className="w-full px-3 py-2 rounded-lg bg-white text-black">
+                    <option value="">Select</option>
+                    <option value="us">US</option>
+                    <option value="global_developed">Global developed</option>
+                    <option value="emerging">Emerging markets</option>
+                    <option value="none">No preference</option>
+                  </select>
+                </label>
+                <label className="space-y-1">
+                  <span className="text-white/70">Liquidity needs</span>
+                  <select value={quizAnswers.liquidityNeeds} onChange={(e) => updateQuizField("liquidityNeeds", e.target.value)} className="w-full px-3 py-2 rounded-lg bg-white text-black">
+                    <option value="">Select</option>
+                    <option value="high">Need frequent access</option>
+                    <option value="medium">Moderate</option>
+                    <option value="low">Long lock-up okay</option>
+                  </select>
+                </label>
+                <label className="space-y-1">
+                  <span className="text-white/70">Ethical preference</span>
+                  <select value={quizAnswers.ethicalPreference} onChange={(e) => updateQuizField("ethicalPreference", e.target.value)} className="w-full px-3 py-2 rounded-lg bg-white text-black">
+                    <option value="">Select</option>
+                    <option value="esg">ESG</option>
+                    <option value="shariah">Shariah</option>
+                    <option value="none">No preference</option>
+                    <option value="other">Other</option>
+                  </select>
+                </label>
+                {quizAnswers.ethicalPreference === "other" && (
+                  <label className="space-y-1 md:col-span-2">
+                    <span className="text-white/70">Ethical preference details (optional)</span>
+                    <input value={quizAnswers.ethicalOther} onChange={(e) => updateQuizField("ethicalOther", e.target.value)} className="w-full px-3 py-2 rounded-lg bg-white text-black" placeholder="Enter details" />
+                  </label>
+                )}
+                <label className="space-y-1 md:col-span-2">
+                  <span className="text-white/70">Day trading interest</span>
+                  <select value={quizAnswers.dayTradingInterest} onChange={(e) => updateQuizField("dayTradingInterest", e.target.value)} className="w-full px-3 py-2 rounded-lg bg-white text-black">
+                    <option value="">Select</option>
+                    <option value="no">No</option>
+                    <option value="yes_beginner">Yes (beginner)</option>
+                    <option value="yes_experienced">Yes (experienced)</option>
+                  </select>
+                </label>
+              </div>
+
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <div className="text-white/70 mb-2">Preferred asset classes</div>
+                  <div className="flex flex-wrap gap-2">
+                    {["stocks", "crypto", "metals", "fx"].map((v) => (
+                      <button key={v} onClick={() => toggleQuizArrayValue("assetClasses", v)} className={`px-3 py-1.5 rounded-full border text-xs ${quizAnswers.assetClasses.includes(v) ? "border-blue-400 bg-blue-500/20 text-blue-200" : "border-white/15 bg-white/5 text-white/75"}`}>
+                        {v.toUpperCase()}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-white/70 mb-2">Sector preferences</div>
+                  <div className="flex flex-wrap gap-2">
+                    {["tech", "healthcare", "financials", "energy", "consumer", "industrial", "none"].map((v) => (
+                      <button key={v} onClick={() => toggleQuizArrayValue("sectorPreferences", v)} className={`px-3 py-1.5 rounded-full border text-xs ${quizAnswers.sectorPreferences.includes(v) ? "border-blue-400 bg-blue-500/20 text-blue-200" : "border-white/15 bg-white/5 text-white/75"}`}>
+                        {v}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <label className="space-y-1 md:col-span-2">
+                  <span className="text-white/70">Exclude sectors/themes (optional)</span>
+                  <input value={quizAnswers.exclusions} onChange={(e) => updateQuizField("exclusions", e.target.value)} className="w-full px-3 py-2 rounded-lg bg-white text-black" placeholder="Example: tobacco, leverage, meme coins" />
+                </label>
+              </div>
+
+              {String(quizAnswers.dayTradingInterest || "").startsWith("yes") && (
+                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <div className="text-white/70 mb-2">Day-trading markets</div>
+                    <div className="flex flex-wrap gap-2">
+                      {["stocks", "crypto", "fx"].map((v) => (
+                        <button key={v} onClick={() => toggleQuizArrayValue("dayTradingMarkets", v)} className={`px-3 py-1.5 rounded-full border text-xs ${quizAnswers.dayTradingMarkets.includes(v) ? "border-indigo-400 bg-indigo-500/20 text-indigo-200" : "border-white/15 bg-white/5 text-white/75"}`}>
+                          {v.toUpperCase()}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <label className="space-y-1">
+                    <span className="text-white/70">Time available per day</span>
+                    <select value={quizAnswers.dayTradingTime} onChange={(e) => updateQuizField("dayTradingTime", e.target.value)} className="w-full px-3 py-2 rounded-lg bg-white text-black">
+                      <option value="">Select</option>
+                      <option value="lt_1h">Less than 1 hour</option>
+                      <option value="1_3h">1 to 3 hours</option>
+                      <option value="3h_plus">3+ hours</option>
+                    </select>
+                  </label>
+                </div>
+              )}
+
+              {quizError && <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">{quizError}</div>}
+            </Card>
+          </div>
+        )}
 
         {/* MARKET OVERVIEW */}
         {!isNewsMode && (
@@ -1633,13 +2764,15 @@ export default function Home() {
                   <div className={`${isMetalsMode ? "text-2xl mt-5" : isFxMode ? "text-sm mt-2" : "text-xs"} text-slate-300/85`}>
                     {fmt(o.price) != null ? `${isFxMode ? Number(o.price).toFixed(4) : `$${Number(o.price).toFixed(2)}`}` : "—"}
                   </div>
-                  <div
-                    className={`${isMetalsMode ? "text-3xl mt-2" : "text-xs"} ${
-                      fmt(o.percent) == null ? "text-slate-400" : o.percent >= 0 ? "text-green-300" : "text-red-300"
-                    }`}
-                  >
-                    {fmt(o.percent) != null ? `${o.percent >= 0 ? "+" : ""}${Number(o.percent).toFixed(2)}%` : (isFxMode ? "Live FX" : "—")}
-                  </div>
+                  {!isMetalsMode && (
+                    <div
+                      className={`${isFxMode ? "text-xs" : "text-xs"} ${
+                        fmt(o.percent) == null ? "text-slate-400" : o.percent >= 0 ? "text-green-300" : "text-red-300"
+                      }`}
+                    >
+                      {fmt(o.percent) != null ? `${o.percent >= 0 ? "+" : ""}${Number(o.percent).toFixed(2)}%` : (isFxMode ? "Live FX" : "—")}
+                    </div>
+                  )}
                 </div>
               ))}
               </div>
@@ -1821,8 +2954,9 @@ export default function Home() {
         {/* DAILY PICK + SEARCH ROW */}
         {!isFxMode && !isNewsMode && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <div className="space-y-6">
           <Card
-            title={`Today’s AI ${assetMode === "crypto" ? "Crypto" : assetMode === "metals" ? "Metals" : "Stock"} Pick`}
+            title="ASTRA Today Pick"
             right={
               <button
                 onClick={fetchDailyPick}
@@ -1898,6 +3032,58 @@ export default function Home() {
               </div>
             )}
           </Card>
+          {dayTraderEligible && (
+            <Card
+              title="ASTRA Day Trader Pick"
+              right={
+                <button
+                  onClick={fetchDayTraderPick}
+                  className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs"
+                >
+                  {dayTraderLoading ? "Loading..." : "Refresh"}
+                </button>
+              }
+            >
+              {(dayTraderView.recommendation || dayTraderView.ticker) && (
+                <div className="mb-3 flex items-center gap-2">
+                  <Badge value={dayTraderView.recommendation} />
+                  <span className="text-white/80 text-sm">{dayTraderView.ticker || "—"}</span>
+                  {dayTraderView.confidence > 0 && (
+                    <span className="text-[11px] rounded-full border border-blue-400/30 bg-blue-500/15 text-blue-200 px-2 py-0.5">
+                      Confidence {dayTraderView.confidence}%
+                    </span>
+                  )}
+                </div>
+              )}
+              {dayTraderLoading ? (
+                <div className="text-sm text-white/60 animate-pulse">Loading day-trader pick...</div>
+              ) : (
+                <div className="space-y-3">
+                  {dayTraderView.why.length > 0 && (
+                    <div>
+                      <div className="text-xs text-white/60 mb-1">Setup rationale</div>
+                      <ul className="list-disc pl-5 text-sm text-white/90 space-y-1">
+                        {dayTraderView.why.slice(0, 4).map((x, i) => (
+                          <li key={i}>{x}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {dayTraderView.dayPlan && (
+                    <div>
+                      <div className="text-xs text-white/60 mb-1">Trade plan</div>
+                      <div className="text-sm text-white/90">{dayTraderView.dayPlan}</div>
+                    </div>
+                  )}
+                  {dayTraderView.note && <div className="text-xs text-white/55">{dayTraderView.note}</div>}
+                  {dayTraderView.fallbackText && (
+                    <div className="text-sm text-white/90 whitespace-pre-line">{dayTraderView.fallbackText}</div>
+                  )}
+                </div>
+              )}
+            </Card>
+          )}
+          </div>
 
           <Card
             title={`Multi-${assetMode === "crypto" ? "Crypto" : assetMode === "metals" ? "Metals" : "Stock"} Comparison`}
@@ -2287,11 +3473,11 @@ export default function Home() {
           </div>
         )}
 
-        {/* AI ANALYSIS */}
+        {/* ANALYTICAL INFORMATION */}
         {!isNewsMode && (analysisLoading || analysisObj) && (
           <div className="mb-6">
             <Card
-              title="AI Investment Analysis"
+              title="ASTRA Analysis"
               right={
                 <div className="flex items-center gap-2">
                   <button
@@ -2319,7 +3505,7 @@ export default function Home() {
                       <span>Ticker: {analysisView.ticker}</span>
                       {analysisView.aiScore > 0 && (
                         <span className="text-[11px] rounded-full border border-cyan-400/30 bg-cyan-500/15 text-cyan-200 px-2 py-0.5">
-                          AI Score {analysisView.aiScore}/100
+                          Analytical Score {analysisView.aiScore}/100
                         </span>
                       )}
                       {analysisView.confidence > 0 && (
@@ -2387,7 +3573,7 @@ export default function Home() {
                   </div>
 
                   <div className="rounded-lg border border-white/10 bg-white/5 p-3 mb-4">
-                    <div className="text-xs text-white/60 mb-2">AI Reasoning Categories</div>
+                    <div className="text-xs text-white/60 mb-2">Analytical Reasoning Categories</div>
                     <div className="space-y-2 text-sm">
                       {[
                         ["Fundamental", analysisView.reasoningCategories.fundamental],

@@ -18,7 +18,7 @@ export async function GET(req) {
     const key = OPENAI_API_KEY || OPENROUTER_API_KEY;
     if (!key || key.includes("PASTE_")) {
       return NextResponse.json(
-        { error: "Missing AI API key (set OPENAI_API_KEY, or OPENROUTER_API_KEY)" },
+        { error: "Missing analytical API key (set OPENAI_API_KEY, or OPENROUTER_API_KEY)" },
         { status: 500 }
       );
     }
@@ -30,6 +30,7 @@ export async function GET(req) {
     const price = searchParams.get("price") || "";
     const question = (searchParams.get("question") || "").trim();
     const isDaily = mode === "daily";
+    const isDayTrader = mode === "day_trader";
     const isChat = mode === "chat";
     const marketPickLabel =
       market === "crypto" ? "major cryptocurrency" : market === "metals" ? "precious metal asset" : "US stock";
@@ -44,7 +45,7 @@ export async function GET(req) {
               ? "multi-asset (crypto, stocks, metals, FX, macro news)"
               : "multi-asset (crypto, stocks, metals, FX, macro news)";
 
-    if (!isDaily && !isChat && !symbol) {
+    if (!isDaily && !isDayTrader && !isChat && !symbol) {
       return NextResponse.json(
         { error: "Missing symbol. Use /api/ai?symbol=AAPL or /api/ai?mode=daily" },
         { status: 400 }
@@ -121,6 +122,38 @@ Keep it beginner friendly.
 Return raw JSON only. No markdown, no code fences.
 `.trim();
 
+    const dayTraderPrompt = `
+Return ONLY valid JSON with these keys:
+{
+  "ticker": "AAPL",
+  "recommendation": "BUY|HOLD|AVOID",
+  "ai_score": 0-100,
+  "confidence": 0-100,
+  "bull_probability": 0-100,
+  "bear_probability": 0-100,
+  "horizon": "SHORT_TERM",
+  "risk_level": "LOW|MEDIUM|HIGH",
+  "risk_explanation": "1-2 sentences",
+  "short_summary": "1 concise sentence",
+  "long_summary": "3-5 concise sentences",
+  "reasoning_categories": {
+    "fundamental": 0-100,
+    "technical": 0-100,
+    "sentiment": 0-100
+  },
+  "strengths": ["s1","s2","s3"],
+  "outlook": "1-2 sentences",
+  "why": ["bullet1","bullet2","bullet3","bullet4"],
+  "risks": ["risk1","risk2"],
+  "day_plan": "Intraday setup with entry idea, invalidation, and session timing.",
+  "note": "Informational only. Not financial advice."
+}
+
+Generate one realistic ${marketPickLabel} day-trading setup for TODAY in the ${market} market.
+Focus on intraday risk control and clear invalidation.
+Return raw JSON only. No markdown, no code fences.
+`.trim();
+
     const chatPrompt = `
 You are ASTRA, a professional ${assistantDomainLabel} research assistant for retail investors.
 Write clear, practical answers with a calm, confident tone.
@@ -150,7 +183,7 @@ Context price: ${price || "unknown"}
 User question: ${question}
 `.trim();
 
-    const promptToUse = isDaily ? dailyPrompt : isChat ? chatPrompt : symbolPrompt;
+    const promptToUse = isDaily ? dailyPrompt : isDayTrader ? dayTraderPrompt : isChat ? chatPrompt : symbolPrompt;
 
     const useOpenRouter = key.startsWith("sk-or-");
     const url = useOpenRouter
@@ -164,7 +197,7 @@ User question: ${question}
 
     if (useOpenRouter) {
       headers["HTTP-Referer"] = "http://localhost:3000";
-      headers["X-Title"] = "Arthastra AI";
+      headers["X-Title"] = "Arthastra Analytical Information";
     }
 
     const resp = await fetch(url, {
@@ -183,7 +216,7 @@ User question: ${question}
     if (!resp.ok) {
       return NextResponse.json(
         {
-          error: "AI provider error",
+          error: "Analytical provider error",
           status: resp.status,
           provider: useOpenRouter ? "openrouter" : "openai",
           model: useOpenRouter ? OPENROUTER_MODEL : OPENAI_MODEL,
@@ -208,14 +241,14 @@ User question: ${question}
     if (!parsed) {
       // fallback: still return raw so UI can show something
       return NextResponse.json({
-        mode: isDaily ? "daily" : "symbol",
+        mode: isDaily ? "daily" : isDayTrader ? "day_trader" : "symbol",
         model_used: useOpenRouter ? OPENROUTER_MODEL : OPENAI_MODEL,
         raw,
       });
     }
 
     return NextResponse.json({
-      mode: isDaily ? "daily" : "symbol",
+      mode: isDaily ? "daily" : isDayTrader ? "day_trader" : "symbol",
       model_used: useOpenRouter ? OPENROUTER_MODEL : OPENAI_MODEL,
       ...parsed,
       raw,

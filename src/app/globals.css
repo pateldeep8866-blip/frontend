@@ -74,3 +74,24 @@ body {
   background: rgba(148, 163, 184, 0.4);
   border-radius: 999px;
 }
+
+/* show finger cursor on interactive UI controls */
+button,
+a[href],
+[role="button"],
+summary,
+select,
+input[type="button"],
+input[type="submit"],
+input[type="reset"],
+[onclick],
+[data-clickable="true"] {
+  cursor: pointer !important;
+}
+
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+  cursor: not-allowed !important;
+}
