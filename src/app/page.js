@@ -1,18 +1,27 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { getSupabaseClient } from "@/app/api/_lib/supabaseClient";
 
-function Badge({ value }) {
+function Badge({ value, light = false }) {
   const v = (value || "").toUpperCase();
   const cls =
     v === "BUY"
-      ? "bg-green-500/20 text-green-300 border-green-500/30 shadow-[0_0_20px_rgba(34,197,94,0.22)]"
+      ? light
+        ? "bg-emerald-100 text-emerald-700 border-emerald-300"
+        : "bg-green-500/20 text-green-300 border-green-500/30 shadow-[0_0_20px_rgba(34,197,94,0.22)]"
       : v === "HOLD"
-      ? "bg-yellow-500/20 text-yellow-300 border-yellow-500/30 shadow-[0_0_20px_rgba(234,179,8,0.2)]"
+      ? light
+        ? "bg-amber-100 text-amber-700 border-amber-300"
+        : "bg-yellow-500/20 text-yellow-300 border-yellow-500/30 shadow-[0_0_20px_rgba(234,179,8,0.2)]"
       : v === "AVOID"
-      ? "bg-red-500/20 text-red-300 border-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.2)]"
-      : "bg-white/10 text-white/70 border-white/10";
+      ? light
+        ? "bg-rose-100 text-rose-700 border-rose-300"
+        : "bg-red-500/20 text-red-300 border-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.2)]"
+      : light
+        ? "bg-slate-100 text-slate-700 border-slate-300"
+        : "bg-white/10 text-white/70 border-white/10";
 
   return (
     <span
@@ -192,6 +201,7 @@ function cleanChatAnswer(value) {
     .replace(/\*\*/g, "")
     .replace(/^#{1,6}\s*/gm, "")
     .replace(/^\s*[-*]\s*/gm, "- ")
+    .replace(/\bEducational only\. Not financial advice\.\s*/gi, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
   return text;
@@ -1657,6 +1667,27 @@ export default function Home() {
     setLoading(false);
   };
 
+  const handleQuickSelect = async (symbolOrPair) => {
+    const value = String(symbolOrPair || "").trim();
+    if (!value) return;
+
+    if (assetMode === "fx") {
+      const [fromRaw, toRaw] = value.split("/");
+      const from = String(fromRaw || "").trim().toUpperCase();
+      const to = String(toRaw || "").trim().toUpperCase();
+      if (!from || !to) return;
+      setFxFrom(from);
+      setFxTo(to);
+      setTimeout(() => convertFx(), 0);
+      return;
+    }
+
+    setTicker(value.toUpperCase());
+    setSuppressSuggestions(true);
+    setSuggestionOpen(false);
+    await searchStock(value);
+  };
+
   const resetAnalysis = () => {
     setTicker("");
     setSuppressSuggestions(false);
@@ -2016,6 +2047,19 @@ export default function Home() {
     setChatLoading(true);
 
     try {
+      const q = question.toLowerCase();
+      const asksFounder =
+        /\b(founder|owner|creator|made you|who built you|who created you|who made this|who made the site)\b/.test(q) ||
+        /\bdeep patel\b/.test(q) ||
+        /\bjuan ramirez\b/.test(q);
+      if (asksFounder) {
+        const identityReply =
+          "Arthastra was founded by Deep Patel with Juan Ramirez as Co-founder. They are the owners and creators behind this platform. For support, contact support@arthastraai.com.";
+        setChatMessages((prev) => [...prev, { role: "assistant", content: identityReply }]);
+        setChatLoading(false);
+        return;
+      }
+
       const profileHint =
         authUser && quizCompleted
           ? encodeURIComponent(
@@ -2086,11 +2130,11 @@ export default function Home() {
   const dayTraderEligible = Boolean(authUser && quizCompleted && String(quizAnswers.dayTradingInterest || "").startsWith("yes"));
 
   return (
-    <div className={`min-h-screen relative overflow-hidden ${isLight ? "bg-[#f8fbff] text-slate-900" : "bg-slate-950 text-white"}`}>
-      <div className={isLight ? "invert hue-rotate-180 brightness-102 saturate-62 contrast-95" : ""}>
-        <div className={`pointer-events-none absolute -top-24 -left-20 h-80 w-80 rounded-full blur-3xl ${isLight ? "bg-sky-200/25" : "bg-cyan-500/12"}`} />
-        <div className={`pointer-events-none absolute top-1/3 -right-28 h-96 w-96 rounded-full blur-3xl ${isLight ? "bg-blue-200/25" : "bg-blue-500/10"}`} />
-        <div className={`pointer-events-none absolute inset-0 ${isLight ? "bg-[radial-gradient(circle_at_20%_10%,rgba(56,189,248,0.10),transparent_38%),radial-gradient(circle_at_80%_70%,rgba(147,197,253,0.12),transparent_40%)]" : "bg-[radial-gradient(circle_at_20%_10%,rgba(59,130,246,0.08),transparent_35%),radial-gradient(circle_at_80%_70%,rgba(14,165,233,0.07),transparent_35%)]"}`}/>
+    <div className={`min-h-screen relative overflow-hidden ${isLight ? "light-mode bg-[#fbfdff] text-slate-900" : "dark-mode bg-slate-950 text-white"}`}>
+      <div>
+        <div className={`pointer-events-none absolute -top-24 -left-20 h-80 w-80 rounded-full blur-3xl ${isLight ? "bg-sky-200/35" : "bg-cyan-500/12"}`} />
+        <div className={`pointer-events-none absolute top-1/3 -right-28 h-96 w-96 rounded-full blur-3xl ${isLight ? "bg-blue-200/30" : "bg-blue-500/10"}`} />
+        <div className={`pointer-events-none absolute inset-0 ${isLight ? "bg-[radial-gradient(circle_at_15%_10%,rgba(125,211,252,0.18),transparent_40%),radial-gradient(circle_at_80%_70%,rgba(147,197,253,0.14),transparent_42%),radial-gradient(circle_at_55%_18%,rgba(59,130,246,0.09),transparent_35%)]" : "bg-[radial-gradient(circle_at_20%_10%,rgba(59,130,246,0.08),transparent_35%),radial-gradient(circle_at_80%_70%,rgba(14,165,233,0.07),transparent_35%)]"}`}/>
 
         <div className="relative z-10 mx-auto w-full max-w-6xl px-6 py-10 md:py-14">
         {/* HEADER */}
@@ -2112,17 +2156,33 @@ export default function Home() {
             </div>
           </div>
           <div className="absolute right-6 top-0 z-40 flex items-center gap-2">
+            <Link
+              href="/about"
+              className={`px-3 py-1.5 rounded-lg border text-xs ${
+                isLight
+                  ? "border-slate-300 bg-white/90 text-slate-700 hover:bg-slate-100"
+                  : "border-white/15 bg-slate-900/60 text-white/85 hover:bg-slate-800/70"
+              }`}
+            >
+              About
+            </Link>
             <div className="relative">
               <button
                 onClick={() => setSupportOpen((v) => !v)}
-                className="px-3 py-1.5 rounded-lg border border-white/15 bg-slate-900/60 text-xs text-white/85 hover:bg-slate-800/70"
+                className={`px-3 py-1.5 rounded-lg border text-xs ${
+                  isLight
+                    ? "border-slate-300 bg-white/90 text-slate-700 hover:bg-slate-100"
+                    : "border-white/15 bg-slate-900/60 text-white/85 hover:bg-slate-800/70"
+                }`}
               >
                 Help
               </button>
               {supportOpen && (
-                <div className="absolute right-0 top-full mt-2 w-72 rounded-xl border border-white/15 bg-slate-900/95 p-3 shadow-2xl z-30">
-                  <div className="text-xs text-white/70">Support Email</div>
-                  <a href="mailto:support@arthastraai.com" className="block text-sm text-white mt-1 underline">
+                <div className={`absolute right-0 top-full mt-2 w-72 rounded-xl border p-3 shadow-2xl z-30 ${
+                  isLight ? "border-slate-300 bg-white/95" : "border-white/15 bg-slate-900/95"
+                }`}>
+                  <div className={`text-xs ${isLight ? "text-slate-500" : "text-white/70"}`}>Support Email</div>
+                  <a href="mailto:support@arthastraai.com" className={`block text-sm mt-1 underline ${isLight ? "text-slate-900" : "text-white"}`}>
                     support@arthastraai.com
                   </a>
                   <button
@@ -2131,7 +2191,9 @@ export default function Home() {
                         await navigator.clipboard.writeText("support@arthastraai.com");
                       } catch {}
                     }}
-                    className="mt-2 px-2.5 py-1.5 rounded-md bg-white/10 hover:bg-white/15 text-xs text-white/90"
+                    className={`mt-2 px-2.5 py-1.5 rounded-md text-xs ${
+                      isLight ? "bg-slate-100 hover:bg-slate-200 text-slate-700" : "bg-white/10 hover:bg-white/15 text-white/90"
+                    }`}
                   >
                     Copy email
                   </button>
@@ -2142,13 +2204,17 @@ export default function Home() {
               <div className="relative">
                 <button
                   onClick={() => setUserMenuOpen((v) => !v)}
-                  className="h-8 min-w-8 px-2 rounded-full border border-white/20 bg-slate-900/70 text-xs font-semibold text-white shadow"
+                  className={`h-8 min-w-8 px-2 rounded-full border text-xs font-semibold shadow ${
+                    isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/20 bg-slate-900/70 text-white"
+                  }`}
                   title={displayName}
                 >
                   {userInitials}
                 </button>
                 {userMenuOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-52 rounded-xl border border-white/15 bg-slate-900/95 p-2 shadow-2xl z-30">
+                  <div className={`absolute right-0 top-full mt-2 w-52 rounded-xl border p-2 shadow-2xl z-30 ${
+                    isLight ? "border-slate-300 bg-white/95" : "border-white/15 bg-slate-900/95"
+                  }`}>
                     <button
                       onClick={() => {
                         setProfilePanelOpen(true);
@@ -2156,7 +2222,9 @@ export default function Home() {
                         setProfileError("");
                         setProfileNotice("");
                       }}
-                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 text-sm text-white/90"
+                      className={`w-full text-left px-3 py-2 rounded-lg text-sm ${
+                        isLight ? "hover:bg-slate-100 text-slate-700" : "hover:bg-white/10 text-white/90"
+                      }`}
                     >
                       Profile
                     </button>
@@ -2167,13 +2235,17 @@ export default function Home() {
                         setQuizDismissed(false);
                         setUserMenuOpen(false);
                       }}
-                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 text-sm text-white/90"
+                      className={`w-full text-left px-3 py-2 rounded-lg text-sm ${
+                        isLight ? "hover:bg-slate-100 text-slate-700" : "hover:bg-white/10 text-white/90"
+                      }`}
                     >
                       Change preferences
                     </button>
                     <button
                       onClick={handleSignOut}
-                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 text-sm text-red-200"
+                      className={`w-full text-left px-3 py-2 rounded-lg text-sm ${
+                        isLight ? "hover:bg-red-50 text-red-600" : "hover:bg-white/10 text-red-200"
+                      }`}
                     >
                       Sign out
                     </button>
@@ -2181,59 +2253,263 @@ export default function Home() {
                 )}
               </div>
             ) : (
-              <button
-                onClick={() => {
-                  setAuthPanelOpen((v) => !v);
-                  setAuthError("");
-                  setAuthNotice("");
-                }}
-                className="px-3 py-1.5 rounded-lg border border-white/15 bg-slate-900/60 text-xs text-white/85 hover:bg-slate-800/70"
-              >
-                Login / Signup
-              </button>
+              <div className="relative">
+                <button
+                  onClick={() => {
+                    setAuthPanelOpen((v) => !v);
+                    setAuthError("");
+                    setAuthNotice("");
+                  }}
+                  className={`px-3 py-1.5 rounded-lg border text-xs ${
+                    isLight
+                      ? "border-slate-300 bg-white/90 text-slate-700 hover:bg-slate-100"
+                      : "border-white/15 bg-slate-900/60 text-white/85 hover:bg-slate-800/70"
+                  }`}
+                >
+                  Login / Signup
+                </button>
+                {authPanelOpen && (
+                  <div
+                    className={`absolute right-0 top-full mt-2 w-[92vw] max-w-xl rounded-2xl border p-4 shadow-2xl z-40 ${
+                      isLight ? "border-slate-300 bg-white/95" : "border-white/15 bg-slate-900/95"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>Account Access</div>
+                      <button
+                        onClick={() => setAuthPanelOpen(false)}
+                        className={`px-2.5 py-1 rounded-md text-xs ${
+                          isLight ? "bg-slate-100 hover:bg-slate-200 text-slate-700" : "bg-white/10 hover:bg-white/15 text-white/90"
+                        }`}
+                      >
+                        Close
+                      </button>
+                    </div>
+                    <div className={`text-xs mb-3 ${isLight ? "text-slate-600" : "text-white/70"}`}>
+                      Optional now. Required later for advanced member-only features.
+                    </div>
+                    {!supabaseConfigured ? (
+                      <div className={`rounded-xl border px-3 py-2 text-sm ${
+                        isLight ? "border-amber-300 bg-amber-50 text-amber-700" : "border-amber-400/30 bg-amber-500/10 text-amber-200"
+                      }`}>
+                        Auth is not configured yet. Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+                      </div>
+                    ) : (
+                      <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                          {authMode === "signup" && (
+                            <>
+                              <input
+                                type="text"
+                                value={authFirstName}
+                                onChange={(e) => setAuthFirstName(e.target.value)}
+                                placeholder="First name"
+                                className="w-full px-3 py-2.5 rounded-xl bg-white text-black border border-slate-300 outline-none focus:border-blue-500"
+                              />
+                              <input
+                                type="text"
+                                value={authLastName}
+                                onChange={(e) => setAuthLastName(e.target.value)}
+                                placeholder="Last name"
+                                className="w-full px-3 py-2.5 rounded-xl bg-white text-black border border-slate-300 outline-none focus:border-blue-500"
+                              />
+                            </>
+                          )}
+                          {authMode !== "reset" && (
+                            <input
+                              type="email"
+                              value={authEmail}
+                              onChange={(e) => setAuthEmail(e.target.value)}
+                              placeholder="Email"
+                              className="w-full px-3 py-2.5 rounded-xl bg-white text-black border border-slate-300 outline-none focus:border-blue-500"
+                            />
+                          )}
+                          {(authMode === "signin" || authMode === "signup" || authMode === "reset") && (
+                            <input
+                              type="password"
+                              value={authPassword}
+                              onChange={(e) => setAuthPassword(e.target.value)}
+                              placeholder={authMode === "reset" ? "New password (min 8 chars)" : "Password (min 8 chars)"}
+                              className="w-full px-3 py-2.5 rounded-xl bg-white text-black border border-slate-300 outline-none focus:border-blue-500"
+                            />
+                          )}
+                          {(authMode === "signup" || authMode === "reset") && (
+                            <input
+                              type="password"
+                              value={authConfirmPassword}
+                              onChange={(e) => setAuthConfirmPassword(e.target.value)}
+                              placeholder="Confirm password"
+                              className="w-full px-3 py-2.5 rounded-xl bg-white text-black border border-slate-300 outline-none focus:border-blue-500"
+                            />
+                          )}
+                        </div>
+
+                        {authError && (
+                          <div className={`mt-2 rounded-lg border px-3 py-2 text-sm ${
+                            isLight ? "border-red-300 bg-red-50 text-red-700" : "border-red-500/30 bg-red-500/10 text-red-200"
+                          }`}>
+                            {authError}
+                          </div>
+                        )}
+                        {authNotice && (
+                          <div className={`mt-2 rounded-lg border px-3 py-2 text-sm ${
+                            isLight ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
+                          }`}>
+                            {authNotice}
+                          </div>
+                        )}
+
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          {authMode !== "forgot" && (
+                            <button
+                              onClick={handleAuthSubmit}
+                              disabled={authLoading || !authReady}
+                              className="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm disabled:opacity-60"
+                            >
+                              {authLoading
+                                ? "Please wait..."
+                                : authMode === "signup"
+                                  ? "Create Account"
+                                  : authMode === "reset"
+                                    ? "Update Password"
+                                    : "Sign In"}
+                            </button>
+                          )}
+                          {authMode === "signin" && (
+                            <button
+                              onClick={() => {
+                                setAuthMode("forgot");
+                                setAuthError("");
+                                setAuthNotice("");
+                              }}
+                              className={`px-3 py-2 rounded-xl text-sm ${
+                                isLight ? "bg-slate-100 hover:bg-slate-200 text-slate-700" : "bg-white/10 hover:bg-white/15 text-white/90"
+                              }`}
+                            >
+                              Forgot Password
+                            </button>
+                          )}
+                          {authMode === "forgot" && (
+                            <>
+                              <button
+                                onClick={handleForgotPassword}
+                                disabled={authLoading || !authReady}
+                                className="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm disabled:opacity-60"
+                              >
+                                Send Reset Email
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setAuthMode("signin");
+                                  setAuthError("");
+                                  setAuthNotice("");
+                                }}
+                                className={`px-3 py-2 rounded-xl text-sm ${
+                                  isLight ? "bg-slate-100 hover:bg-slate-200 text-slate-700" : "bg-white/10 hover:bg-white/15 text-white/90"
+                                }`}
+                              >
+                                Back to Sign in
+                              </button>
+                            </>
+                          )}
+                          <button
+                            onClick={() => {
+                              setAuthMode((prev) => (prev === "signin" ? "signup" : "signin"));
+                              setAuthError("");
+                              setAuthNotice("");
+                              setAuthFirstName("");
+                              setAuthLastName("");
+                              setAuthConfirmPassword("");
+                            }}
+                            disabled={authMode === "forgot" || authMode === "reset"}
+                            className={`px-3 py-2 rounded-xl text-sm ${
+                              isLight ? "bg-slate-100 hover:bg-slate-200 text-slate-700" : "bg-white/10 hover:bg-white/15 text-white/90"
+                            }`}
+                          >
+                            {authMode === "signin" ? "Switch to Sign up" : "Switch to Sign in"}
+                          </button>
+                          <span className={`text-xs ${isLight ? "text-slate-500" : "text-white/60"}`}>
+                            {authReady ? (authUser?.email ? `Signed in as ${authUser.email}` : "Guest mode active") : "Checking session..."}
+                          </span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
           </div>
           <div className="mt-4 flex justify-center">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/arthastra-premium-logo-alt2.svg"
-              alt="Arthastra Analytical Information emblem"
-              className="h-20 w-20 md:h-24 md:w-24 rounded-2xl border border-white/20 shadow-[0_10px_30px_-18px_rgba(34,211,238,0.8)] bg-slate-900/60 p-2"
-            />
+            <div className="inline-flex items-center gap-5 md:gap-6">
+              <div className="relative shrink-0">
+                {!isLight && (
+                  <>
+                    <span className="pointer-events-none absolute -left-5 top-2 h-3 w-3 rounded-[2px] bg-cyan-300/65 shadow-[0_0_14px_rgba(56,189,248,0.85)]" />
+                    <span className="pointer-events-none absolute -left-1 top-12 h-2.5 w-2.5 rounded-[2px] bg-sky-300/55 shadow-[0_0_12px_rgba(125,211,252,0.75)]" />
+                    <span className="pointer-events-none absolute -left-4 top-[5.5rem] h-2 w-2 rounded-full bg-cyan-200/70 shadow-[0_0_10px_rgba(125,211,252,0.8)]" />
+                    <span className="pointer-events-none absolute right-1 top-[-0.2rem] h-2.5 w-2.5 rounded-[2px] bg-cyan-300/55 shadow-[0_0_12px_rgba(56,189,248,0.75)]" />
+                    <span className="pointer-events-none absolute right-[-0.4rem] top-[4.9rem] h-2 w-2 rounded-full bg-cyan-200/65 shadow-[0_0_10px_rgba(125,211,252,0.7)]" />
+                  </>
+                )}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/arthastra-icon-transparent.svg"
+                  alt="Arthastra logo"
+                  className="relative z-10 h-24 w-24 md:h-28 md:w-28"
+                />
+              </div>
+              <div className="text-left">
+                <h1 className={`text-5xl md:text-6xl font-semibold leading-none tracking-tight ${isLight ? "text-slate-900" : "bg-gradient-to-r from-white via-cyan-100 to-sky-200 bg-clip-text text-transparent"}`}>
+                  Arthastra
+                </h1>
+                <p className={`mt-2 text-3xl md:text-4xl font-medium leading-none tracking-tight ${isLight ? "text-slate-700" : "text-cyan-100/90"}`}>
+                  Analytical Information
+                </p>
+              </div>
+            </div>
           </div>
-          <h1 className="text-3xl md:text-5xl font-semibold mt-4 tracking-tight bg-gradient-to-r from-white via-cyan-100 to-sky-200 bg-clip-text text-transparent">
-            Arthastra Analytical Information
-          </h1>
-          <p className="text-slate-300/80 mt-3 text-lg">Clarity in Every Market.</p>
-          <p className="text-slate-400/80 text-xs mt-3">Founder: Deep Patel • Co-founder: Juan Ramirez</p>
-          <div className="mt-5 inline-flex rounded-xl overflow-hidden border border-white/15 bg-slate-900/60">
+          <p className={`mt-5 text-lg md:text-xl font-medium ${isLight ? "text-slate-700" : "text-slate-200/90"}`}>Clarity in Every Market.</p>
+          <p className={`text-xs mt-3 ${isLight ? "text-slate-500" : "text-slate-400/80"}`}>Founder: Deep Patel • Co-founder: Juan Ramirez</p>
+          <div className={`mt-5 inline-flex rounded-xl overflow-hidden border ${
+            isLight ? "border-slate-300 bg-white/85 shadow-sm" : "border-white/15 bg-slate-900/60"
+          }`}>
             <button
               onClick={() => setAssetMode("stock")}
-              className={`px-3 py-1.5 text-xs font-semibold ${assetMode === "stock" ? "bg-blue-600 text-white" : "bg-transparent text-white/80"}`}
+              className={`px-3 py-1.5 text-xs font-semibold ${
+                assetMode === "stock" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-700" : "bg-transparent text-white/80"
+              }`}
             >
               Stock
             </button>
             <button
               onClick={() => setAssetMode("crypto")}
-              className={`px-3 py-1.5 text-xs font-semibold ${assetMode === "crypto" ? "bg-blue-600 text-white" : "bg-transparent text-white/80"}`}
+              className={`px-3 py-1.5 text-xs font-semibold ${
+                assetMode === "crypto" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-700" : "bg-transparent text-white/80"
+              }`}
             >
               Crypto
             </button>
             <button
               onClick={() => setAssetMode("metals")}
-              className={`px-3 py-1.5 text-xs font-semibold ${assetMode === "metals" ? "bg-blue-600 text-white" : "bg-transparent text-white/80"}`}
+              className={`px-3 py-1.5 text-xs font-semibold ${
+                assetMode === "metals" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-700" : "bg-transparent text-white/80"
+              }`}
             >
               Metals
             </button>
             <button
               onClick={() => setAssetMode("fx")}
-              className={`px-3 py-1.5 text-xs font-semibold ${assetMode === "fx" ? "bg-blue-600 text-white" : "bg-transparent text-white/80"}`}
+              className={`px-3 py-1.5 text-xs font-semibold ${
+                assetMode === "fx" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-700" : "bg-transparent text-white/80"
+              }`}
             >
               FX
             </button>
             <button
               onClick={() => setAssetMode("news")}
-              className={`px-3 py-1.5 text-xs font-semibold ${assetMode === "news" ? "bg-blue-600 text-white" : "bg-transparent text-white/80"}`}
+              className={`px-3 py-1.5 text-xs font-semibold ${
+                assetMode === "news" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-700" : "bg-transparent text-white/80"
+              }`}
             >
               News
             </button>
@@ -2248,159 +2524,7 @@ export default function Home() {
           </div>
         )}
 
-        {!authUser && authPanelOpen && (
-          <div className="mb-6">
-            <Card
-              title="Account Access"
-              right={
-                <button
-                  onClick={() => setAuthPanelOpen(false)}
-                  className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs"
-                >
-                  Close
-                </button>
-              }
-            >
-              <div className="text-sm text-white/80">
-                Optional now. Required later for advanced member-only features.
-              </div>
-              {!supabaseConfigured ? (
-                <div className="mt-3 rounded-xl border border-amber-400/30 bg-amber-500/10 text-amber-200 px-3 py-2 text-sm">
-                  Auth is not configured yet. Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
-                </div>
-              ) : (
-                <>
-                  <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {authMode === "signup" && (
-                      <>
-                        <input
-                          type="text"
-                          value={authFirstName}
-                          onChange={(e) => setAuthFirstName(e.target.value)}
-                          placeholder="First name"
-                          className="w-full px-4 py-3 rounded-xl bg-white text-black border-2 border-white/20 outline-none focus:border-blue-500"
-                        />
-                        <input
-                          type="text"
-                          value={authLastName}
-                          onChange={(e) => setAuthLastName(e.target.value)}
-                          placeholder="Last name"
-                          className="w-full px-4 py-3 rounded-xl bg-white text-black border-2 border-white/20 outline-none focus:border-blue-500"
-                        />
-                      </>
-                    )}
-                    {authMode !== "reset" && (
-                      <input
-                        type="email"
-                        value={authEmail}
-                        onChange={(e) => setAuthEmail(e.target.value)}
-                        placeholder="Email"
-                        className="w-full px-4 py-3 rounded-xl bg-white text-black border-2 border-white/20 outline-none focus:border-blue-500"
-                      />
-                    )}
-                    {(authMode === "signin" || authMode === "signup" || authMode === "reset") && (
-                      <input
-                        type="password"
-                        value={authPassword}
-                        onChange={(e) => setAuthPassword(e.target.value)}
-                        placeholder={authMode === "reset" ? "New password (min 8 chars)" : "Password (min 8 chars)"}
-                        className="w-full px-4 py-3 rounded-xl bg-white text-black border-2 border-white/20 outline-none focus:border-blue-500"
-                      />
-                    )}
-                    {(authMode === "signup" || authMode === "reset") && (
-                      <input
-                        type="password"
-                        value={authConfirmPassword}
-                        onChange={(e) => setAuthConfirmPassword(e.target.value)}
-                        placeholder="Confirm password"
-                        className="w-full px-4 py-3 rounded-xl bg-white text-black border-2 border-white/20 outline-none focus:border-blue-500"
-                      />
-                    )}
-                  </div>
-
-                  {authError && (
-                    <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-200 px-3 py-2 text-sm">
-                      {authError}
-                    </div>
-                  )}
-                  {authNotice && (
-                    <div className="mt-3 rounded-lg border border-emerald-400/30 bg-emerald-500/10 text-emerald-200 px-3 py-2 text-sm">
-                      {authNotice}
-                    </div>
-                  )}
-
-                  <div className="mt-4 flex flex-wrap items-center gap-2">
-                    {authMode !== "forgot" && (
-                      <button
-                        onClick={handleAuthSubmit}
-                        disabled={authLoading || !authReady}
-                        className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold disabled:opacity-60"
-                      >
-                        {authLoading
-                          ? "Please wait..."
-                          : authMode === "signup"
-                            ? "Create Account"
-                            : authMode === "reset"
-                              ? "Update Password"
-                              : "Sign In"}
-                      </button>
-                    )}
-                    {authMode === "signin" && (
-                      <button
-                        onClick={() => {
-                          setAuthMode("forgot");
-                          setAuthError("");
-                          setAuthNotice("");
-                        }}
-                        className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white/90 text-sm"
-                      >
-                        Forgot Password
-                      </button>
-                    )}
-                    {authMode === "forgot" && (
-                      <>
-                        <button
-                          onClick={handleForgotPassword}
-                          disabled={authLoading || !authReady}
-                          className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold disabled:opacity-60"
-                        >
-                          Send Reset Email
-                        </button>
-                        <button
-                          onClick={() => {
-                            setAuthMode("signin");
-                            setAuthError("");
-                            setAuthNotice("");
-                          }}
-                          className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white/90 text-sm"
-                        >
-                          Back to Sign in
-                        </button>
-                      </>
-                    )}
-                    <button
-                      onClick={() => {
-                        setAuthMode((prev) => (prev === "signin" ? "signup" : "signin"));
-                        setAuthError("");
-                        setAuthNotice("");
-                        setAuthFirstName("");
-                        setAuthLastName("");
-                        setAuthConfirmPassword("");
-                      }}
-                      disabled={authMode === "forgot" || authMode === "reset"}
-                      className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white/90 text-sm"
-                    >
-                      {authMode === "signin" ? "Switch to Sign up" : "Switch to Sign in"}
-                    </button>
-                    <span className="text-xs text-white/60">
-                      {authReady ? (authUser?.email ? `Signed in as ${authUser.email}` : "Guest mode active") : "Checking session..."}
-                    </span>
-                  </div>
-                </>
-              )}
-            </Card>
-          </div>
-        )}
+        
 
         {authUser && profilePanelOpen && (
           <div className="mb-6">
@@ -2753,27 +2877,36 @@ export default function Home() {
                 style={isMetalsMode ? undefined : { animationDuration: `${Math.max(18, overview.length * 4)}s` }}
               >
                 {(isMetalsMode ? overview : overviewLoop).map((o, idx) => (
-                  <div key={`${o.symbol}-${idx}`} className={`${isMetalsMode ? "w-full min-h-[180px] md:min-h-[200px] p-5" : isFxMode ? "w-36 p-3" : "w-28 p-3"} shrink-0 rounded-xl bg-slate-900/70 border border-white/10 shadow-[0_6px_20px_-16px_rgba(14,165,233,0.7)]`}>
+                  <button
+                    type="button"
+                    key={`${o.symbol}-${idx}`}
+                    onClick={() => handleQuickSelect(o.symbol)}
+                    title={`Open ${o.symbol}`}
+                    className={`${isMetalsMode ? "w-full min-h-[180px] md:min-h-[200px] p-5" : isFxMode ? "w-36 p-3" : "w-28 p-3"} shrink-0 rounded-xl text-left transition-all duration-200 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-blue-500/40 ${
+                    isLight
+                      ? "bg-white/92 border border-sky-200/70 shadow-[0_10px_22px_-18px_rgba(56,189,248,0.35)]"
+                      : "bg-slate-900/70 border border-white/10 shadow-[0_6px_20px_-16px_rgba(14,165,233,0.7)]"
+                  }`}>
                   <div className={`${isMetalsMode ? "text-3xl" : isFxMode ? "text-lg" : "text-sm"} font-semibold leading-tight`}>{isMetalsMode ? (o.name || metalNameBySymbol[o.symbol] || o.symbol) : o.symbol}</div>
                   {isMetalsMode && (
-                    <div className="text-base text-slate-400 mt-1">{o.symbol}</div>
+                    <div className={`text-base mt-1 ${isLight ? "text-slate-500" : "text-slate-400"}`}>{o.symbol}</div>
                   )}
                   {isFxMode && (
-                    <div className="text-[11px] text-slate-400 mt-1">{o.name || ""}</div>
+                    <div className={`text-[11px] mt-1 ${isLight ? "text-slate-500" : "text-slate-400"}`}>{o.name || ""}</div>
                   )}
-                  <div className={`${isMetalsMode ? "text-2xl mt-5" : isFxMode ? "text-sm mt-2" : "text-xs"} text-slate-300/85`}>
+                  <div className={`${isMetalsMode ? "text-2xl mt-5" : isFxMode ? "text-sm mt-2" : "text-xs"} ${isLight ? "text-slate-700" : "text-slate-300/85"}`}>
                     {fmt(o.price) != null ? `${isFxMode ? Number(o.price).toFixed(4) : `$${Number(o.price).toFixed(2)}`}` : "—"}
                   </div>
                   {!isMetalsMode && (
                     <div
                       className={`${isFxMode ? "text-xs" : "text-xs"} ${
-                        fmt(o.percent) == null ? "text-slate-400" : o.percent >= 0 ? "text-green-300" : "text-red-300"
+                        fmt(o.percent) == null ? (isLight ? "text-slate-500" : "text-slate-400") : o.percent >= 0 ? (isLight ? "text-emerald-600" : "text-green-300") : (isLight ? "text-rose-600" : "text-red-300")
                       }`}
                     >
                       {fmt(o.percent) != null ? `${o.percent >= 0 ? "+" : ""}${Number(o.percent).toFixed(2)}%` : (isFxMode ? "Live FX" : "—")}
                     </div>
                   )}
-                </div>
+                </button>
               ))}
               </div>
             </div>
@@ -2890,14 +3023,20 @@ export default function Home() {
                   <div className="text-xs text-green-300 mb-2">Top Gainers</div>
                   <div className="space-y-2">
                     {movers.gainers.slice(0, 5).map((m) => (
-                      <div key={`g-${m.symbol}`} className="rounded-lg border border-white/10 bg-white/5 p-2 text-xs">
+                      <button
+                        type="button"
+                        key={`g-${m.symbol}`}
+                        onClick={() => handleQuickSelect(m.symbol)}
+                        title={`Search ${m.symbol}`}
+                        className="w-full text-left rounded-lg border border-white/10 bg-white/5 p-2 text-xs transition-all duration-200 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-blue-500/35"
+                      >
                         <div className="font-semibold">{m.symbol}</div>
                         <div className="text-white/70">${Number(m.price || 0).toFixed(2)}</div>
                         <div className="text-green-300">
                           {Number(m.percentChange) >= 0 ? "+" : ""}
                           {Number(m.percentChange || 0).toFixed(2)}%
                         </div>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -2905,14 +3044,20 @@ export default function Home() {
                   <div className="text-xs text-red-300 mb-2">Top Losers</div>
                   <div className="space-y-2">
                     {movers.losers.slice(0, 5).map((m) => (
-                      <div key={`l-${m.symbol}`} className="rounded-lg border border-white/10 bg-white/5 p-2 text-xs">
+                      <button
+                        type="button"
+                        key={`l-${m.symbol}`}
+                        onClick={() => handleQuickSelect(m.symbol)}
+                        title={`Search ${m.symbol}`}
+                        className="w-full text-left rounded-lg border border-white/10 bg-white/5 p-2 text-xs transition-all duration-200 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-blue-500/35"
+                      >
                         <div className="font-semibold">{m.symbol}</div>
                         <div className="text-white/70">${Number(m.price || 0).toFixed(2)}</div>
                         <div className="text-red-300">
                           {Number(m.percentChange) >= 0 ? "+" : ""}
                           {Number(m.percentChange || 0).toFixed(2)}%
                         </div>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -2968,21 +3113,21 @@ export default function Home() {
           >
             {(dailyView.recommendation || dailyView.ticker) && (
               <div className="mb-3 flex items-center gap-2">
-                <Badge value={dailyView.recommendation} />
+                <Badge value={dailyView.recommendation} light={isLight} />
                 <span className="text-white/80 text-sm">{dailyView.ticker || "—"}</span>
                 {dailyView.confidence > 0 && (
-                  <span className="text-[11px] rounded-full border border-blue-400/30 bg-blue-500/15 text-blue-200 px-2 py-0.5">
-                    Confidence {dailyView.confidence}%
-                  </span>
+                    <span className={`text-[11px] rounded-full border px-2 py-0.5 ${isLight ? "border-blue-300 bg-blue-50 text-blue-700" : "border-blue-400/30 bg-blue-500/15 text-blue-200"}`}>
+                      Confidence {dailyView.confidence}%
+                    </span>
                 )}
                 {dailyView.riskLevel && (
                   <span
                     className={`text-[11px] rounded-full border px-2 py-0.5 ${
                       dailyView.riskLevel === "LOW"
-                        ? "border-green-400/30 bg-green-500/15 text-green-200"
+                        ? isLight ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-green-400/30 bg-green-500/15 text-green-200"
                         : dailyView.riskLevel === "MEDIUM"
-                          ? "border-yellow-400/30 bg-yellow-500/15 text-yellow-200"
-                          : "border-red-400/30 bg-red-500/15 text-red-200"
+                          ? isLight ? "border-amber-300 bg-amber-50 text-amber-700" : "border-yellow-400/30 bg-yellow-500/15 text-yellow-200"
+                          : isLight ? "border-rose-300 bg-rose-50 text-rose-700" : "border-red-400/30 bg-red-500/15 text-red-200"
                     }`}
                   >
                     Risk {dailyView.riskLevel}
@@ -3046,10 +3191,10 @@ export default function Home() {
             >
               {(dayTraderView.recommendation || dayTraderView.ticker) && (
                 <div className="mb-3 flex items-center gap-2">
-                  <Badge value={dayTraderView.recommendation} />
+                  <Badge value={dayTraderView.recommendation} light={isLight} />
                   <span className="text-white/80 text-sm">{dayTraderView.ticker || "—"}</span>
                   {dayTraderView.confidence > 0 && (
-                    <span className="text-[11px] rounded-full border border-blue-400/30 bg-blue-500/15 text-blue-200 px-2 py-0.5">
+                    <span className={`text-[11px] rounded-full border px-2 py-0.5 ${isLight ? "border-blue-300 bg-blue-50 text-blue-700" : "border-blue-400/30 bg-blue-500/15 text-blue-200"}`}>
                       Confidence {dayTraderView.confidence}%
                     </span>
                   )}
@@ -3492,7 +3637,7 @@ export default function Home() {
                   >
                     Share
                   </button>
-                  <Badge value={analysisView.recommendation} />
+                  <Badge value={analysisView.recommendation} light={isLight} />
                 </div>
               }
             >
@@ -3749,9 +3894,9 @@ export default function Home() {
         ) : (
           <button
             onClick={() => setChatOpen(true)}
-            className="rounded-full bg-blue-600 hover:bg-blue-500 text-white px-5 py-3 font-semibold shadow-xl border border-blue-400/40"
+            className="h-14 w-14 rounded-full bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold tracking-wide shadow-xl border border-blue-400/40"
           >
-            ASTRA Assistant
+            ASTRA
           </button>
         )}
       </div>

@@ -173,7 +173,6 @@ Risks:
 - <risk 1>
 - <risk 2>
 Next Step: <one actionable next step>
-Educational only. Not financial advice.
 
 The user can ask about ANY market regardless of current tab.
 Use tab context only as a hint, not a restriction.

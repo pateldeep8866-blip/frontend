@@ -55,6 +55,52 @@ body {
   transform: translateY(-2px);
 }
 
+.light-mode .app-card {
+  background: #ffffff !important;
+  border-color: rgba(56, 189, 248, 0.25) !important;
+  box-shadow: 0 16px 34px -24px rgba(59, 130, 246, 0.24);
+  color: #0f172a !important;
+}
+
+.light-mode .app-card:hover {
+  border-color: rgba(37, 99, 235, 0.42) !important;
+}
+
+.light-mode .app-card-title {
+  color: #0f172a !important;
+}
+
+/* force high-contrast readability in light mode */
+.light-mode .app-card,
+.light-mode .app-card * {
+  color: #0f172a !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: #0f172a !important;
+}
+
+.light-mode .app-card [class*="text-green-"] {
+  color: #059669 !important;
+  -webkit-text-fill-color: #059669 !important;
+}
+
+.light-mode .app-card [class*="text-red-"] {
+  color: #dc2626 !important;
+  -webkit-text-fill-color: #dc2626 !important;
+}
+
+.light-mode .app-card [class*="text-blue-"] {
+  color: #1d4ed8 !important;
+  -webkit-text-fill-color: #1d4ed8 !important;
+}
+
+.light-mode .app-card [class*="bg-white/"] {
+  background-color: rgba(239, 246, 255, 0.78) !important;
+}
+
+.light-mode .app-card [class*="border-white/"] {
+  border-color: rgba(59, 130, 246, 0.28) !important;
+}
+
 /* cleaner scrollbars for desktop */
 * {
   scrollbar-width: thin;
