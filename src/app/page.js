@@ -2483,10 +2483,10 @@ export default function Home() {
       const asksFounder =
         /\b(founder|owner|creator|made you|who built you|who created you|who made this|who made the site)\b/.test(q) ||
         /\bdeep patel\b/.test(q) ||
-        /\bjuan ramirez\b/.test(q);
+        /\bjuan m\. ramirez\b/.test(q);
       if (asksFounder) {
         const identityReply =
-          "Arthastra was founded by Deep Patel with Juan Ramirez as Co-founder. They are the owners and creators behind this platform. For support, contact support@arthastraai.com.";
+          "Arthastra was founded by Deep Patel with Juan M. Ramirez as Co-founder. They are the owners and creators behind this platform. For support, contact support@arthastraai.com.";
         setChatMessages((prev) => [...prev, { role: "assistant", content: identityReply }]);
         setChatLoading(false);
         return;
@@ -2957,7 +2957,7 @@ export default function Home() {
             </div>
           </div>
           <p className={`mt-5 text-lg md:text-xl font-medium ${isLight ? "text-slate-700" : "text-slate-200/90"}`}>Clarity in Every Market.</p>
-          <p className={`text-xs mt-3 ${isLight ? "text-slate-500" : "text-slate-400/80"}`}>Founder: Deep Patel • Co-founder: Juan Ramirez</p>
+          <p className={`text-xs mt-3 ${isLight ? "text-slate-500" : "text-slate-400/80"}`}>Founder: Deep Patel • Co-founder: Juan M. Ramirez</p>
           <div className={`mt-5 inline-flex rounded-xl overflow-hidden border ${
             isLight ? "border-slate-300 bg-white/85 shadow-sm" : "border-white/15 bg-slate-900/60"
           }`}>

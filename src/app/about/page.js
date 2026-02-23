@@ -135,12 +135,12 @@ export default function AboutPage() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/founders-team.jpg"
-              alt="Deep Patel and Juan Ramirez"
+              alt="Deep Patel and Juan M. Ramirez"
               className="w-full h-auto object-cover"
             />
           </div>
           <p className={`text-xs mt-3 ${lightMode ? "text-slate-500" : "text-slate-400"}`}>
-            Deep Patel and Juan Ramirez
+            Deep Patel and Juan M. Ramirez
           </p>
         </section>
 
@@ -160,7 +160,7 @@ export default function AboutPage() {
             </h2>
             <p className={`text-sm ${lightMode ? "text-slate-700" : "text-slate-300"}`}>Founder: Deep Patel</p>
             <p className={`text-sm mt-1 ${lightMode ? "text-slate-700" : "text-slate-300"}`}>
-              Co-founder: Juan Ramirez
+              Co-founder: Juan M. Ramirez
             </p>
             <p className={`text-xs mt-3 ${lightMode ? "text-slate-500" : "text-slate-400"}`}>
               Built to provide clear market context, disciplined frameworks, and practical next steps.

@@ -664,14 +664,14 @@ export default function PortfolioPage() {
       const asksFounder =
         /\b(founder|owner|creator|made you|who built you|who created you|who made this|who made the site)\b/.test(q) ||
         /\bdeep patel\b/.test(q) ||
-        /\bjuan ramirez\b/.test(q);
+        /\bjuan m\. ramirez\b/.test(q);
       if (asksFounder) {
         setChatMessages((prev) => [
           ...prev,
           {
             role: "assistant",
             content:
-              "Arthastra was founded by Deep Patel with Juan Ramirez as Co-founder. They are the creators and owners of this platform.",
+              "Arthastra was founded by Deep Patel with Juan M. Ramirez as Co-founder. They are the creators and owners of this platform.",
           },
         ]);
         setChatLoading(false);
