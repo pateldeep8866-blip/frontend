@@ -144,10 +144,9 @@ textarea:disabled {
 
 .cherry-mode {
   background-image:
-    radial-gradient(circle at 12% 8%, rgba(190, 24, 93, 0.12), transparent 28%),
-    radial-gradient(circle at 82% 68%, rgba(249, 168, 212, 0.22), transparent 36%),
-    radial-gradient(circle at 56% 16%, rgba(99, 102, 241, 0.09), transparent 30%),
-    linear-gradient(130deg, rgba(255, 247, 237, 0.86), rgba(255, 241, 242, 0.8), rgba(238, 242, 255, 0.74));
+    radial-gradient(circle at 14% 9%, rgba(244, 114, 182, 0.11), transparent 28%),
+    radial-gradient(circle at 84% 72%, rgba(251, 113, 133, 0.09), transparent 34%),
+    linear-gradient(130deg, rgba(255, 255, 255, 0.98), rgba(255, 251, 253, 0.96), rgba(255, 255, 255, 0.98));
 }
 
 .cherry-mode::before {
@@ -157,22 +156,22 @@ textarea:disabled {
   pointer-events: none;
   z-index: 0;
   background:
-    radial-gradient(12px 12px at 8% 18%, rgba(244, 114, 182, 0.2), transparent 65%),
-    radial-gradient(14px 14px at 18% 10%, rgba(251, 113, 133, 0.2), transparent 66%),
-    radial-gradient(10px 10px at 78% 15%, rgba(244, 114, 182, 0.17), transparent 64%),
-    radial-gradient(8px 8px at 88% 22%, rgba(251, 113, 133, 0.14), transparent 62%),
-    repeating-linear-gradient(12deg, rgba(71, 52, 61, 0.035) 0px, rgba(71, 52, 61, 0.035) 1px, transparent 1px, transparent 9px);
+    radial-gradient(14px 14px at 10% 16%, rgba(244, 114, 182, 0.11), transparent 66%),
+    radial-gradient(16px 16px at 20% 12%, rgba(251, 113, 133, 0.1), transparent 68%),
+    radial-gradient(10px 10px at 79% 18%, rgba(244, 114, 182, 0.09), transparent 64%),
+    radial-gradient(9px 9px at 88% 24%, rgba(251, 113, 133, 0.08), transparent 62%),
+    repeating-linear-gradient(14deg, rgba(71, 52, 61, 0.02) 0px, rgba(71, 52, 61, 0.02) 1px, transparent 1px, transparent 12px);
 }
 
 .cherry-mode .app-card {
-  background: rgba(255, 251, 247, 0.9) !important;
-  border-color: rgba(190, 24, 93, 0.24) !important;
-  box-shadow: 0 16px 34px -24px rgba(131, 24, 67, 0.3);
+  background: rgba(255, 255, 255, 0.92) !important;
+  border-color: rgba(190, 24, 93, 0.2) !important;
+  box-shadow: 0 18px 36px -26px rgba(131, 24, 67, 0.24);
   color: #422637 !important;
 }
 
 .cherry-mode .app-card:hover {
-  border-color: rgba(159, 18, 57, 0.44) !important;
+  border-color: rgba(159, 18, 57, 0.34) !important;
 }
 
 .cherry-mode .app-card-title {
@@ -202,34 +201,34 @@ textarea:disabled {
 }
 
 .cherry-mode .app-card [class*="bg-white/"] {
-  background-color: rgba(255, 247, 248, 0.86) !important;
+  background-color: rgba(255, 251, 253, 0.88) !important;
 }
 
 .cherry-mode .app-card [class*="border-white/"] {
-  border-color: rgba(190, 24, 93, 0.26) !important;
+  border-color: rgba(190, 24, 93, 0.2) !important;
 }
 
 .cherry-mode button[class*="bg-blue-600"] {
-  background-color: #db2777 !important;
+  background-color: #be185d !important;
 }
 
 .cherry-mode button[class*="bg-blue-600"]:hover {
-  background-color: #be185d !important;
+  background-color: #9d174d !important;
 }
 
 @keyframes sakuraDrift {
   0% {
-    transform: translate3d(0, -10vh, 0) rotate(0deg);
+    transform: translate3d(0, -8vh, 0) rotate(0deg);
     opacity: 0;
   }
-  12% {
-    opacity: 0.85;
+  16% {
+    opacity: 0.52;
   }
-  85% {
-    opacity: 0.82;
+  86% {
+    opacity: 0.5;
   }
   100% {
-    transform: translate3d(var(--sakura-x, 22vw), 110vh, 0) rotate(320deg);
+    transform: translate3d(var(--sakura-x, 14vw), 108vh, 0) rotate(260deg);
     opacity: 0;
   }
 }
@@ -239,70 +238,87 @@ textarea:disabled {
   inset: 0;
 }
 
+.sakura-scene-pro {
+  mix-blend-mode: multiply;
+  opacity: 0.9;
+}
+
 .sakura-tree {
   position: absolute;
   user-select: none;
   pointer-events: none;
-  filter: drop-shadow(0 22px 24px rgba(124, 45, 18, 0.18));
+  filter: drop-shadow(0 20px 20px rgba(124, 45, 18, 0.14));
 }
 
 .sakura-tree-left {
-  width: min(46vw, 450px);
-  left: -34px;
-  bottom: -8px;
-  opacity: 0.9;
+  width: min(44vw, 430px);
+  left: -28px;
+  bottom: -12px;
+  opacity: 0.66;
 }
 
 .sakura-tree-right {
-  width: min(27vw, 280px);
-  right: -74px;
-  top: 38px;
+  width: min(26vw, 250px);
+  right: -86px;
+  top: 66px;
   transform: scaleX(-1);
-  opacity: 0.36;
+  opacity: 0.22;
+}
+
+.sakura-tree-canopy {
+  width: min(32vw, 290px);
+  right: -42px;
+  top: -24px;
+  opacity: 0.18;
+  transform: scaleX(-1) rotate(-7deg);
+  filter: blur(0.4px) drop-shadow(0 12px 14px rgba(190, 24, 93, 0.11));
 }
 
 .sakura-petal {
   position: absolute;
   top: -12%;
-  width: 13px;
-  height: 9px;
-  border-radius: 75% 35% 70% 35%;
-  background: radial-gradient(circle at 25% 20%, rgba(255, 255, 255, 0.96), rgba(251, 207, 232, 0.92) 48%, rgba(244, 114, 182, 0.86));
-  box-shadow: 0 0 14px rgba(244, 114, 182, 0.45);
+  width: 10px;
+  height: 7px;
+  border-radius: 74% 38% 72% 34%;
+  background: radial-gradient(circle at 26% 22%, rgba(255, 255, 255, 0.94), rgba(251, 207, 232, 0.82) 56%, rgba(244, 114, 182, 0.58));
+  box-shadow: 0 0 9px rgba(244, 114, 182, 0.2);
   animation: sakuraDrift linear infinite;
 }
 
-.sakura-petal-1 { left: 8%; --sakura-x: 20vw; animation-duration: 13s; animation-delay: -1s; }
-.sakura-petal-2 { left: 16%; --sakura-x: 18vw; animation-duration: 16s; animation-delay: -4s; }
-.sakura-petal-3 { left: 24%; --sakura-x: 21vw; animation-duration: 14s; animation-delay: -7s; }
-.sakura-petal-4 { left: 33%; --sakura-x: 16vw; animation-duration: 18s; animation-delay: -2s; }
-.sakura-petal-5 { left: 42%; --sakura-x: 19vw; animation-duration: 15s; animation-delay: -8s; }
-.sakura-petal-6 { left: 51%; --sakura-x: 14vw; animation-duration: 17s; animation-delay: -5s; }
-.sakura-petal-7 { left: 60%; --sakura-x: 17vw; animation-duration: 14s; animation-delay: -10s; }
-.sakura-petal-8 { left: 69%; --sakura-x: 20vw; animation-duration: 16s; animation-delay: -3s; }
-.sakura-petal-9 { left: 76%; --sakura-x: 15vw; animation-duration: 19s; animation-delay: -9s; }
-.sakura-petal-10 { left: 82%; --sakura-x: 22vw; animation-duration: 15s; animation-delay: -6s; }
-.sakura-petal-11 { left: 88%; --sakura-x: 14vw; animation-duration: 18s; animation-delay: -11s; }
-.sakura-petal-12 { left: 92%; --sakura-x: 16vw; animation-duration: 13s; animation-delay: -2.5s; }
-.sakura-petal-13 { left: 12%; --sakura-x: 24vw; animation-duration: 20s; animation-delay: -12s; }
-.sakura-petal-14 { left: 72%; --sakura-x: 18vw; animation-duration: 12.5s; animation-delay: -1.5s; }
+.sakura-petal-1 { left: 9%; --sakura-x: 11vw; animation-duration: 18s; animation-delay: -1s; }
+.sakura-petal-2 { left: 18%; --sakura-x: 10vw; animation-duration: 21s; animation-delay: -5s; }
+.sakura-petal-3 { left: 29%; --sakura-x: 12vw; animation-duration: 19s; animation-delay: -8s; }
+.sakura-petal-4 { left: 41%; --sakura-x: 9vw; animation-duration: 23s; animation-delay: -3s; }
+.sakura-petal-5 { left: 53%; --sakura-x: 11vw; animation-duration: 20s; animation-delay: -11s; }
+.sakura-petal-6 { left: 64%; --sakura-x: 10vw; animation-duration: 24s; animation-delay: -6s; }
+.sakura-petal-7 { left: 74%; --sakura-x: 12vw; animation-duration: 22s; animation-delay: -9s; }
+.sakura-petal-8 { left: 82%; --sakura-x: 13vw; animation-duration: 21s; animation-delay: -4s; }
+.sakura-petal-9 { left: 14%; --sakura-x: 15vw; animation-duration: 26s; animation-delay: -12s; }
+.sakura-petal-10 { left: 70%; --sakura-x: 12vw; animation-duration: 19s; animation-delay: -2s; }
 
 @media (max-width: 900px) {
   .sakura-tree-left {
-    width: min(62vw, 360px);
-    left: -56px;
-    opacity: 0.78;
+    width: min(58vw, 330px);
+    left: -54px;
+    opacity: 0.56;
   }
 
   .sakura-tree-right {
-    width: min(36vw, 220px);
-    right: -92px;
-    top: 58px;
-    opacity: 0.3;
+    width: min(34vw, 210px);
+    right: -98px;
+    top: 90px;
+    opacity: 0.18;
+  }
+
+  .sakura-tree-canopy {
+    width: min(34vw, 200px);
+    right: -70px;
+    top: 4px;
+    opacity: 0.14;
   }
 
   .sakura-petal {
-    width: 10px;
-    height: 7px;
+    width: 8px;
+    height: 6px;
   }
 }
