@@ -255,6 +255,28 @@ textarea:disabled {
   opacity: 0.58;
 }
 
+.sakura-ink-feature {
+  position: absolute;
+  user-select: none;
+  pointer-events: none;
+  filter: drop-shadow(0 6px 10px rgba(15, 23, 42, 0.07));
+}
+
+.sakura-ink-feature-left {
+  width: min(32vw, 420px);
+  left: -26px;
+  top: -14px;
+  opacity: 0.5;
+}
+
+.sakura-ink-feature-right {
+  width: min(22vw, 260px);
+  right: -84px;
+  top: 48px;
+  transform: scaleX(-1) rotate(2deg);
+  opacity: 0.2;
+}
+
 .sakura-tree {
   position: absolute;
   user-select: none;
@@ -314,6 +336,20 @@ textarea:disabled {
       url("/sakura-ink-branch.svg") right -250px top 110px / min(68vw, 420px) auto no-repeat,
       repeating-linear-gradient(14deg, rgba(71, 52, 61, 0.012) 0px, rgba(71, 52, 61, 0.012) 1px, transparent 1px, transparent 16px);
     opacity: 0.22;
+  }
+
+  .sakura-ink-feature-left {
+    width: min(64vw, 300px);
+    left: -66px;
+    top: 14px;
+    opacity: 0.42;
+  }
+
+  .sakura-ink-feature-right {
+    width: min(42vw, 180px);
+    right: -84px;
+    top: 122px;
+    opacity: 0.14;
   }
 
   .sakura-tree-left {
