@@ -111,6 +111,21 @@ const DEFAULT_QUIZ_ANSWERS = {
   followupNotes: "",
 };
 
+const GEO_POLITICS_THEMES = [
+  {
+    title: "Conflict Zones",
+    detail: "Major military and regional flashpoints that can reshape global risk appetite.",
+  },
+  {
+    title: "Trade & Sanctions",
+    detail: "New sanctions, tariffs, and export controls affecting supply chains and pricing.",
+  },
+  {
+    title: "Energy & Shipping",
+    detail: "Oil, gas, and shipping-lane disruptions with direct inflation and growth impact.",
+  },
+];
+
 function normalizeQuizAnswers(value) {
   const raw = value && typeof value === "object" ? value : {};
   return {
@@ -512,7 +527,7 @@ export default function Home() {
     {
       role: "assistant",
       content:
-        "I am ASTRA. Ask me about the current tab market (stocks, crypto, metals, FX, or world news).",
+        "I am ASTRA. Ask me about stocks, crypto, metals, FX, world news, or geopolitics.",
     },
   ]);
   const [authReady, setAuthReady] = useState(false);
@@ -1087,7 +1102,7 @@ export default function Home() {
   }
 
   async function fetchDailyPick() {
-    if (assetMode === "fx" || assetMode === "news") {
+    if (assetMode === "fx" || assetMode === "news" || assetMode === "geopolitics") {
       setDailyObj(null);
       return;
     }
@@ -1105,7 +1120,7 @@ export default function Home() {
 
   async function fetchOverview() {
     try {
-      if (assetMode === "news") {
+      if (assetMode === "news" || assetMode === "geopolitics") {
         setOverview([]);
         return;
       }
@@ -1175,8 +1190,10 @@ export default function Home() {
     }
     try {
       const res = await fetch(
-        assetMode === "news"
-          ? "/api/global-impact-news"
+        assetMode === "geopolitics"
+          ? "/api/geopolitics-news"
+          : assetMode === "news"
+            ? "/api/global-impact-news"
           : assetMode === "crypto"
             ? "/api/crypto-market-news"
             : assetMode === "metals"
@@ -1191,7 +1208,7 @@ export default function Home() {
   }
 
   async function fetchMovers() {
-    if (assetMode === "fx" || assetMode === "news") {
+    if (assetMode === "fx" || assetMode === "news" || assetMode === "geopolitics") {
       setMovers({ gainers: [], losers: [] });
       return;
     }
@@ -1226,7 +1243,7 @@ export default function Home() {
   }
 
   async function runComparison() {
-    if (assetMode === "fx" || assetMode === "news") {
+    if (assetMode === "fx" || assetMode === "news" || assetMode === "geopolitics") {
       setCompareRows([]);
       return;
     }
@@ -2397,7 +2414,7 @@ export default function Home() {
 
   const fetchDayTraderPick = async () => {
     const enabled = Boolean(authUser && quizCompleted && String(quizAnswers.dayTradingInterest || "").startsWith("yes"));
-    if (!enabled || assetMode === "fx" || assetMode === "news") {
+    if (!enabled || assetMode === "fx" || assetMode === "news" || assetMode === "geopolitics") {
       setDayTraderObj(null);
       return;
     }
@@ -2544,18 +2561,24 @@ export default function Home() {
           ? "FX"
           : assetMode === "news"
             ? "world news"
-            : "stock";
+            : assetMode === "geopolitics"
+              ? "geopolitics"
+              : "stock";
   const chatInputPlaceholder =
     assetMode === "crypto"
-      ? "Ask anything (crypto, stocks, metals, FX, news)..."
+      ? "Ask anything (crypto, stocks, metals, FX, news, geopolitics)..."
       : assetMode === "metals"
-        ? "Ask anything (metals, crypto, stocks, FX, news)..."
+        ? "Ask anything (metals, crypto, stocks, FX, news, geopolitics)..."
         : assetMode === "fx"
-          ? "Ask anything (FX, stocks, crypto, metals, news)..."
+          ? "Ask anything (FX, stocks, crypto, metals, news, geopolitics)..."
           : assetMode === "news"
-            ? "Ask anything (world news, markets, crypto, FX, metals)..."
-            : "Ask anything (stocks, crypto, metals, FX, news)...";
+            ? "Ask anything (world news, markets, crypto, FX, metals, geopolitics)..."
+            : assetMode === "geopolitics"
+              ? "Ask anything (global conflicts, diplomacy, sanctions, trade, markets)..."
+              : "Ask anything (stocks, crypto, metals, FX, news, geopolitics)...";
   const isNewsMode = assetMode === "news";
+  const isGeoPoliticsMode = assetMode === "geopolitics";
+  const isNarrativeMode = isNewsMode || isGeoPoliticsMode;
   const isMetalsMode = assetMode === "metals";
   const overviewLoop = overview.length ? [...overview, ...overview] : [];
   const supabaseConfigured = Boolean(getSupabaseClient());
@@ -3001,6 +3024,14 @@ export default function Home() {
             >
               News
             </button>
+            <button
+              onClick={() => setAssetMode("geopolitics")}
+              className={`px-3 py-1.5 text-xs font-semibold ${
+                assetMode === "geopolitics" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-700" : "bg-transparent text-white/80"
+              }`}
+            >
+              Geo Politics
+            </button>
           </div>
         </div>
 
@@ -3342,7 +3373,7 @@ export default function Home() {
         )}
 
         {/* MARKET OVERVIEW */}
-        {!isNewsMode && (
+        {!isNarrativeMode && (
         <div className="mb-6">
           <Card
             title={isFxMode ? "FX Market Overview" : "Market Overview"}
@@ -3402,7 +3433,7 @@ export default function Home() {
         </div>
         )}
 
-        {isFxMode && !isNewsMode && (
+        {isFxMode && !isNarrativeMode && (
           <div className="mb-6">
             <Card
               title="Exchange Rate Converter"
@@ -3495,7 +3526,7 @@ export default function Home() {
         )}
 
         {/* MOVERS + MARKET NEWS */}
-        {!isFxMode && !isNewsMode && (
+        {!isFxMode && !isNarrativeMode && (
         <div className={`grid grid-cols-1 ${isMetalsMode ? "" : "lg:grid-cols-2"} gap-6 mb-6`}>
           {!isMetalsMode && (
             <Card
@@ -3585,7 +3616,7 @@ export default function Home() {
         )}
 
         {/* DAILY PICK + SEARCH ROW */}
-        {!isFxMode && !isNewsMode && (
+        {!isFxMode && !isNarrativeMode && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <div className="space-y-6">
           <Card
@@ -4070,7 +4101,7 @@ export default function Home() {
         )}
 
         {/* SEARCH */}
-        {!isFxMode && !isNewsMode && (
+        {!isFxMode && !isNarrativeMode && (
         <div className="mb-6">
           <Card
             title="Search"
@@ -4247,8 +4278,82 @@ export default function Home() {
           </div>
         )}
 
+        {isGeoPoliticsMode && (
+          <div className="mb-6">
+            <Card
+              title="Geo Politics Intelligence"
+              right={
+                <button
+                  onClick={fetchMarketNews}
+                  className={`px-3 py-1.5 rounded-lg text-xs ${isLight ? "bg-slate-100 hover:bg-slate-200 text-slate-700" : "bg-white/10 hover:bg-white/15 text-white"}`}
+                >
+                  Refresh
+                </button>
+              }
+            >
+              <p className={`text-sm mb-4 ${isLight ? "text-slate-600" : "text-white/70"}`}>
+                Real-time geopolitical coverage focused on conflicts, diplomacy, sanctions, energy security, and global trade routes.
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
+                {GEO_POLITICS_THEMES.map((theme) => (
+                  <div
+                    key={theme.title}
+                    className={`rounded-xl border p-3 ${isLight ? "border-slate-200 bg-white/90" : "border-white/10 bg-white/5"}`}
+                  >
+                    <div className={`text-xs font-semibold uppercase tracking-wide mb-1 ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>
+                      {theme.title}
+                    </div>
+                    <div className={`text-sm ${isLight ? "text-slate-700" : "text-white/85"}`}>{theme.detail}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {marketNews.slice(0, 24).map((n, idx) => (
+                  <a
+                    key={`${n.url}-${idx}`}
+                    href={n.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={`group block rounded-xl border p-3 transition-all ${isLight ? "border-slate-200 bg-white hover:bg-slate-50" : "border-white/10 bg-white/5 hover:bg-white/10"}`}
+                  >
+                    <div className="flex gap-3">
+                      <div className={`relative w-20 h-20 shrink-0 rounded-lg overflow-hidden border ${isLight ? "border-slate-200" : "border-white/10"}`}>
+                        <div className={`absolute inset-0 ${isLight ? "bg-gradient-to-br from-blue-100 via-sky-100 to-slate-100" : "bg-gradient-to-br from-blue-600/35 via-cyan-500/20 to-slate-800/30"}`} />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          {faviconUrlFor(n.url) ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={faviconUrlFor(n.url)}
+                              alt="Source"
+                              className="h-9 w-9 rounded-full bg-white/90 p-1.5 ring-1 ring-white/30"
+                            />
+                          ) : (
+                            <div className={`h-9 w-9 rounded-full ${isLight ? "bg-slate-200" : "bg-white/20"}`} />
+                          )}
+                        </div>
+                      </div>
+                      <div className="min-w-0">
+                        <div className={`text-sm group-hover:underline line-clamp-3 ${isLight ? "text-blue-700" : "text-blue-300"}`}>{n.headline}</div>
+                        <div className={`mt-2 text-[11px] ${isLight ? "text-slate-500" : "text-white/50"}`}>
+                          {[n.source || safeDomainFromUrl(n.url), n.datetime].filter(Boolean).join(" • ") || "Global feed"}
+                        </div>
+                        <div className={`mt-1 text-[11px] truncate ${isLight ? "text-slate-400" : "text-white/40"}`}>{safeDomainFromUrl(n.url)}</div>
+                      </div>
+                    </div>
+                  </a>
+                ))}
+                {marketNews.length === 0 && (
+                  <div className={`text-sm ${isLight ? "text-slate-600" : "text-white/60"}`}>No geopolitics headlines yet.</div>
+                )}
+              </div>
+            </Card>
+          </div>
+        )}
+
         {/* COMPANY */}
-        {!isNewsMode && company?.name && (
+        {!isNarrativeMode && company?.name && (
           <div className="mb-6">
             <Card title={assetMode === "stock" ? "Company" : "Market Asset"}>
               <div className="flex items-center gap-3">
@@ -4292,7 +4397,7 @@ export default function Home() {
           </div>
         )}
 
-        {assetMode === "stock" && !isNewsMode && sectorInfo && (
+        {assetMode === "stock" && !isNarrativeMode && sectorInfo && (
           <div className="mb-6">
             <Card title="Sector Analysis">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
@@ -4318,7 +4423,7 @@ export default function Home() {
         )}
 
         {/* QUOTE + CHART */}
-        {!isNewsMode && (result || chartLoading || (chartPoints?.length > 0)) && (
+        {!isNarrativeMode && (result || chartLoading || (chartPoints?.length > 0)) && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             {result && (
               <Card title="Quote">
@@ -4396,7 +4501,7 @@ export default function Home() {
         )}
 
         {/* ANALYTICAL INFORMATION */}
-        {!isNewsMode && (analysisLoading || analysisObj) && (
+        {!isNarrativeMode && (analysisLoading || analysisObj) && (
           <div className="mb-6">
             <Card
               title="ASTRA Analysis"
@@ -4574,7 +4679,7 @@ export default function Home() {
         )}
 
         {/* NEWS */}
-        {!isNewsMode && news.length > 0 && (
+        {!isNarrativeMode && news.length > 0 && (
           <div className="mb-6">
             <Card title="Latest News">
               <div className="space-y-2">
