@@ -523,6 +523,8 @@ export default function Home() {
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [authConfirmPassword, setAuthConfirmPassword] = useState("");
+  const [authSignupCode, setAuthSignupCode] = useState("");
+  const [authSignupCodeSent, setAuthSignupCodeSent] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState("");
   const [authNotice, setAuthNotice] = useState("");
@@ -547,6 +549,20 @@ export default function Home() {
   const [quizFollowupDue, setQuizFollowupDue] = useState(false);
   const [dayTraderObj, setDayTraderObj] = useState(null);
   const [dayTraderLoading, setDayTraderLoading] = useState(false);
+  const [portfolioSymbolInput, setPortfolioSymbolInput] = useState("");
+  const [portfolioQtyInput, setPortfolioQtyInput] = useState("1");
+  const [portfolioBuyPriceInput, setPortfolioBuyPriceInput] = useState("");
+  const [portfolioBuyDateInput, setPortfolioBuyDateInput] = useState("");
+  const [portfolioHoldings, setPortfolioHoldings] = useState([]);
+  const [portfolioRows, setPortfolioRows] = useState([]);
+  const [portfolioLoading, setPortfolioLoading] = useState(false);
+  const [portfolioAnalyzing, setPortfolioAnalyzing] = useState(false);
+  const [portfolioError, setPortfolioError] = useState("");
+  const [portfolioNotice, setPortfolioNotice] = useState("");
+  const [portfolioAnalysis, setPortfolioAnalysis] = useState(null);
+  const [portfolioSuggestions, setPortfolioSuggestions] = useState([]);
+  const [portfolioSuggestionLoading, setPortfolioSuggestionLoading] = useState(false);
+  const [portfolioSuggestionOpen, setPortfolioSuggestionOpen] = useState(false);
   const quizPromptTimerRef = useRef(null);
   const initialQuizPromptedRef = useRef(false);
   const followupQuizPromptedRef = useRef(false);
@@ -704,6 +720,50 @@ export default function Home() {
   }, [authUser]);
 
   useEffect(() => {
+    if (!authUser?.id) {
+      setPortfolioHoldings([]);
+      setPortfolioRows([]);
+      setPortfolioAnalysis(null);
+      setPortfolioError("");
+      return;
+    }
+    try {
+      const key = `portfolio_holdings_${authUser.id}`;
+      const saved = JSON.parse(localStorage.getItem(key) || "[]");
+      if (Array.isArray(saved)) {
+        const clean = saved
+          .map((x, idx) => {
+            if (typeof x === "string") {
+              const sym = canonicalTicker(x);
+              if (!sym) return null;
+              return { id: `legacy-${sym}-${idx}`, symbol: sym, quantity: 1, buyPrice: 0, buyDate: "" };
+            }
+            const sym = canonicalTicker(x?.symbol || "");
+            if (!sym) return null;
+            return {
+              id: String(x?.id || `h-${sym}-${idx}`),
+              symbol: sym,
+              quantity: Number(x?.quantity) > 0 ? Number(x.quantity) : 1,
+              buyPrice: Number(x?.buyPrice) >= 0 ? Number(x.buyPrice) : 0,
+              buyDate: String(x?.buyDate || ""),
+            };
+          })
+          .filter(Boolean)
+          .slice(0, 50);
+        setPortfolioHoldings(clean);
+      }
+    } catch {}
+  }, [authUser?.id]);
+
+  useEffect(() => {
+    if (!authUser?.id) return;
+    try {
+      const key = `portfolio_holdings_${authUser.id}`;
+      localStorage.setItem(key, JSON.stringify(portfolioHoldings.slice(0, 50)));
+    } catch {}
+  }, [authUser?.id, portfolioHoldings]);
+
+  useEffect(() => {
     initialQuizPromptedRef.current = false;
     followupQuizPromptedRef.current = false;
     if (quizPromptTimerRef.current) {
@@ -812,6 +872,52 @@ export default function Home() {
   }, [assetMode]);
 
   useEffect(() => {
+    if (!authUser || assetMode !== "stock") {
+      setPortfolioSuggestions([]);
+      setPortfolioSuggestionOpen(false);
+      return;
+    }
+    const q = String(portfolioSymbolInput || "").trim();
+    if (q.length < 1) {
+      setPortfolioSuggestions([]);
+      setPortfolioSuggestionOpen(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        setPortfolioSuggestionLoading(true);
+        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`, { signal: controller.signal });
+        const data = await res.json().catch(() => ({}));
+        const matchesRaw = Array.isArray(data?.matches) ? data.matches : data?.best ? [data.best] : [];
+        const dedup = new Map();
+        for (const m of matchesRaw) {
+          const symbol = String(m?.symbol || "").toUpperCase();
+          const description = String(m?.description || "").trim();
+          if (!symbol) continue;
+          if (!dedup.has(symbol)) dedup.set(symbol, { symbol, description });
+        }
+        const suggestions = Array.from(dedup.values()).slice(0, 8);
+        setPortfolioSuggestions(suggestions);
+        setPortfolioSuggestionOpen(suggestions.length > 0);
+      } catch (e) {
+        if (e?.name !== "AbortError") {
+          setPortfolioSuggestions([]);
+          setPortfolioSuggestionOpen(false);
+        }
+      } finally {
+        setPortfolioSuggestionLoading(false);
+      }
+    }, 250);
+
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [portfolioSymbolInput, authUser, assetMode]);
+
+  useEffect(() => {
     if (loading) {
       setSuggestionOpen(false);
       return;
@@ -882,6 +988,19 @@ export default function Home() {
     setSearchSuggestions([]);
     setSuggestionOpen(false);
     searchStock(sym);
+  };
+
+  const getSearchInput = (forcedInput) => {
+    if (typeof forcedInput === "string" || typeof forcedInput === "number") {
+      return String(forcedInput).trim();
+    }
+    if (forcedInput && typeof forcedInput === "object") {
+      const maybeSymbol = String(forcedInput?.symbol || forcedInput?.id || forcedInput?.name || "").trim();
+      if (maybeSymbol) return maybeSymbol;
+      // Click/submit event passed from onClick/onSubmit.
+      if (typeof forcedInput.preventDefault === "function") return String(ticker || "").trim();
+    }
+    return String(ticker || "").trim();
   };
 
   // Draw chart when points change
@@ -1355,7 +1474,7 @@ export default function Home() {
   }, [chartRange, usingTicker, usingAssetId, assetMode]);
 
   const searchStock = async (forcedInput) => {
-    const raw = String(forcedInput ?? ticker).trim();
+    const raw = getSearchInput(forcedInput);
     if (!raw) return;
     const rawCanonical = assetMode === "crypto" || assetMode === "metals" ? raw.toUpperCase() : canonicalTicker(raw);
 
@@ -1703,6 +1822,258 @@ export default function Home() {
     setErrorMsg("");
   };
 
+  const applyPortfolioSuggestion = (suggestion) => {
+    const symbol = canonicalTicker(suggestion?.symbol || "");
+    if (!symbol) return;
+    setPortfolioSymbolInput(symbol);
+    setPortfolioSuggestionOpen(false);
+  };
+
+  const addPortfolioHolding = async () => {
+    const fallback = canonicalTicker(usingTicker || ticker || "");
+    const rawSymbol = String(portfolioSymbolInput || fallback || "").trim();
+    const symbol = rawSymbol ? await resolveSymbol(rawSymbol) : "";
+    const quantity = Number(portfolioQtyInput);
+    const buyPrice = Number(portfolioBuyPriceInput || 0);
+    const buyDate = String(portfolioBuyDateInput || "");
+
+    if (!symbol) {
+      setPortfolioError("Enter a valid stock symbol.");
+      return;
+    }
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      setPortfolioError("Quantity must be greater than 0.");
+      return;
+    }
+    if (!Number.isFinite(buyPrice) || buyPrice < 0) {
+      setPortfolioError("Buy price must be 0 or greater.");
+      return;
+    }
+
+    setPortfolioError("");
+    setPortfolioNotice("");
+    const cleanSymbol = canonicalTicker(symbol);
+    setPortfolioHoldings((prev) => {
+      const idx = prev.findIndex((h) => canonicalTicker(h.symbol) === cleanSymbol);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = { ...next[idx], symbol: cleanSymbol, quantity, buyPrice, buyDate };
+        return next;
+      }
+      const id = `${cleanSymbol}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      return [...prev, { id, symbol: cleanSymbol, quantity, buyPrice, buyDate }].slice(0, 50);
+    });
+    setPortfolioSymbolInput("");
+    setPortfolioQtyInput("1");
+    setPortfolioBuyPriceInput("");
+    setPortfolioBuyDateInput("");
+    setPortfolioSuggestionOpen(false);
+    setPortfolioNotice(`${cleanSymbol} saved in portfolio.`);
+  };
+
+  const removePortfolioHolding = (id) => {
+    setPortfolioHoldings((prev) => prev.filter((x) => x.id !== id));
+    setPortfolioRows((prev) => prev.filter((x) => x.id !== id));
+    setPortfolioNotice("Holding removed from portfolio.");
+  };
+
+  const updatePortfolioHoldingField = (id, field, rawValue) => {
+    setPortfolioHoldings((prev) =>
+      prev.map((h) => {
+        if (h.id !== id) return h;
+        if (field === "quantity") return { ...h, quantity: rawValue };
+        if (field === "buyPrice") return { ...h, buyPrice: rawValue };
+        if (field === "buyDate") return { ...h, buyDate: String(rawValue || "") };
+        return h;
+      })
+    );
+  };
+
+  const savePortfolioHolding = (id) => {
+    let savedSymbol = "";
+    let valid = true;
+    setPortfolioHoldings((prev) =>
+      prev.map((h) => {
+        if (h.id !== id) return h;
+        const qty = Number(h.quantity);
+        const buyPx = Number(h.buyPrice || 0);
+        if (!Number.isFinite(qty) || qty <= 0 || !Number.isFinite(buyPx) || buyPx < 0) {
+          valid = false;
+          return h;
+        }
+        savedSymbol = h.symbol;
+        return { ...h, quantity: qty, buyPrice: buyPx };
+      })
+    );
+    if (!valid) {
+      setPortfolioError("Quantity must be > 0 and buy price must be >= 0.");
+      return;
+    }
+    setPortfolioError("");
+    setPortfolioNotice(`${savedSymbol || "Holding"} updated.`);
+  };
+
+  const fetchPortfolioRows = async (holdings) => {
+    if (!Array.isArray(holdings) || holdings.length === 0) return [];
+    const rows = await Promise.all(
+      holdings.map(async (h) => {
+        const sym = canonicalTicker(h?.symbol || "");
+        const qty = Number(h?.quantity || 0);
+        const buyPrice = Number(h?.buyPrice || 0);
+        const buyDate = String(h?.buyDate || "");
+        try {
+          const res = await fetch(`/api/quote?symbol=${encodeURIComponent(sym)}`);
+          const d = await res.json().catch(() => ({}));
+          if (!res.ok) return { id: h.id, symbol: sym, quantity: qty, buyPrice, buyDate, error: d?.error || "Quote unavailable" };
+          const livePrice = Number(d?.price);
+          const dayChange = Number(d?.change);
+          const pct = Number(d?.percentChange);
+          const costBasis = Number.isFinite(qty) && Number.isFinite(buyPrice) ? qty * buyPrice : null;
+          const marketValue = Number.isFinite(qty) && Number.isFinite(livePrice) ? qty * livePrice : null;
+          const unrealizedPnL =
+            Number.isFinite(marketValue) && Number.isFinite(costBasis) ? marketValue - costBasis : null;
+          const unrealizedPct =
+            Number.isFinite(costBasis) && costBasis > 0 && Number.isFinite(unrealizedPnL)
+              ? (unrealizedPnL / costBasis) * 100
+              : null;
+          return {
+            id: h.id,
+            symbol: canonicalTicker(d?.symbol || sym),
+            quantity: qty,
+            buyPrice,
+            buyDate,
+            price: livePrice,
+            change: dayChange,
+            percentChange: pct,
+            previousClose: Number(d?.previousClose),
+            dayPnL: Number.isFinite(dayChange) && Number.isFinite(qty) ? dayChange * qty : null,
+            costBasis,
+            marketValue,
+            unrealizedPnL,
+            unrealizedPct,
+          };
+        } catch {
+          return { id: h.id, symbol: sym, quantity: qty, buyPrice, buyDate, error: "Network issue" };
+        }
+      })
+    );
+    return rows;
+  };
+
+  const computePortfolioAnalysis = (rows) => {
+    const valid = rows.filter((r) => Number.isFinite(r?.percentChange) && Number.isFinite(r?.marketValue));
+    const greenFlags = [];
+    const redFlags = [];
+    let score = 65;
+
+    if (!valid.length) {
+      return {
+        score: 35,
+        greenFlags,
+        redFlags: ["No valid holdings data yet. Add symbols and refresh portfolio analysis."],
+      };
+    }
+
+    const totalValue = valid.reduce((a, r) => a + Number(r.marketValue || 0), 0);
+    const avgChange = valid.reduce((a, r) => a + Number(r.percentChange || 0), 0) / valid.length;
+    const weightedDaily =
+      totalValue > 0
+        ? valid.reduce((a, r) => a + Number(r.percentChange || 0) * (Number(r.marketValue || 0) / totalValue), 0)
+        : avgChange;
+    if (avgChange >= 0) {
+      score += 12;
+      greenFlags.push(`Portfolio daily momentum is positive (${avgChange.toFixed(2)}%).`);
+    } else {
+      score -= 12;
+      redFlags.push(`Portfolio daily momentum is negative (${avgChange.toFixed(2)}%).`);
+    }
+
+    const deepRed = valid.filter((r) => Number(r.percentChange) <= -4 || Number(r.unrealizedPct) <= -15);
+    if (deepRed.length) {
+      score -= Math.min(20, deepRed.length * 5);
+      redFlags.push(`High drawdown risk: ${deepRed.map((r) => r.symbol).join(", ")} show elevated downside.`);
+    } else {
+      score += 6;
+      greenFlags.push("No holdings are showing severe drawdown risk right now.");
+    }
+
+    const strongGreen = valid.filter((r) => Number(r.percentChange) >= 2);
+    if (strongGreen.length >= 2) {
+      score += 8;
+      greenFlags.push(`Multiple strong movers: ${strongGreen.map((r) => r.symbol).join(", ")}.`);
+    }
+
+    if (valid.length >= 5) {
+      score += 8;
+      greenFlags.push(`Diversification: ${valid.length} holdings tracked.`);
+    } else {
+      score -= 8;
+      redFlags.push("Low diversification: consider 5+ holdings to reduce concentration risk.");
+    }
+
+    const variance = valid.reduce((a, r) => a + Math.pow(Number(r.percentChange) - weightedDaily, 2), 0) / valid.length;
+    const stdDev = Math.sqrt(variance);
+    if (stdDev > 3.5) {
+      score -= 8;
+      redFlags.push("Volatility is elevated across holdings.");
+    } else {
+      score += 5;
+      greenFlags.push("Volatility profile is relatively stable.");
+    }
+
+    score = Math.max(0, Math.min(100, Math.round(score)));
+    const totalCost = valid.reduce((a, r) => a + Number(r.costBasis || 0), 0);
+    const totalUnrealized = valid.reduce((a, r) => a + Number(r.unrealizedPnL || 0), 0);
+    const totalReturnPct = totalCost > 0 ? (totalUnrealized / totalCost) * 100 : 0;
+    if (totalReturnPct >= 0) {
+      greenFlags.push(`Overall unrealized return is positive (${totalReturnPct.toFixed(2)}%).`);
+    } else {
+      redFlags.push(`Overall unrealized return is negative (${totalReturnPct.toFixed(2)}%).`);
+      score = Math.max(0, score - 8);
+    }
+
+    return {
+      score,
+      greenFlags,
+      redFlags,
+      totalCost,
+      totalValue,
+      totalUnrealized,
+      totalReturnPct,
+      weightedDaily,
+    };
+  };
+
+  const runPortfolioAnalysis = async () => {
+    if (!authUser) {
+      setPortfolioError("Login required to use portfolio tools.");
+      return;
+    }
+    if (assetMode !== "stock") {
+      setPortfolioError("Portfolio analysis is currently available in the Stock tab.");
+      return;
+    }
+    const holdings = portfolioHoldings.filter((h) => canonicalTicker(h?.symbol || ""));
+    if (!holdings.length) {
+      setPortfolioError("Add at least one stock symbol to analyze.");
+      return;
+    }
+
+    setPortfolioError("");
+    setPortfolioLoading(true);
+    setPortfolioAnalyzing(true);
+    try {
+      const rows = await fetchPortfolioRows(holdings);
+      setPortfolioRows(rows);
+      setPortfolioAnalysis(computePortfolioAnalysis(rows));
+    } catch {
+      setPortfolioError("Portfolio analysis failed. Try again.");
+    } finally {
+      setPortfolioLoading(false);
+      setPortfolioAnalyzing(false);
+    }
+  };
+
   const handleAuthSubmit = async () => {
     const email = authEmail.trim();
     const password = authPassword;
@@ -1723,6 +2094,11 @@ export default function Home() {
       }
       if (password.length < 8) {
         setAuthError("Password must be at least 8 characters.");
+        return;
+      }
+    } else if (authMode === "signup" && authSignupCodeSent) {
+      if (!email || !authSignupCode.trim()) {
+        setAuthError("Email and verification code are required.");
         return;
       }
     } else {
@@ -1770,26 +2146,54 @@ export default function Home() {
           window.history.replaceState({}, "", window.location.pathname);
         }
       } else if (authMode === "signup") {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              first_name: firstName,
-              last_name: lastName,
-              full_name: `${firstName} ${lastName}`.trim(),
+        if (!authSignupCodeSent) {
+          const { error } = await supabase.auth.signInWithOtp({
+            email,
+            options: {
+              shouldCreateUser: true,
+              data: {
+                first_name: firstName,
+                last_name: lastName,
+                full_name: `${firstName} ${lastName}`.trim(),
+              },
             },
-            emailRedirectTo: typeof window !== "undefined" ? window.location.origin : undefined,
-          },
-        });
-        if (error) {
-          setAuthError(error.message || "Sign up failed.");
+          });
+          if (error) {
+            setAuthError(error.message || "Could not send verification code.");
+            return;
+          }
+          setAuthSignupCodeSent(true);
+          setAuthNotice("Verification code sent. Enter the code to finish creating your account.");
           return;
         }
-        setAuthNotice("Account created. You can now sign in.");
-        setAuthMode("signin");
-        setAuthFirstName("");
-        setAuthLastName("");
+
+        const { error: verifyError } = await supabase.auth.verifyOtp({
+          email,
+          token: authSignupCode.trim(),
+          type: "email",
+        });
+        if (verifyError) {
+          setAuthError(verifyError.message || "Code verification failed.");
+          return;
+        }
+
+        const { error: updateError } = await supabase.auth.updateUser({
+          password,
+          data: {
+            first_name: firstName,
+            last_name: lastName,
+            full_name: `${firstName} ${lastName}`.trim(),
+          },
+        });
+        if (updateError) {
+          setAuthError(updateError.message || "Account created, but password setup failed. Use Forgot Password.");
+          return;
+        }
+
+        setAuthNotice("Email verified. Your account is ready and you are now signed in.");
+        setAuthSignupCode("");
+        setAuthSignupCodeSent(false);
+        setAuthPanelOpen(false);
         setAuthPassword("");
         setAuthConfirmPassword("");
       } else {
@@ -1834,6 +2238,34 @@ export default function Home() {
       setAuthNotice("Reset email sent. Open the email link, then set your new password.");
     } catch {
       setAuthError("Could not send reset email. Please try again.");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleOAuthLogin = async (provider) => {
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setAuthError("Authentication is not configured. Add Supabase env vars.");
+      return;
+    }
+    try {
+      setAuthLoading(true);
+      setAuthError("");
+      setAuthNotice("");
+      const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/` : undefined;
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo,
+          ...(provider === "google" ? { queryParams: { prompt: "select_account" } } : {}),
+        },
+      });
+      if (error) {
+        setAuthError(error.message || `Could not sign in with ${provider}.`);
+      }
+    } catch {
+      setAuthError(`Could not sign in with ${provider}.`);
     } finally {
       setAuthLoading(false);
     }
@@ -2157,6 +2589,28 @@ export default function Home() {
           </div>
           <div className="absolute right-6 top-0 z-40 flex items-center gap-2">
             <Link
+              href="/"
+              className={`px-3 py-1.5 rounded-lg border text-xs ${
+                isLight
+                  ? "border-slate-300 bg-white/90 text-slate-700 hover:bg-slate-100"
+                  : "border-white/15 bg-slate-900/60 text-white/85 hover:bg-slate-800/70"
+              }`}
+            >
+              Home
+            </Link>
+            {authUser && (
+              <Link
+                href="/portfolio"
+                className={`px-3 py-1.5 rounded-lg border text-xs ${
+                  isLight
+                    ? "border-slate-300 bg-white/90 text-slate-700 hover:bg-slate-100"
+                    : "border-white/15 bg-slate-900/60 text-white/85 hover:bg-slate-800/70"
+                }`}
+              >
+                Portfolio
+              </Link>
+            )}
+            <Link
               href="/about"
               className={`px-3 py-1.5 rounded-lg border text-xs ${
                 isLight
@@ -2342,6 +2796,15 @@ export default function Home() {
                               className="w-full px-3 py-2.5 rounded-xl bg-white text-black border border-slate-300 outline-none focus:border-blue-500"
                             />
                           )}
+                          {authMode === "signup" && authSignupCodeSent && (
+                            <input
+                              type="text"
+                              value={authSignupCode}
+                              onChange={(e) => setAuthSignupCode(e.target.value)}
+                              placeholder="Enter verification code"
+                              className="w-full px-3 py-2.5 rounded-xl bg-white text-black border border-slate-300 outline-none focus:border-blue-500"
+                            />
+                          )}
                         </div>
 
                         {authError && (
@@ -2359,6 +2822,29 @@ export default function Home() {
                           </div>
                         )}
 
+                        {(authMode === "signin" || (authMode === "signup" && !authSignupCodeSent)) && (
+                          <div className="mt-3">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className={`h-px flex-1 ${isLight ? "bg-slate-300" : "bg-white/15"}`} />
+                              <span className={`text-[11px] ${isLight ? "text-slate-500" : "text-white/55"}`}>or continue with</span>
+                              <div className={`h-px flex-1 ${isLight ? "bg-slate-300" : "bg-white/15"}`} />
+                            </div>
+                            <div className="grid grid-cols-1 gap-2">
+                              <button
+                                onClick={() => handleOAuthLogin("google")}
+                                disabled={authLoading || !authReady}
+                                className={`px-3 py-2 rounded-xl text-sm font-medium border disabled:opacity-60 ${
+                                  isLight
+                                    ? "border-slate-300 bg-white text-slate-800 hover:bg-slate-100"
+                                    : "border-white/20 bg-white/5 text-white hover:bg-white/10"
+                                }`}
+                              >
+                                Continue with Google
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
                         <div className="mt-3 flex flex-wrap items-center gap-2">
                           {authMode !== "forgot" && (
                             <button
@@ -2369,7 +2855,7 @@ export default function Home() {
                               {authLoading
                                 ? "Please wait..."
                                 : authMode === "signup"
-                                  ? "Create Account"
+                                  ? (authSignupCodeSent ? "Verify Code & Finish" : "Create Account")
                                   : authMode === "reset"
                                     ? "Update Password"
                                     : "Sign In"}
@@ -2420,6 +2906,8 @@ export default function Home() {
                               setAuthFirstName("");
                               setAuthLastName("");
                               setAuthConfirmPassword("");
+                              setAuthSignupCode("");
+                              setAuthSignupCodeSent(false);
                             }}
                             disabled={authMode === "forgot" || authMode === "reset"}
                             className={`px-3 py-2 rounded-xl text-sm ${
@@ -3228,6 +3716,174 @@ export default function Home() {
               )}
             </Card>
           )}
+          {authUser && assetMode === "stock" && false && (
+            <Card
+              title="Add Your Portfolio"
+              right={
+                <button
+                  onClick={runPortfolioAnalysis}
+                  disabled={portfolioLoading || portfolioAnalyzing}
+                  className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs disabled:opacity-50"
+                >
+                  {portfolioLoading || portfolioAnalyzing ? "Analyzing..." : "ASTRA Portfolio Analysis"}
+                </button>
+              }
+            >
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
+                <div className="relative">
+                  <input
+                    value={portfolioSymbolInput}
+                    onChange={(e) => setPortfolioSymbolInput(e.target.value)}
+                    onFocus={() => portfolioSuggestions.length > 0 && setPortfolioSuggestionOpen(true)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") addPortfolioHolding();
+                    }}
+                    placeholder="Symbol or company (AAPL / Apple)"
+                    className="w-full px-4 py-2 rounded-xl bg-white text-black border-2 border-white/20 outline-none"
+                  />
+                  {portfolioSuggestionOpen && (
+                    <div className="absolute z-30 mt-1 w-full rounded-xl border border-white/10 bg-slate-950/95 backdrop-blur-md shadow-2xl overflow-hidden">
+                      {portfolioSuggestionLoading ? (
+                        <div className="px-3 py-2 text-xs text-white/60">Finding matches...</div>
+                      ) : (
+                        <div className="max-h-56 overflow-y-auto">
+                          {portfolioSuggestions.map((s) => (
+                            <button
+                              key={`ps-${s.symbol}`}
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                applyPortfolioSuggestion(s);
+                              }}
+                              className="w-full text-left px-3 py-2.5 hover:bg-white/10 border-b border-white/5 last:border-b-0"
+                            >
+                              <div className="text-sm font-semibold text-white">{s.symbol}</div>
+                              <div className="text-xs text-white/60 truncate">{s.description || "Company"}</div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <input
+                  type="number"
+                  step="0.0001"
+                  min="0"
+                  value={portfolioQtyInput}
+                  onChange={(e) => setPortfolioQtyInput(e.target.value)}
+                  placeholder="Quantity"
+                  className="px-4 py-2 rounded-xl bg-white text-black border-2 border-white/20 outline-none"
+                />
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={portfolioBuyPriceInput}
+                  onChange={(e) => setPortfolioBuyPriceInput(e.target.value)}
+                  placeholder="Buy price"
+                  className="px-4 py-2 rounded-xl bg-white text-black border-2 border-white/20 outline-none"
+                />
+                <input
+                  type="date"
+                  value={portfolioBuyDateInput}
+                  onChange={(e) => setPortfolioBuyDateInput(e.target.value)}
+                  className="px-4 py-2 rounded-xl bg-white text-black border-2 border-white/20 outline-none"
+                />
+              </div>
+              <div className="mb-3">
+                <button
+                  onClick={addPortfolioHolding}
+                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-sm font-semibold"
+                >
+                  Add Holding
+                </button>
+              </div>
+
+              <div className="text-[11px] text-white/60 mb-2">
+                Add each holding with quantity, buy price, and buy date. ASTRA will analyze real position performance.
+              </div>
+
+              {portfolioError && (
+                <div className="mb-3 rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                  {portfolioError}
+                </div>
+              )}
+              {portfolioNotice && (
+                <div className="mb-3 rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-300">
+                  {portfolioNotice}
+                </div>
+              )}
+
+              <div className="overflow-x-auto">
+                {portfolioHoldings.length ? (
+                  <table className="w-full text-xs">
+                    <thead className="text-white/60">
+                      <tr className="text-left border-b border-white/10">
+                        <th className="py-2 pr-2">Symbol</th>
+                        <th className="py-2 pr-2">Qty</th>
+                        <th className="py-2 pr-2">Buy Price</th>
+                        <th className="py-2 pr-2">Buy Date</th>
+                        <th className="py-2 pr-2">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {portfolioHoldings.map((h) => (
+                        <tr key={h.id} className="border-b border-white/5">
+                          <td className="py-2 pr-2 font-semibold">{h.symbol}</td>
+                          <td className="py-2 pr-2 w-28">
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.0001"
+                              value={h.quantity}
+                              onChange={(e) => updatePortfolioHoldingField(h.id, "quantity", e.target.value)}
+                              className="w-full px-2 py-1 rounded-md bg-white text-black border border-white/20"
+                            />
+                          </td>
+                          <td className="py-2 pr-2 w-32">
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={h.buyPrice}
+                              onChange={(e) => updatePortfolioHoldingField(h.id, "buyPrice", e.target.value)}
+                              className="w-full px-2 py-1 rounded-md bg-white text-black border border-white/20"
+                            />
+                          </td>
+                          <td className="py-2 pr-2 w-36">
+                            <input
+                              type="date"
+                              value={h.buyDate || ""}
+                              onChange={(e) => updatePortfolioHoldingField(h.id, "buyDate", e.target.value)}
+                              className="w-full px-2 py-1 rounded-md bg-white text-black border border-white/20"
+                            />
+                          </td>
+                          <td className="py-2 pr-2">
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => savePortfolioHolding(h.id)}
+                                className="px-2 py-1 rounded-md bg-blue-600 hover:bg-blue-500"
+                              >
+                                Save
+                              </button>
+                              <button
+                                onClick={() => removePortfolioHolding(h.id)}
+                                className="px-2 py-1 rounded-md bg-white/10 hover:bg-white/15"
+                              >
+                                Sold / Remove
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className="text-xs text-white/60">No holdings added yet.</div>
+                )}
+              </div>
+            </Card>
+          )}
           </div>
 
           <Card
@@ -3300,6 +3956,119 @@ export default function Home() {
         </div>
         )}
 
+        {authUser && assetMode === "stock" && false && portfolioAnalysis && (
+          <div className="mb-6">
+            <Card title="ASTRA Portfolio Analysis">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4">
+                <div className="rounded-lg border border-cyan-400/30 bg-cyan-500/10 p-3">
+                  <div className="text-xs text-cyan-200/90 mb-1">Overall Score</div>
+                  <div className="text-2xl font-bold text-cyan-200">{portfolioAnalysis.score}/100</div>
+                </div>
+                <div className="rounded-lg border border-blue-400/30 bg-blue-500/10 p-3">
+                  <div className="text-xs text-blue-200/90 mb-1">Invested</div>
+                  <div className="text-lg font-semibold text-blue-200">
+                    ${Number(portfolioAnalysis.totalCost || 0).toFixed(2)}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-indigo-400/30 bg-indigo-500/10 p-3">
+                  <div className="text-xs text-indigo-200/90 mb-1">Current Value</div>
+                  <div className="text-lg font-semibold text-indigo-200">
+                    ${Number(portfolioAnalysis.totalValue || 0).toFixed(2)}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-violet-400/30 bg-violet-500/10 p-3">
+                  <div className="text-xs text-violet-200/90 mb-1">Total Return</div>
+                  <div className={`text-lg font-semibold ${Number(portfolioAnalysis.totalReturnPct) >= 0 ? "text-green-300" : "text-red-300"}`}>
+                    {Number(portfolioAnalysis.totalReturnPct) >= 0 ? "+" : ""}
+                    {Number(portfolioAnalysis.totalReturnPct || 0).toFixed(2)}%
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 p-3 mb-4">
+                  <div className="text-xs text-emerald-200 mb-1">Green Flags</div>
+                  <ul className="list-disc pl-5 text-sm text-emerald-100 space-y-1">
+                    {(portfolioAnalysis.greenFlags || []).length ? (
+                      portfolioAnalysis.greenFlags.slice(0, 4).map((g, i) => <li key={`pg-${i}`}>{g}</li>)
+                    ) : (
+                      <li>No clear green flags yet.</li>
+                    )}
+                  </ul>
+              </div>
+
+              <div className="rounded-lg border border-rose-400/30 bg-rose-500/10 p-3 mb-4">
+                <div className="text-xs text-rose-200 mb-1">Red Flags</div>
+                <ul className="list-disc pl-5 text-sm text-rose-100 space-y-1">
+                  {(portfolioAnalysis.redFlags || []).length ? (
+                    portfolioAnalysis.redFlags.slice(0, 4).map((r, i) => <li key={`pr-${i}`}>{r}</li>)
+                  ) : (
+                    <li>No major red flags detected.</li>
+                  )}
+                </ul>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead className="text-white/60">
+                    <tr className="text-left border-b border-white/10">
+                      <th className="py-2 pr-2">Symbol</th>
+                      <th className="py-2 pr-2">Buy Date</th>
+                      <th className="py-2 pr-2">Qty</th>
+                      <th className="py-2 pr-2">Buy Price</th>
+                      <th className="py-2 pr-2">Price</th>
+                      <th className="py-2 pr-2">Day $</th>
+                      <th className="py-2 pr-2">Day %</th>
+                      <th className="py-2 pr-2">Cost Basis</th>
+                      <th className="py-2 pr-2">Market Value</th>
+                      <th className="py-2 pr-2">Unrealized P/L</th>
+                      <th className="py-2 pr-2">Return %</th>
+                      <th className="py-2 pr-2">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {portfolioRows.map((r) => (
+                      <tr key={`prow-${r.id || r.symbol}`} className="border-b border-white/5">
+                        <td className="py-2 pr-2 font-semibold">{r.symbol}</td>
+                        <td className="py-2 pr-2">{r.buyDate || "—"}</td>
+                        <td className="py-2 pr-2">{Number(r.quantity || 0)}</td>
+                        <td className="py-2 pr-2">{fmt(r.buyPrice) != null ? `$${Number(r.buyPrice).toFixed(2)}` : "—"}</td>
+                        <td className="py-2 pr-2">{fmt(r.price) != null ? `$${Number(r.price).toFixed(2)}` : "—"}</td>
+                        <td className={`py-2 pr-2 ${Number(r.dayPnL) >= 0 ? "text-green-300" : "text-red-300"}`}>
+                          {fmt(r.dayPnL) != null ? `${Number(r.dayPnL) >= 0 ? "+" : ""}${Number(r.dayPnL).toFixed(2)}` : "—"}
+                        </td>
+                        <td className={`py-2 pr-2 ${Number(r.percentChange) >= 0 ? "text-green-300" : "text-red-300"}`}>
+                          {fmt(r.percentChange) != null
+                            ? `${Number(r.percentChange) >= 0 ? "+" : ""}${Number(r.percentChange).toFixed(2)}%`
+                            : "—"}
+                        </td>
+                        <td className="py-2 pr-2">{fmt(r.costBasis) != null ? `$${Number(r.costBasis).toFixed(2)}` : "—"}</td>
+                        <td className="py-2 pr-2">{fmt(r.marketValue) != null ? `$${Number(r.marketValue).toFixed(2)}` : "—"}</td>
+                        <td className={`py-2 pr-2 ${Number(r.unrealizedPnL) >= 0 ? "text-green-300" : "text-red-300"}`}>
+                          {fmt(r.unrealizedPnL) != null
+                            ? `${Number(r.unrealizedPnL) >= 0 ? "+" : ""}${Number(r.unrealizedPnL).toFixed(2)}`
+                            : "—"}
+                        </td>
+                        <td className={`py-2 pr-2 ${Number(r.unrealizedPct) >= 0 ? "text-green-300" : "text-red-300"}`}>
+                          {fmt(r.unrealizedPct) != null
+                            ? `${Number(r.unrealizedPct) >= 0 ? "+" : ""}${Number(r.unrealizedPct).toFixed(2)}%`
+                            : "—"}
+                        </td>
+                        <td className="py-2 pr-2 text-white/70">
+                          {Number(r.percentChange) <= -4 || Number(r.unrealizedPct) <= -15
+                            ? "Red flag"
+                            : Number(r.percentChange) >= 2 || Number(r.unrealizedPct) >= 12
+                              ? "Green flag"
+                              : "Neutral"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          </div>
+        )}
+
         {/* SEARCH */}
         {!isFxMode && !isNewsMode && (
         <div className="mb-6">
@@ -3319,7 +4088,7 @@ export default function Home() {
                 ? "Search a crypto name or symbol"
                 : assetMode === "metals"
                   ? "Search a metal symbol (XAU, XAG, XPT, XPD)"
-                  : "Search a company name or stock ticker"}
+                  : "Search a company name or symbol (stock, ETF, fund, bond ETF)"}
             </label>
 
             <div className="mt-3 flex gap-2 items-start">
@@ -3331,7 +4100,7 @@ export default function Home() {
                       ? 'Try "Bitcoin" or "BTC"'
                       : assetMode === "metals"
                         ? 'Try "XAU" or "XAG"'
-                        : 'Try "Apple" or "AAPL"'
+                        : 'Try "Apple", "VOO", "FXAIX", or "BND"'
                   }
                   value={ticker}
                   onChange={(e) => {
@@ -3339,7 +4108,15 @@ export default function Home() {
                     setTicker(e.target.value);
                   }}
                   onFocus={() => searchSuggestions.length > 0 && setSuggestionOpen(true)}
-                  onKeyDown={(e) => e.key === "Enter" && searchStock()}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter") return;
+                    if (suggestionOpen && searchSuggestions.length > 0) {
+                      e.preventDefault();
+                      applySuggestion(searchSuggestions[0]);
+                      return;
+                    }
+                    searchStock();
+                  }}
                   className="w-full px-4 py-3 rounded-xl bg-white text-black text-lg
                              border-2 border-white/20 outline-none
                              focus:border-blue-500 focus:ring-4 focus:ring-blue-500/30
@@ -3372,7 +4149,7 @@ export default function Home() {
               </div>
 
               <button
-                onClick={searchStock}
+                onClick={() => searchStock()}
                 disabled={loading}
                 className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 transition-colors
                            font-semibold shadow-lg disabled:opacity-50"
