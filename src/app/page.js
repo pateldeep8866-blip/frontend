@@ -125,6 +125,41 @@ const GEO_POLITICS_THEMES = [
     detail: "Oil, gas, and shipping-lane disruptions with direct inflation and growth impact.",
   },
 ];
+const GEO_THEME_RULES = [
+  { key: "conflict", label: "Conflict Zones", terms: ["war", "missile", "military", "conflict", "strike", "ceasefire", "nato", "troops"] },
+  { key: "trade", label: "Trade & Sanctions", terms: ["sanction", "tariff", "export", "import", "trade", "embargo", "restriction", "duty"] },
+  { key: "energy", label: "Energy & Shipping", terms: ["oil", "gas", "lng", "pipeline", "shipping", "strait", "red sea", "opec", "brent"] },
+];
+
+const GEO_REGION_RULES = [
+  { label: "Europe", terms: ["ukraine", "russia", "eu", "europe", "nato", "poland", "germany", "france", "uk"] },
+  { label: "Middle East", terms: ["middle east", "gaza", "israel", "iran", "saudi", "yemen", "uae", "qatar", "iraq"] },
+  { label: "Asia-Pacific", terms: ["china", "taiwan", "korea", "japan", "indo-pacific", "south china sea", "philippines", "india"] },
+  { label: "Americas", terms: ["united states", "u.s.", "canada", "mexico", "brazil", "latam"] },
+  { label: "Africa", terms: ["africa", "sudan", "niger", "ethiopia", "congo"] },
+];
+
+function geopoliticsThemeFromHeadline(headline) {
+  const text = String(headline || "").toLowerCase();
+  const matched = GEO_THEME_RULES.find((rule) => rule.terms.some((term) => text.includes(term)));
+  return matched?.label || "Strategic Watch";
+}
+
+function geopoliticsRegionFromHeadline(headline) {
+  const text = String(headline || "").toLowerCase();
+  const matched = GEO_REGION_RULES.find((rule) => rule.terms.some((term) => text.includes(term)));
+  return matched?.label || "Global";
+}
+
+function geopoliticsImpactFromHeadline(headline) {
+  const text = String(headline || "").toLowerCase();
+  const high = ["war", "attack", "missile", "invasion", "sanction", "strait", "oil spike", "martial"].some((term) => text.includes(term));
+  if (high) return "High";
+  const medium = ["talks", "summit", "warning", "tariff", "security", "diplomatic", "opec"].some((term) => text.includes(term));
+  if (medium) return "Medium";
+  return "Low";
+}
+
 
 function normalizeQuizAnswers(value) {
   const raw = value && typeof value === "object" ? value : {};
@@ -500,6 +535,7 @@ export default function Home() {
   const [theme, setTheme] = useState("dark");
   const [analysisViewMode, setAnalysisViewMode] = useState("short");
   const [marketNews, setMarketNews] = useState([]);
+  const [geoFilter, setGeoFilter] = useState("all");
   const [movers, setMovers] = useState({ gainers: [], losers: [] });
   const [sectorInfo, setSectorInfo] = useState(null);
   const [compareInput, setCompareInput] = useState("AAPL,MSFT,NVDA");
@@ -2583,6 +2619,34 @@ export default function Home() {
   const overviewLoop = overview.length ? [...overview, ...overview] : [];
   const supabaseConfigured = Boolean(getSupabaseClient());
   const dayTraderEligible = Boolean(authUser && quizCompleted && String(quizAnswers.dayTradingInterest || "").startsWith("yes"));
+  const geopoliticsItems = useMemo(
+    () =>
+      marketNews.map((n, idx) => ({
+        id: [idx, n?.url || n?.headline || "item"].join("-"),
+        ...n,
+        theme: geopoliticsThemeFromHeadline(n?.headline),
+        region: geopoliticsRegionFromHeadline(n?.headline),
+        impact: geopoliticsImpactFromHeadline(n?.headline),
+      })),
+    [marketNews]
+  );
+
+  const filteredGeopoliticsItems = useMemo(() => {
+    if (geoFilter === "all") return geopoliticsItems;
+    if (geoFilter === "high") return geopoliticsItems.filter((x) => x.impact === "High");
+    return geopoliticsItems.filter((x) => x.theme === geoFilter);
+  }, [geoFilter, geopoliticsItems]);
+
+  const geopoliticsStats = useMemo(() => {
+    const highImpact = geopoliticsItems.filter((x) => x.impact === "High").length;
+    const regions = new Set(geopoliticsItems.map((x) => x.region).filter(Boolean));
+    return {
+      total: geopoliticsItems.length,
+      highImpact,
+      regions: regions.size,
+    };
+  }, [geopoliticsItems]);
+
 
   return (
     <div className={`min-h-screen relative overflow-hidden ${isLight ? "light-mode bg-[#fbfdff] text-slate-900" : "dark-mode bg-slate-950 text-white"}`}>
@@ -4292,8 +4356,23 @@ export default function Home() {
               }
             >
               <p className={`text-sm mb-4 ${isLight ? "text-slate-600" : "text-white/70"}`}>
-                Real-time geopolitical coverage focused on conflicts, diplomacy, sanctions, energy security, and global trade routes.
+                Real-time geopolitical monitoring focused on conflicts, diplomacy, sanctions, energy security, and global trade routes.
               </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+                <div className={`rounded-xl border p-3 ${isLight ? "border-slate-200 bg-white/90" : "border-white/10 bg-white/5"}`}>
+                  <div className={`text-xs ${isLight ? "text-slate-500" : "text-white/60"}`}>Headlines Tracked</div>
+                  <div className={`text-2xl font-semibold mt-1 ${isLight ? "text-slate-900" : "text-white"}`}>{geopoliticsStats.total}</div>
+                </div>
+                <div className={`rounded-xl border p-3 ${isLight ? "border-rose-200 bg-rose-50" : "border-rose-400/30 bg-rose-500/10"}`}>
+                  <div className={`text-xs ${isLight ? "text-rose-700" : "text-rose-200/90"}`}>High-Impact Alerts</div>
+                  <div className={`text-2xl font-semibold mt-1 ${isLight ? "text-rose-700" : "text-rose-200"}`}>{geopoliticsStats.highImpact}</div>
+                </div>
+                <div className={`rounded-xl border p-3 ${isLight ? "border-slate-200 bg-white/90" : "border-white/10 bg-white/5"}`}>
+                  <div className={`text-xs ${isLight ? "text-slate-500" : "text-white/60"}`}>Regions In Focus</div>
+                  <div className={`text-2xl font-semibold mt-1 ${isLight ? "text-slate-900" : "text-white"}`}>{geopoliticsStats.regions}</div>
+                </div>
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
                 {GEO_POLITICS_THEMES.map((theme) => (
@@ -4309,10 +4388,30 @@ export default function Home() {
                 ))}
               </div>
 
+              <div className="mb-4 flex flex-wrap gap-2">
+                {["all", "high", "Conflict Zones", "Trade & Sanctions", "Energy & Shipping"].map((filter) => (
+                  <button
+                    key={filter}
+                    onClick={() => setGeoFilter(filter)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${
+                      geoFilter === filter
+                        ? isLight
+                          ? "bg-slate-900 text-white border-slate-900"
+                          : "bg-blue-600 text-white border-blue-500"
+                        : isLight
+                          ? "bg-white text-slate-700 border-slate-300 hover:bg-slate-100"
+                          : "bg-white/5 text-white/80 border-white/15 hover:bg-white/10"
+                    }`}
+                  >
+                    {filter === "all" ? "All" : filter === "high" ? "High Impact" : filter}
+                  </button>
+                ))}
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {marketNews.slice(0, 24).map((n, idx) => (
+                {filteredGeopoliticsItems.slice(0, 24).map((n) => (
                   <a
-                    key={`${n.url}-${idx}`}
+                    key={n.id}
                     href={n.url}
                     target="_blank"
                     rel="noreferrer"
@@ -4336,6 +4435,29 @@ export default function Home() {
                       </div>
                       <div className="min-w-0">
                         <div className={`text-sm group-hover:underline line-clamp-3 ${isLight ? "text-blue-700" : "text-blue-300"}`}>{n.headline}</div>
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full border ${isLight ? "border-slate-300 text-slate-600 bg-white" : "border-white/20 text-white/75 bg-white/5"}`}>
+                            {n.theme}
+                          </span>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full border ${isLight ? "border-slate-300 text-slate-600 bg-white" : "border-white/20 text-white/75 bg-white/5"}`}>
+                            {n.region}
+                          </span>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full border ${
+                            n.impact === "High"
+                              ? isLight
+                                ? "border-rose-300 text-rose-700 bg-rose-50"
+                                : "border-rose-400/40 text-rose-200 bg-rose-500/15"
+                              : n.impact === "Medium"
+                                ? isLight
+                                  ? "border-amber-300 text-amber-700 bg-amber-50"
+                                  : "border-amber-400/40 text-amber-200 bg-amber-500/15"
+                                : isLight
+                                  ? "border-emerald-300 text-emerald-700 bg-emerald-50"
+                                  : "border-emerald-400/40 text-emerald-200 bg-emerald-500/15"
+                          }`}>
+                            {n.impact} Impact
+                          </span>
+                        </div>
                         <div className={`mt-2 text-[11px] ${isLight ? "text-slate-500" : "text-white/50"}`}>
                           {[n.source || safeDomainFromUrl(n.url), n.datetime].filter(Boolean).join(" • ") || "Global feed"}
                         </div>
@@ -4344,8 +4466,8 @@ export default function Home() {
                     </div>
                   </a>
                 ))}
-                {marketNews.length === 0 && (
-                  <div className={`text-sm ${isLight ? "text-slate-600" : "text-white/60"}`}>No geopolitics headlines yet.</div>
+                {filteredGeopoliticsItems.length === 0 && (
+                  <div className={`text-sm ${isLight ? "text-slate-600" : "text-white/60"}`}>No headlines for this filter yet.</div>
                 )}
               </div>
             </Card>
