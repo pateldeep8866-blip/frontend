@@ -156,10 +156,11 @@ textarea:disabled {
   pointer-events: none;
   z-index: 0;
   background:
-    url("/sakura-ink-branch.svg") left -130px top -34px / min(62vw, 960px) auto no-repeat,
+    url("/sakura-ink-branch-vertical.svg") left -32px top -6px / min(34vw, 520px) auto no-repeat,
+    url("/sakura-ink-branch.svg") left 210px top -70px / min(42vw, 640px) auto no-repeat,
     url("/sakura-ink-branch.svg") right -320px top 76px / min(50vw, 760px) auto no-repeat,
     repeating-linear-gradient(14deg, rgba(71, 52, 61, 0.012) 0px, rgba(71, 52, 61, 0.012) 1px, transparent 1px, transparent 16px);
-  opacity: 0.23;
+  opacity: 0.27;
 }
 
 .cherry-mode::after {
@@ -308,10 +309,11 @@ textarea:disabled {
 @media (max-width: 900px) {
   .cherry-mode::before {
     background:
-      url("/sakura-ink-branch.svg") left -180px top -24px / min(88vw, 520px) auto no-repeat,
+      url("/sakura-ink-branch-vertical.svg") left -72px top 30px / min(66vw, 360px) auto no-repeat,
+      url("/sakura-ink-branch.svg") left -210px top -30px / min(88vw, 520px) auto no-repeat,
       url("/sakura-ink-branch.svg") right -250px top 110px / min(68vw, 420px) auto no-repeat,
       repeating-linear-gradient(14deg, rgba(71, 52, 61, 0.012) 0px, rgba(71, 52, 61, 0.012) 1px, transparent 1px, transparent 16px);
-    opacity: 0.2;
+    opacity: 0.22;
   }
 
   .sakura-tree-left {
