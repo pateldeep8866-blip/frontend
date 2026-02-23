@@ -142,47 +142,77 @@ textarea:disabled {
   cursor: not-allowed !important;
 }
 
+.cherry-mode {
+  background-image:
+    radial-gradient(circle at 12% 8%, rgba(190, 24, 93, 0.12), transparent 28%),
+    radial-gradient(circle at 82% 68%, rgba(249, 168, 212, 0.22), transparent 36%),
+    radial-gradient(circle at 56% 16%, rgba(99, 102, 241, 0.09), transparent 30%),
+    linear-gradient(130deg, rgba(255, 247, 237, 0.86), rgba(255, 241, 242, 0.8), rgba(238, 242, 255, 0.74));
+}
+
+.cherry-mode::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(12px 12px at 8% 18%, rgba(244, 114, 182, 0.2), transparent 65%),
+    radial-gradient(14px 14px at 18% 10%, rgba(251, 113, 133, 0.2), transparent 66%),
+    radial-gradient(10px 10px at 78% 15%, rgba(244, 114, 182, 0.17), transparent 64%),
+    radial-gradient(8px 8px at 88% 22%, rgba(251, 113, 133, 0.14), transparent 62%),
+    repeating-linear-gradient(12deg, rgba(71, 52, 61, 0.035) 0px, rgba(71, 52, 61, 0.035) 1px, transparent 1px, transparent 9px);
+}
+
 .cherry-mode .app-card {
-  background: #fff7fb !important;
-  border-color: rgba(244, 114, 182, 0.3) !important;
-  box-shadow: 0 16px 34px -24px rgba(236, 72, 153, 0.28);
-  color: #4a1d2f !important;
+  background: rgba(255, 251, 247, 0.9) !important;
+  border-color: rgba(190, 24, 93, 0.24) !important;
+  box-shadow: 0 16px 34px -24px rgba(131, 24, 67, 0.3);
+  color: #422637 !important;
 }
 
 .cherry-mode .app-card:hover {
-  border-color: rgba(225, 29, 120, 0.44) !important;
+  border-color: rgba(159, 18, 57, 0.44) !important;
 }
 
 .cherry-mode .app-card-title {
-  color: #4a1d2f !important;
+  color: #422637 !important;
 }
 
 .cherry-mode .app-card,
 .cherry-mode .app-card * {
-  color: #4a1d2f !important;
+  color: #422637 !important;
   opacity: 1 !important;
-  -webkit-text-fill-color: #4a1d2f !important;
+  -webkit-text-fill-color: #422637 !important;
 }
 
 .cherry-mode .app-card [class*="text-green-"] {
-  color: #059669 !important;
-  -webkit-text-fill-color: #059669 !important;
+  color: #047857 !important;
+  -webkit-text-fill-color: #047857 !important;
 }
 
 .cherry-mode .app-card [class*="text-red-"] {
-  color: #be123c !important;
-  -webkit-text-fill-color: #be123c !important;
+  color: #9f1239 !important;
+  -webkit-text-fill-color: #9f1239 !important;
 }
 
 .cherry-mode .app-card [class*="text-blue-"] {
-  color: #db2777 !important;
-  -webkit-text-fill-color: #db2777 !important;
+  color: #4338ca !important;
+  -webkit-text-fill-color: #4338ca !important;
 }
 
 .cherry-mode .app-card [class*="bg-white/"] {
-  background-color: rgba(253, 242, 248, 0.86) !important;
+  background-color: rgba(255, 247, 248, 0.86) !important;
 }
 
 .cherry-mode .app-card [class*="border-white/"] {
-  border-color: rgba(244, 114, 182, 0.32) !important;
+  border-color: rgba(190, 24, 93, 0.26) !important;
+}
+
+.cherry-mode button[class*="bg-blue-600"] {
+  background-color: #db2777 !important;
+}
+
+.cherry-mode button[class*="bg-blue-600"]:hover {
+  background-color: #be185d !important;
 }
