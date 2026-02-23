@@ -160,6 +160,8 @@ function geopoliticsImpactFromHeadline(headline) {
   return "Low";
 }
 
+const SAKURA_PETAL_IDS = Array.from({ length: 14 }, (_, index) => index + 1);
+
 
 function normalizeQuizAnswers(value) {
   const raw = value && typeof value === "object" ? value : {};
@@ -2650,11 +2652,23 @@ export default function Home() {
 
 
   return (
-    <div className={`min-h-screen relative overflow-hidden ${isCherry ? "cherry-mode bg-[#fff9f4] text-[#3d2130]" : isLight ? "light-mode bg-[#fbfdff] text-slate-900" : "dark-mode bg-slate-950 text-white"}`}>
+    <div className={`min-h-screen relative overflow-hidden ${isCherry ? "cherry-mode bg-[#fffdfa] text-[#3d2130]" : isLight ? "light-mode bg-[#fbfdff] text-slate-900" : "dark-mode bg-slate-950 text-white"}`}>
       <div>
-        <div className={`pointer-events-none absolute -top-24 -left-20 h-80 w-80 rounded-full blur-3xl ${isCherry ? "bg-rose-200/40" : isLight ? "bg-sky-200/35" : "bg-cyan-500/12"}`} />
-        <div className={`pointer-events-none absolute top-1/3 -right-28 h-96 w-96 rounded-full blur-3xl ${isCherry ? "bg-orange-200/35" : isLight ? "bg-blue-200/30" : "bg-blue-500/10"}`} />
-        <div className={`pointer-events-none absolute inset-0 ${isCherry ? "bg-[radial-gradient(circle_at_12%_6%,rgba(190,24,93,0.18),transparent_34%),radial-gradient(circle_at_86%_70%,rgba(251,113,133,0.17),transparent_40%),radial-gradient(circle_at_56%_18%,rgba(99,102,241,0.12),transparent_35%),linear-gradient(120deg,rgba(255,247,237,0.55),rgba(255,241,242,0.48),rgba(238,242,255,0.55))]" : isLight ? "bg-[radial-gradient(circle_at_15%_10%,rgba(125,211,252,0.18),transparent_40%),radial-gradient(circle_at_80%_70%,rgba(147,197,253,0.14),transparent_42%),radial-gradient(circle_at_55%_18%,rgba(59,130,246,0.09),transparent_35%)]" : "bg-[radial-gradient(circle_at_20%_10%,rgba(59,130,246,0.08),transparent_35%),radial-gradient(circle_at_80%_70%,rgba(14,165,233,0.07),transparent_35%)]"}`}/>
+        <div className={`pointer-events-none absolute -top-24 -left-20 h-80 w-80 rounded-full blur-3xl ${isCherry ? "bg-rose-100/60" : isLight ? "bg-sky-200/35" : "bg-cyan-500/12"}`} />
+        <div className={`pointer-events-none absolute top-1/3 -right-28 h-96 w-96 rounded-full blur-3xl ${isCherry ? "bg-rose-100/55" : isLight ? "bg-blue-200/30" : "bg-blue-500/10"}`} />
+        <div className={`pointer-events-none absolute inset-0 ${isCherry ? "bg-[radial-gradient(circle_at_10%_5%,rgba(244,114,182,0.14),transparent_30%),radial-gradient(circle_at_88%_72%,rgba(251,113,133,0.12),transparent_36%),radial-gradient(circle_at_52%_15%,rgba(196,181,253,0.08),transparent_28%),linear-gradient(120deg,rgba(255,255,255,0.95),rgba(255,250,252,0.9),rgba(255,255,255,0.96))]" : isLight ? "bg-[radial-gradient(circle_at_15%_10%,rgba(125,211,252,0.18),transparent_40%),radial-gradient(circle_at_80%_70%,rgba(147,197,253,0.14),transparent_42%),radial-gradient(circle_at_55%_18%,rgba(59,130,246,0.09),transparent_35%)]" : "bg-[radial-gradient(circle_at_20%_10%,rgba(59,130,246,0.08),transparent_35%),radial-gradient(circle_at_80%_70%,rgba(14,165,233,0.07),transparent_35%)]"}`}/>
+
+        {isCherry && (
+          <div className="pointer-events-none absolute inset-0 z-[1] overflow-hidden sakura-scene" aria-hidden="true">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/sakura-tree.svg" alt="" className="sakura-tree sakura-tree-left" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/sakura-tree.svg" alt="" className="sakura-tree sakura-tree-right" />
+            {SAKURA_PETAL_IDS.map((petalId) => (
+              <span key={petalId} className={`sakura-petal sakura-petal-${petalId}`} />
+            ))}
+          </div>
+        )}
 
         <div className="relative z-10 mx-auto w-full max-w-6xl px-6 py-10 md:py-14">
         {/* HEADER */}
