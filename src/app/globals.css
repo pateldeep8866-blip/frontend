@@ -144,9 +144,9 @@ textarea:disabled {
 
 .cherry-mode {
   background-image:
-    radial-gradient(circle at 16% 10%, rgba(244, 114, 182, 0.08), transparent 30%),
-    radial-gradient(circle at 86% 74%, rgba(251, 113, 133, 0.06), transparent 36%),
-    linear-gradient(130deg, rgba(255, 255, 255, 0.995), rgba(255, 253, 254, 0.985), rgba(255, 255, 255, 0.996));
+    radial-gradient(circle at 16% 10%, rgba(244, 114, 182, 0.05), transparent 31%),
+    radial-gradient(circle at 86% 74%, rgba(251, 113, 133, 0.04), transparent 36%),
+    linear-gradient(130deg, rgba(255, 255, 255, 0.998), rgba(255, 254, 252, 0.992), rgba(255, 255, 255, 0.998));
 }
 
 .cherry-mode::before {
@@ -156,22 +156,33 @@ textarea:disabled {
   pointer-events: none;
   z-index: 0;
   background:
-    radial-gradient(10px 10px at 11% 17%, rgba(244, 114, 182, 0.08), transparent 66%),
-    radial-gradient(12px 12px at 20% 12%, rgba(251, 113, 133, 0.07), transparent 68%),
-    radial-gradient(9px 9px at 79% 18%, rgba(244, 114, 182, 0.06), transparent 64%),
-    radial-gradient(8px 8px at 88% 24%, rgba(251, 113, 133, 0.06), transparent 62%),
-    repeating-linear-gradient(14deg, rgba(71, 52, 61, 0.014) 0px, rgba(71, 52, 61, 0.014) 1px, transparent 1px, transparent 14px);
+    url("/sakura-ink-branch.svg") left -130px top -34px / min(62vw, 960px) auto no-repeat,
+    url("/sakura-ink-branch.svg") right -320px top 76px / min(50vw, 760px) auto no-repeat,
+    repeating-linear-gradient(14deg, rgba(71, 52, 61, 0.012) 0px, rgba(71, 52, 61, 0.012) 1px, transparent 1px, transparent 16px);
+  opacity: 0.23;
+}
+
+.cherry-mode::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(10px 10px at 12% 20%, rgba(244, 114, 182, 0.06), transparent 70%),
+    radial-gradient(8px 8px at 24% 15%, rgba(251, 113, 133, 0.05), transparent 68%),
+    radial-gradient(8px 8px at 80% 22%, rgba(244, 114, 182, 0.05), transparent 66%);
 }
 
 .cherry-mode .app-card {
-  background: rgba(255, 255, 255, 0.94) !important;
-  border-color: rgba(190, 24, 93, 0.16) !important;
-  box-shadow: 0 16px 32px -24px rgba(131, 24, 67, 0.18);
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-color: rgba(190, 24, 93, 0.14) !important;
+  box-shadow: 0 16px 32px -24px rgba(131, 24, 67, 0.14);
   color: #3f2a33 !important;
 }
 
 .cherry-mode .app-card:hover {
-  border-color: rgba(159, 18, 57, 0.28) !important;
+  border-color: rgba(159, 18, 57, 0.24) !important;
 }
 
 .cherry-mode .app-card-title {
@@ -201,11 +212,11 @@ textarea:disabled {
 }
 
 .cherry-mode .app-card [class*="bg-white/"] {
-  background-color: rgba(255, 253, 254, 0.9) !important;
+  background-color: rgba(255, 254, 253, 0.9) !important;
 }
 
 .cherry-mode .app-card [class*="border-white/"] {
-  border-color: rgba(190, 24, 93, 0.16) !important;
+  border-color: rgba(190, 24, 93, 0.14) !important;
 }
 
 .cherry-mode button[class*="bg-blue-600"] {
@@ -222,13 +233,13 @@ textarea:disabled {
     opacity: 0;
   }
   18% {
-    opacity: 0.35;
+    opacity: 0.28;
   }
   86% {
-    opacity: 0.32;
+    opacity: 0.26;
   }
   100% {
-    transform: translate3d(var(--sakura-x, 12vw), 108vh, 0) rotate(220deg);
+    transform: translate3d(var(--sakura-x, 10vw), 108vh, 0) rotate(210deg);
     opacity: 0;
   }
 }
@@ -240,83 +251,91 @@ textarea:disabled {
 
 .sakura-scene-pro {
   mix-blend-mode: normal;
-  opacity: 0.72;
+  opacity: 0.58;
 }
 
 .sakura-tree {
   position: absolute;
   user-select: none;
   pointer-events: none;
-  filter: blur(0.3px) drop-shadow(0 18px 18px rgba(124, 45, 18, 0.1));
+  filter: blur(0.6px) drop-shadow(0 14px 15px rgba(124, 45, 18, 0.07));
 }
 
 .sakura-tree-left {
-  width: min(40vw, 390px);
-  left: -42px;
-  bottom: -26px;
-  opacity: 0.34;
+  width: min(36vw, 340px);
+  left: -58px;
+  bottom: -40px;
+  opacity: 0.24;
 }
 
 .sakura-tree-right {
-  width: min(24vw, 220px);
-  right: -96px;
-  top: 92px;
+  width: min(21vw, 190px);
+  right: -110px;
+  top: 110px;
   transform: scaleX(-1);
-  opacity: 0.14;
+  opacity: 0.08;
 }
 
 .sakura-tree-canopy {
-  width: min(30vw, 250px);
-  right: -64px;
-  top: -10px;
-  opacity: 0.12;
+  width: min(25vw, 210px);
+  right: -88px;
+  top: 8px;
+  opacity: 0.07;
   transform: scaleX(-1) rotate(-8deg);
-  filter: blur(1px) drop-shadow(0 10px 10px rgba(190, 24, 93, 0.08));
+  filter: blur(1.2px) drop-shadow(0 8px 8px rgba(190, 24, 93, 0.06));
 }
 
 .sakura-petal {
   position: absolute;
   top: -12%;
-  width: 7px;
-  height: 5px;
-  border-radius: 76% 40% 72% 35%;
-  background: radial-gradient(circle at 28% 22%, rgba(255, 255, 255, 0.93), rgba(251, 207, 232, 0.68) 58%, rgba(244, 114, 182, 0.44));
-  box-shadow: 0 0 6px rgba(244, 114, 182, 0.16);
+  width: 5px;
+  height: 3px;
+  border-radius: 76% 42% 72% 36%;
+  background: radial-gradient(circle at 28% 22%, rgba(255, 255, 255, 0.93), rgba(251, 207, 232, 0.62) 58%, rgba(244, 114, 182, 0.36));
+  box-shadow: 0 0 4px rgba(244, 114, 182, 0.12);
   animation: sakuraDrift linear infinite;
 }
 
-.sakura-petal-1 { left: 10%; --sakura-x: 10vw; animation-duration: 22s; animation-delay: -1s; }
-.sakura-petal-2 { left: 22%; --sakura-x: 9vw; animation-duration: 24s; animation-delay: -5s; }
-.sakura-petal-3 { left: 35%; --sakura-x: 11vw; animation-duration: 23s; animation-delay: -8s; }
-.sakura-petal-4 { left: 48%; --sakura-x: 8vw; animation-duration: 26s; animation-delay: -3s; }
-.sakura-petal-5 { left: 60%; --sakura-x: 10vw; animation-duration: 25s; animation-delay: -11s; }
-.sakura-petal-6 { left: 71%; --sakura-x: 9vw; animation-duration: 27s; animation-delay: -6s; }
-.sakura-petal-7 { left: 82%; --sakura-x: 11vw; animation-duration: 24s; animation-delay: -9s; }
-.sakura-petal-8 { left: 15%; --sakura-x: 13vw; animation-duration: 28s; animation-delay: -13s; }
+.sakura-petal-1 { left: 10%; --sakura-x: 9vw; animation-duration: 26s; animation-delay: -1s; }
+.sakura-petal-2 { left: 23%; --sakura-x: 8vw; animation-duration: 30s; animation-delay: -6s; }
+.sakura-petal-3 { left: 37%; --sakura-x: 10vw; animation-duration: 28s; animation-delay: -9s; }
+.sakura-petal-4 { left: 50%; --sakura-x: 7vw; animation-duration: 32s; animation-delay: -4s; }
+.sakura-petal-5 { left: 63%; --sakura-x: 9vw; animation-duration: 31s; animation-delay: -12s; }
+.sakura-petal-6 { left: 74%; --sakura-x: 8vw; animation-duration: 34s; animation-delay: -7s; }
+.sakura-petal-7 { left: 84%; --sakura-x: 10vw; animation-duration: 29s; animation-delay: -10s; }
+.sakura-petal-8 { left: 16%; --sakura-x: 12vw; animation-duration: 35s; animation-delay: -14s; }
 
 @media (max-width: 900px) {
+  .cherry-mode::before {
+    background:
+      url("/sakura-ink-branch.svg") left -180px top -24px / min(88vw, 520px) auto no-repeat,
+      url("/sakura-ink-branch.svg") right -250px top 110px / min(68vw, 420px) auto no-repeat,
+      repeating-linear-gradient(14deg, rgba(71, 52, 61, 0.012) 0px, rgba(71, 52, 61, 0.012) 1px, transparent 1px, transparent 16px);
+    opacity: 0.2;
+  }
+
   .sakura-tree-left {
-    width: min(54vw, 300px);
-    left: -58px;
-    opacity: 0.26;
+    width: min(48vw, 260px);
+    left: -74px;
+    opacity: 0.16;
   }
 
   .sakura-tree-right {
-    width: min(32vw, 190px);
-    right: -104px;
-    top: 104px;
-    opacity: 0.1;
+    width: min(28vw, 150px);
+    right: -120px;
+    top: 122px;
+    opacity: 0.06;
   }
 
   .sakura-tree-canopy {
-    width: min(33vw, 170px);
-    right: -82px;
-    top: 12px;
-    opacity: 0.09;
+    width: min(31vw, 140px);
+    right: -98px;
+    top: 20px;
+    opacity: 0.05;
   }
 
   .sakura-petal {
-    width: 6px;
-    height: 4px;
+    width: 4px;
+    height: 3px;
   }
 }
