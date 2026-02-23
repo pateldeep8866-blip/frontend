@@ -141,3 +141,48 @@ select:disabled,
 textarea:disabled {
   cursor: not-allowed !important;
 }
+
+.cherry-mode .app-card {
+  background: #fff7fb !important;
+  border-color: rgba(244, 114, 182, 0.3) !important;
+  box-shadow: 0 16px 34px -24px rgba(236, 72, 153, 0.28);
+  color: #4a1d2f !important;
+}
+
+.cherry-mode .app-card:hover {
+  border-color: rgba(225, 29, 120, 0.44) !important;
+}
+
+.cherry-mode .app-card-title {
+  color: #4a1d2f !important;
+}
+
+.cherry-mode .app-card,
+.cherry-mode .app-card * {
+  color: #4a1d2f !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: #4a1d2f !important;
+}
+
+.cherry-mode .app-card [class*="text-green-"] {
+  color: #059669 !important;
+  -webkit-text-fill-color: #059669 !important;
+}
+
+.cherry-mode .app-card [class*="text-red-"] {
+  color: #be123c !important;
+  -webkit-text-fill-color: #be123c !important;
+}
+
+.cherry-mode .app-card [class*="text-blue-"] {
+  color: #db2777 !important;
+  -webkit-text-fill-color: #db2777 !important;
+}
+
+.cherry-mode .app-card [class*="bg-white/"] {
+  background-color: rgba(253, 242, 248, 0.86) !important;
+}
+
+.cherry-mode .app-card [class*="border-white/"] {
+  border-color: rgba(244, 114, 182, 0.32) !important;
+}
