@@ -2649,6 +2649,14 @@ export default function Home() {
       regions: regions.size,
     };
   }, [geopoliticsItems]);
+  const activeThemeLabel = theme === "cherry" ? "Sakura" : theme === "light" ? "Light" : "Dark";
+  const closeParentDropdown = (event) => {
+    event?.currentTarget?.closest("details")?.removeAttribute("open");
+  };
+  const selectThemeFromDropdown = (nextTheme, event) => {
+    setTheme(nextTheme);
+    closeParentDropdown(event);
+  };
 
 
   return (
@@ -2679,31 +2687,78 @@ export default function Home() {
         <div className="relative z-10 mx-auto w-full max-w-6xl px-6 py-10 md:py-14">
         {/* HEADER */}
         <div className="text-center mb-10">
-          <div className="absolute left-6 top-0">
-            <div className={`inline-flex rounded-xl overflow-hidden border ${isCherry ? "border-rose-200/65 bg-white/96" : isLight ? "border-slate-300 bg-white/90" : "border-white/15 bg-slate-900/60"}`}>
-              <button
-                onClick={() => setTheme("dark")}
-                className={`px-3 py-1.5 text-xs font-semibold ${theme === "dark" ? "bg-blue-600 text-white" : isCherry ? "bg-transparent text-rose-900/85" : isLight ? "bg-transparent text-slate-800" : "bg-transparent text-white/85"}`}
-              >
-                Dark
-              </button>
-              <button
-                onClick={() => setTheme("light")}
-                className={`px-3 py-1.5 text-xs font-semibold ${theme === "light" ? "bg-blue-600 text-white" : isCherry ? "bg-transparent text-rose-900/85" : isLight ? "bg-transparent text-slate-800" : "bg-transparent text-white/85"}`}
-              >
-                Light
-              </button>
-              <button
-                onClick={() => setTheme("cherry")}
-                className={`px-3 py-1.5 text-xs font-semibold ${theme === "cherry" ? "bg-rose-600 text-white" : isLight ? "bg-transparent text-rose-800" : "bg-transparent text-white/85"}`}
-              >
-                Sakura
-              </button>
-            </div>
+          <div className="absolute left-6 top-0 z-40">
+            <details className="relative">
+              <summary className={`list-none inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer [&::-webkit-details-marker]:hidden ${
+                isCherry
+                  ? "border-rose-200/65 bg-white/96 text-rose-900"
+                  : isLight
+                    ? "border-slate-300 bg-white/90 text-slate-800"
+                    : "border-white/15 bg-slate-900/60 text-white/85"
+              }`}>
+                Theme: {activeThemeLabel}
+                <span className="text-[10px]">▼</span>
+              </summary>
+              <div className={`absolute left-0 top-full mt-2 w-44 rounded-xl border p-1.5 shadow-2xl ${
+                isLight ? "border-slate-300 bg-white/95" : "border-white/15 bg-slate-900/95"
+              }`}>
+                <button
+                  onClick={(event) => selectThemeFromDropdown("dark", event)}
+                  className={`w-full rounded-lg px-3 py-2 text-left text-xs font-semibold ${
+                    theme === "dark"
+                      ? "bg-blue-600 text-white"
+                      : isLight
+                        ? "text-slate-700 hover:bg-slate-100"
+                        : "text-white/85 hover:bg-white/10"
+                  }`}
+                >
+                  Dark
+                </button>
+                <button
+                  onClick={(event) => selectThemeFromDropdown("light", event)}
+                  className={`mt-1 w-full rounded-lg px-3 py-2 text-left text-xs font-semibold ${
+                    theme === "light"
+                      ? "bg-blue-600 text-white"
+                      : isLight
+                        ? "text-slate-700 hover:bg-slate-100"
+                        : "text-white/85 hover:bg-white/10"
+                  }`}
+                >
+                  Light
+                </button>
+                <button
+                  onClick={(event) => selectThemeFromDropdown("cherry", event)}
+                  className={`mt-1 w-full rounded-lg px-3 py-2 text-left text-xs font-semibold ${
+                    theme === "cherry"
+                      ? "bg-rose-600 text-white"
+                      : isLight
+                        ? "text-rose-800 hover:bg-rose-50"
+                        : "text-white/85 hover:bg-white/10"
+                  }`}
+                >
+                  Sakura
+                </button>
+              </div>
+            </details>
           </div>
-          <div className="absolute right-6 top-0 z-40 flex items-center gap-2">
+          <div className="absolute right-6 top-0 z-40">
+            <details className="relative">
+              <summary className={`list-none inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer [&::-webkit-details-marker]:hidden ${
+                isCherry
+                  ? "border-rose-200/65 bg-white/96 text-rose-900"
+                  : isLight
+                    ? "border-slate-300 bg-white/90 text-slate-800"
+                    : "border-white/15 bg-slate-900/60 text-white/85"
+              }`}>
+                Menu
+                <span className="text-[10px]">▼</span>
+              </summary>
+              <div className={`absolute right-0 top-full mt-2 w-64 rounded-xl border p-2 shadow-2xl flex flex-col gap-1 ${
+                isLight ? "border-slate-300 bg-white/95" : "border-white/15 bg-slate-900/95"
+              }`}>
             <Link
               href="/"
+              onClick={closeParentDropdown}
               className={`px-3 py-1.5 rounded-lg border text-xs ${
                 isLight
                   ? "border-slate-300 bg-white/90 text-slate-700 hover:bg-slate-100"
@@ -2715,6 +2770,7 @@ export default function Home() {
             {authUser && (
               <Link
                 href="/portfolio"
+                onClick={closeParentDropdown}
                 className={`px-3 py-1.5 rounded-lg border text-xs ${
                   isLight
                     ? "border-slate-300 bg-white/90 text-slate-700 hover:bg-slate-100"
@@ -2726,6 +2782,7 @@ export default function Home() {
             )}
             <Link
               href="/about"
+              onClick={closeParentDropdown}
               className={`px-3 py-1.5 rounded-lg border text-xs ${
                 isLight
                   ? "border-slate-300 bg-white/90 text-slate-700 hover:bg-slate-100"
@@ -2736,7 +2793,10 @@ export default function Home() {
             </Link>
             <div className="relative">
               <button
-                onClick={() => setSupportOpen((v) => !v)}
+                onClick={(event) => {
+                  closeParentDropdown(event);
+                  setSupportOpen((v) => !v);
+                }}
                 className={`px-3 py-1.5 rounded-lg border text-xs ${
                   isLight
                     ? "border-slate-300 bg-white/90 text-slate-700 hover:bg-slate-100"
@@ -2823,7 +2883,8 @@ export default function Home() {
             ) : (
               <div className="relative">
                 <button
-                  onClick={() => {
+                  onClick={(event) => {
+                    closeParentDropdown(event);
                     setAuthPanelOpen((v) => !v);
                     setAuthError("");
                     setAuthNotice("");
@@ -3040,6 +3101,8 @@ export default function Home() {
                 )}
               </div>
             )}
+              </div>
+            </details>
           </div>
           <div className="mt-4 flex justify-center">
             <div className="inline-flex items-center gap-5 md:gap-6">
