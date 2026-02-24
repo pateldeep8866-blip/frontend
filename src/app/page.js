@@ -184,7 +184,7 @@ function geopoliticsAgeLabel(value) {
 
 const SAKURA_PETAL_IDS = Array.from({ length: 14 }, (_, index) => index + 1);
 const AZULA_FLAME_IDS = Array.from({ length: 8 }, (_, index) => index + 1);
-const AZULA_LIGHTNING_IDS = Array.from({ length: 5 }, (_, index) => index + 1);
+const AZULA_LIGHTNING_IDS = Array.from({ length: 18 }, (_, index) => index + 1);
 
 const LANGUAGE_OPTIONS = [
   { code: "en", label: "English" },
@@ -3151,7 +3151,7 @@ export default function Home() {
   );
   const isCherry = theme === "cherry";
   const isAzula = theme === "azula";
-  const isLight = theme === "light" || isCherry || isAzula;
+  const isLight = theme === "light" || isCherry;
   const trendDelta =
     chartPoints.length > 1 ? Number(chartPoints[chartPoints.length - 1].close) - Number(chartPoints[0].close) : 0;
   const trendPct =
@@ -3314,11 +3314,11 @@ export default function Home() {
 
 
   return (
-    <div className={`min-h-screen relative overflow-hidden ${isCherry ? "cherry-mode bg-[#fffefc] text-[#3a2530]" : isAzula ? "azula-mode bg-[#fcfeff] text-[#0f2a46]" : isLight ? "light-mode bg-[#fbfdff] text-slate-900" : "dark-mode bg-slate-950 text-white"}`}>
+    <div className={`min-h-screen relative overflow-hidden ${isCherry ? "cherry-mode bg-[#fffefc] text-[#3a2530]" : isAzula ? "azula-mode bg-[#0b1020] text-slate-100" : isLight ? "light-mode bg-[#fbfdff] text-slate-900" : "dark-mode bg-slate-950 text-white"}`}>
       <div>
-        <div className={`pointer-events-none absolute -top-24 -left-20 h-80 w-80 rounded-full blur-3xl ${isCherry ? "bg-rose-100/34" : isAzula ? "bg-sky-300/32" : isLight ? "bg-sky-200/35" : "bg-cyan-500/12"}`} />
-        <div className={`pointer-events-none absolute top-1/3 -right-28 h-96 w-96 rounded-full blur-3xl ${isCherry ? "bg-rose-100/28" : isAzula ? "bg-blue-300/32" : isLight ? "bg-blue-200/30" : "bg-blue-500/10"}`} />
-        <div className={`pointer-events-none absolute inset-0 ${isCherry ? "bg-[radial-gradient(circle_at_12%_6%,rgba(244,114,182,0.08),transparent_31%),radial-gradient(circle_at_86%_70%,rgba(251,113,133,0.07),transparent_36%),radial-gradient(circle_at_52%_14%,rgba(196,181,253,0.05),transparent_30%),linear-gradient(120deg,rgba(255,255,255,0.985),rgba(255,252,253,0.97),rgba(255,255,255,0.99))]" : isAzula ? "bg-[radial-gradient(circle_at_16%_9%,rgba(56,189,248,0.22),transparent_42%),radial-gradient(circle_at_86%_74%,rgba(37,99,235,0.2),transparent_46%),radial-gradient(circle_at_53%_18%,rgba(14,165,233,0.12),transparent_36%),linear-gradient(118deg,rgba(255,255,255,0.995),rgba(245,250,255,0.99),rgba(255,255,255,0.995))]" : isLight ? "bg-[radial-gradient(circle_at_15%_10%,rgba(125,211,252,0.18),transparent_40%),radial-gradient(circle_at_80%_70%,rgba(147,197,253,0.14),transparent_42%),radial-gradient(circle_at_55%_18%,rgba(59,130,246,0.09),transparent_35%)]" : "bg-[radial-gradient(circle_at_20%_10%,rgba(59,130,246,0.08),transparent_35%),radial-gradient(circle_at_80%_70%,rgba(14,165,233,0.07),transparent_35%)]"}`}/>
+        <div className={`pointer-events-none absolute -top-24 -left-20 h-80 w-80 rounded-full blur-3xl ${isCherry ? "bg-rose-100/34" : isAzula ? "bg-blue-500/28" : isLight ? "bg-sky-200/35" : "bg-cyan-500/12"}`} />
+        <div className={`pointer-events-none absolute top-1/3 -right-28 h-96 w-96 rounded-full blur-3xl ${isCherry ? "bg-rose-100/28" : isAzula ? "bg-violet-500/24" : isLight ? "bg-blue-200/30" : "bg-blue-500/10"}`} />
+        <div className={`pointer-events-none absolute inset-0 ${isCherry ? "bg-[radial-gradient(circle_at_12%_6%,rgba(244,114,182,0.08),transparent_31%),radial-gradient(circle_at_86%_70%,rgba(251,113,133,0.07),transparent_36%),radial-gradient(circle_at_52%_14%,rgba(196,181,253,0.05),transparent_30%),linear-gradient(120deg,rgba(255,255,255,0.985),rgba(255,252,253,0.97),rgba(255,255,255,0.99))]" : isAzula ? "bg-[radial-gradient(circle_at_16%_9%,rgba(59,130,246,0.36),transparent_42%),radial-gradient(circle_at_86%_74%,rgba(139,92,246,0.24),transparent_46%),radial-gradient(circle_at_53%_18%,rgba(14,165,233,0.2),transparent_36%),linear-gradient(180deg,rgba(2,6,23,0.82),rgba(15,23,42,0.72),rgba(30,41,59,0.64))]" : isLight ? "bg-[radial-gradient(circle_at_15%_10%,rgba(125,211,252,0.18),transparent_40%),radial-gradient(circle_at_80%_70%,rgba(147,197,253,0.14),transparent_42%),radial-gradient(circle_at_55%_18%,rgba(59,130,246,0.09),transparent_35%)]" : "bg-[radial-gradient(circle_at_20%_10%,rgba(59,130,246,0.08),transparent_35%),radial-gradient(circle_at_80%_70%,rgba(14,165,233,0.07),transparent_35%)]"}`}/>
 
         {isCherry && (
           <div className="pointer-events-none absolute inset-0 z-[1] overflow-hidden sakura-scene sakura-scene-pro" aria-hidden="true">
@@ -3882,7 +3882,7 @@ export default function Home() {
           </div>
           <div className="mt-4 flex justify-center">
             <div className="inline-flex items-center gap-5 md:gap-6">
-              <div className="relative shrink-0">
+              <div className={`relative shrink-0 ${isAzula ? "azula-logo-thunder" : ""}`}>
                 {!isLight && (
                   <>
                     <span className="pointer-events-none absolute -left-5 top-2 h-3 w-3 rounded-[2px] bg-cyan-300/65 shadow-[0_0_14px_rgba(56,189,248,0.85)]" />
@@ -3900,17 +3900,17 @@ export default function Home() {
                 />
               </div>
               <div className="text-left">
-                <h1 className={`text-5xl md:text-6xl font-semibold leading-none tracking-tight ${isCherry ? "bg-gradient-to-r from-rose-900 via-fuchsia-800 to-indigo-800 bg-clip-text text-transparent" : isLight ? "text-slate-900" : "bg-gradient-to-r from-white via-cyan-100 to-sky-200 bg-clip-text text-transparent"}`}>
+                <h1 className={`text-5xl md:text-6xl font-semibold leading-none tracking-tight ${isCherry ? "bg-gradient-to-r from-rose-900 via-fuchsia-800 to-indigo-800 bg-clip-text text-transparent" : isAzula ? "azula-title-neon text-transparent bg-clip-text bg-gradient-to-r from-cyan-200 via-blue-200 to-violet-300" : isLight ? "text-slate-900" : "bg-gradient-to-r from-white via-cyan-100 to-sky-200 bg-clip-text text-transparent"}`}>
                   Arthastra
                 </h1>
-                <p className={`mt-2 text-3xl md:text-4xl font-medium leading-none tracking-tight ${isCherry ? "text-rose-900" : isLight ? "text-slate-700" : "text-cyan-100/90"}`}>
+                <p className={`mt-2 text-3xl md:text-4xl font-medium leading-none tracking-tight ${isCherry ? "text-rose-900" : isAzula ? "text-cyan-100/95" : isLight ? "text-slate-700" : "text-cyan-100/90"}`}>
                   {t("analyticalInformation")}
                 </p>
               </div>
             </div>
           </div>
-          <p className={`mt-5 text-lg md:text-xl font-medium ${isCherry ? "text-rose-900/90" : isLight ? "text-slate-700" : "text-slate-200/90"}`}>{t("clarityLine")}</p>
-          <p className={`text-xs mt-3 ${isCherry ? "text-rose-800/80" : isLight ? "text-slate-500" : "text-slate-400/80"}`}>{t("founder")}: Deep Patel • {t("coFounder")}: Juan M. Ramirez</p>
+          <p className={`mt-5 text-lg md:text-xl font-medium ${isCherry ? "text-rose-900/90" : isAzula ? "text-cyan-100/90" : isLight ? "text-slate-700" : "text-slate-200/90"}`}>{t("clarityLine")}</p>
+          <p className={`text-xs mt-3 ${isCherry ? "text-rose-800/80" : isAzula ? "text-slate-300/90" : isLight ? "text-slate-500" : "text-slate-400/80"}`}>{t("founder")}: Deep Patel • {t("coFounder")}: Juan M. Ramirez</p>
           <div className={`mt-5 inline-flex rounded-xl overflow-hidden border ${
             isLight ? "border-slate-300 bg-white/85 shadow-sm" : "border-white/15 bg-slate-900/60"
           }`}>

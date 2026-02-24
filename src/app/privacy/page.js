@@ -15,6 +15,8 @@ const LANGUAGE_OPTIONS = [
   { code: "ru", label: "Russian" },
   { code: "ur", label: "Urdu" },
 ];
+const AZULA_FLAME_IDS = Array.from({ length: 8 }, (_, index) => index + 1);
+const AZULA_LIGHTNING_IDS = Array.from({ length: 18 }, (_, index) => index + 1);
 
 const PRIVACY_TEXT = {
   en: {
@@ -88,13 +90,13 @@ export default function PrivacyPage() {
 
   const isCherry = theme === "cherry";
   const isAzula = theme === "azula";
-  const isLight = theme === "light" || isCherry || isAzula;
+  const isLight = theme === "light" || isCherry;
   const t = (key) => PRIVACY_TEXT[language]?.[key] || PRIVACY_TEXT.en[key] || key;
 
   const pageClass = isCherry
     ? "cherry-mode min-h-screen relative overflow-hidden bg-[#fffefc] text-[#3a2530]"
     : isAzula
-      ? "azula-mode min-h-screen relative overflow-hidden bg-[#fcfeff] text-[#0f2a46]"
+      ? "azula-mode min-h-screen relative overflow-hidden bg-[#0b1020] text-slate-100"
     : isLight
       ? "min-h-screen relative overflow-hidden bg-[#fbfdff] text-slate-900"
       : "min-h-screen relative overflow-hidden bg-slate-950 text-white";
@@ -116,6 +118,16 @@ export default function PrivacyPage() {
       <div className={`pointer-events-none absolute -top-24 -left-20 h-80 w-80 rounded-full blur-3xl ${isCherry ? "bg-rose-100/34" : isAzula ? "bg-sky-300/32" : isLight ? "bg-sky-200/35" : "bg-cyan-500/12"}`} />
       <div className={`pointer-events-none absolute top-1/3 -right-28 h-96 w-96 rounded-full blur-3xl ${isCherry ? "bg-rose-100/28" : isAzula ? "bg-blue-300/30" : isLight ? "bg-blue-200/30" : "bg-blue-500/10"}`} />
       <div className={`pointer-events-none absolute inset-0 ${isCherry ? "bg-[radial-gradient(circle_at_12%_6%,rgba(244,114,182,0.08),transparent_31%),radial-gradient(circle_at_86%_70%,rgba(251,113,133,0.07),transparent_36%)]" : isAzula ? "bg-[radial-gradient(circle_at_15%_10%,rgba(56,189,248,0.2),transparent_40%),radial-gradient(circle_at_80%_70%,rgba(37,99,235,0.18),transparent_42%)]" : isLight ? "bg-[radial-gradient(circle_at_15%_10%,rgba(125,211,252,0.18),transparent_40%),radial-gradient(circle_at_80%_70%,rgba(147,197,253,0.14),transparent_42%)]" : "bg-[radial-gradient(circle_at_20%_10%,rgba(59,130,246,0.08),transparent_35%),radial-gradient(circle_at_80%_70%,rgba(14,165,233,0.07),transparent_35%)]"}`} />
+      {isAzula && (
+        <div className="pointer-events-none absolute inset-0 z-[1] overflow-hidden azula-scene" aria-hidden="true">
+          {AZULA_FLAME_IDS.map((flameId) => (
+            <span key={`privacy-azula-flame-${flameId}`} className={`azula-flame azula-flame-${flameId}`} />
+          ))}
+          {AZULA_LIGHTNING_IDS.map((boltId) => (
+            <span key={`privacy-azula-bolt-${boltId}`} className={`azula-lightning azula-lightning-${boltId}`} />
+          ))}
+        </div>
+      )}
 
       <div className="relative z-10 mx-auto w-full max-w-5xl px-6 py-10 md:py-14">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-8">
