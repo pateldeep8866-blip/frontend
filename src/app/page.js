@@ -326,6 +326,29 @@ function buildDailyPickLaymanSummary(view) {
   return `${ticker} ${action}. Treat this as an educational idea and verify with your own risk plan before acting.`;
 }
 
+function localizeAiPayloadView(view, language, cache) {
+  if (!view || typeof view !== "object") return view;
+  if (language === "en") return view;
+  const localizeText = (value) => resolveLocalizedText(value, language, cache);
+  const localizeList = (items) =>
+    Array.isArray(items)
+      ? items.map((x) => localizeText(String(x || ""))).filter(Boolean)
+      : [];
+  return {
+    ...view,
+    why: localizeList(view.why),
+    risks: localizeList(view.risks),
+    strengths: localizeList(view.strengths),
+    dayPlan: localizeText(view.dayPlan),
+    shortSummary: localizeText(view.shortSummary),
+    longSummary: localizeText(view.longSummary),
+    riskExplanation: localizeText(view.riskExplanation),
+    outlook: localizeText(view.outlook),
+    note: localizeText(view.note),
+    fallbackText: localizeText(view.fallbackText),
+  };
+}
+
 const UI_TEXT = {
   en: {
     theme: "Theme",
@@ -976,12 +999,66 @@ export default function Home() {
     const marketHeadlines = marketNews.map((item) => String(item?.headline || "").trim()).filter(Boolean);
     const companyHeadlines = news.map((item) => String(item?.headline || "").trim()).filter(Boolean);
     const dailyViewCurrent = normalizeAiPayload(dailyObj);
+    const dayTraderViewCurrent = normalizeAiPayload(dayTraderObj);
+    const analysisViewCurrent = normalizeAiPayload(analysisObj);
+    const aiTextFields = [dailyViewCurrent, dayTraderViewCurrent, analysisViewCurrent].flatMap((view) => [
+      String(view?.shortSummary || ""),
+      String(view?.longSummary || ""),
+      String(view?.dayPlan || ""),
+      String(view?.riskExplanation || ""),
+      String(view?.outlook || ""),
+      String(view?.note || ""),
+      String(view?.fallbackText || ""),
+      ...listOfStrings(view?.why),
+      ...listOfStrings(view?.risks),
+      ...listOfStrings(view?.strengths),
+    ]);
+    const staticUiPhrases = [
+      "Market News",
+      "Metals News",
+      "World Market Impact News",
+      "Latest News",
+      "ASTRA Today Pick",
+      "ASTRA Day Trader Pick",
+      "ASTRA Analysis",
+      "Layman Summary",
+      "Summary",
+      "Why",
+      "Risks",
+      "Day plan",
+      "Setup rationale",
+      "Trade plan",
+      "No market headlines yet.",
+      "No metals headlines yet.",
+      "No world-impact headlines yet.",
+      "Outlook",
+      "Strengths",
+      "Bull vs Bear Probability",
+      "Risk Assessment",
+      "Analytical Reasoning Categories",
+      "Analytical Score",
+      "Bull",
+      "Bear",
+      "Short",
+      "Detailed",
+      "Confidence",
+      "Risk",
+      "Refresh",
+      "Copy",
+      "Share",
+      "Analyzing...",
+      "Loading...",
+      "Loading today’s pick...",
+      "Loading day-trader pick...",
+    ];
     const summaryTexts = [
       ...marketHeadlines.map((headline) => buildHeadlineLaymanSummary(headline, assetMode)),
       ...companyHeadlines.map((headline) => buildHeadlineLaymanSummary(headline, assetMode)),
       buildNewsDigest(marketHeadlines, assetMode),
       buildNewsDigest(companyHeadlines, assetMode),
       buildDailyPickLaymanSummary(dailyViewCurrent),
+      ...aiTextFields,
+      ...staticUiPhrases,
     ].filter(Boolean);
     const allTexts = Array.from(new Set([...marketHeadlines, ...companyHeadlines, ...summaryTexts]));
     if (!allTexts.length) return;
@@ -1020,7 +1097,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [language, marketNews, news, assetMode, dailyObj]);
+  }, [language, marketNews, news, assetMode, dailyObj, dayTraderObj, analysisObj]);
 
   const localizedMarketNews = useMemo(
     () => withLocalizedHeadlines(marketNews, language, headlineTranslationCacheRef.current),
@@ -2967,10 +3044,22 @@ export default function Home() {
     }
   };
 
-  const dailyView = normalizeAiPayload(dailyObj);
-  const dayTraderView = normalizeAiPayload(dayTraderObj);
-  const analysisView = normalizeAiPayload(analysisObj);
-  const dailyLaymanSummaryRaw = useMemo(() => buildDailyPickLaymanSummary(dailyView), [dailyObj]);
+  const dailyViewBase = normalizeAiPayload(dailyObj);
+  const dayTraderViewBase = normalizeAiPayload(dayTraderObj);
+  const analysisViewBase = normalizeAiPayload(analysisObj);
+  const dailyView = useMemo(
+    () => localizeAiPayloadView(dailyViewBase, language, headlineTranslationCacheRef.current),
+    [dailyObj, language, headlineTranslationVersion]
+  );
+  const dayTraderView = useMemo(
+    () => localizeAiPayloadView(dayTraderViewBase, language, headlineTranslationCacheRef.current),
+    [dayTraderObj, language, headlineTranslationVersion]
+  );
+  const analysisView = useMemo(
+    () => localizeAiPayloadView(analysisViewBase, language, headlineTranslationCacheRef.current),
+    [analysisObj, language, headlineTranslationVersion]
+  );
+  const dailyLaymanSummaryRaw = useMemo(() => buildDailyPickLaymanSummary(dailyViewBase), [dailyObj]);
   const dailyLaymanSummary = useMemo(
     () => resolveLocalizedText(dailyLaymanSummaryRaw, language, headlineTranslationCacheRef.current),
     [dailyLaymanSummaryRaw, language, headlineTranslationVersion]
@@ -3120,6 +3209,7 @@ export default function Home() {
     };
   }, [geopoliticsItems]);
   const t = (key) => UI_TEXT[language]?.[key] || UI_TEXT.en[key] || key;
+  const tx = (text) => resolveLocalizedText(text, language, headlineTranslationCacheRef.current);
   const activeThemeLabel = theme === "cherry" ? t("sakura") : theme === "light" ? t("light") : t("dark");
   const activeLanguageLabel = LANGUAGE_OPTIONS.find((x) => x.code === language)?.label || "English";
   const closeParentDropdown = (event) => {
@@ -4304,20 +4394,20 @@ export default function Home() {
           )}
 
           <Card
-            title={isMetalsMode ? "Metals News" : "Market News"}
+            title={isMetalsMode ? tx("Metals News") : tx("Market News")}
             right={
               <button
                 onClick={fetchMarketNews}
                 className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs"
               >
-                Refresh
+                {tx("Refresh")}
               </button>
             }
           >
             <div className="space-y-3">
               {marketNewsDigest && (
                 <div className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-slate-50 text-slate-700" : "border-white/12 bg-white/5 text-white/80"}`}>
-                  <div className={`text-[11px] font-semibold uppercase tracking-wide mb-1 ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>Summary</div>
+                  <div className={`text-[11px] font-semibold uppercase tracking-wide mb-1 ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>{tx("Summary")}</div>
                   <div className="text-sm leading-relaxed">{marketNewsDigest}</div>
                 </div>
               )}
@@ -4334,7 +4424,7 @@ export default function Home() {
                 </a>
               ))}
               {localizedMarketNewsWithSummary.length === 0 && (
-                <div className="text-sm text-white/60">{isMetalsMode ? "No metals headlines yet." : "No market headlines yet."}</div>
+                <div className="text-sm text-white/60">{isMetalsMode ? tx("No metals headlines yet.") : tx("No market headlines yet.")}</div>
               )}
             </div>
           </Card>
@@ -4346,13 +4436,13 @@ export default function Home() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <div className="space-y-6">
           <Card
-            title="ASTRA Today Pick"
+            title={tx("ASTRA Today Pick")}
             right={
               <button
                 onClick={fetchDailyPick}
                 className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs"
               >
-                {dailyLoading ? "Loading..." : "Refresh"}
+                {dailyLoading ? tx("Loading...") : tx("Refresh")}
               </button>
             }
           >
@@ -4362,7 +4452,7 @@ export default function Home() {
                 <span className="text-white/80 text-sm">{dailyView.ticker || "—"}</span>
                 {dailyView.confidence > 0 && (
                     <span className={`text-[11px] rounded-full border px-2 py-0.5 ${isLight ? "border-blue-300 bg-blue-50 text-blue-700" : "border-blue-400/30 bg-blue-500/15 text-blue-200"}`}>
-                      Confidence {dailyView.confidence}%
+                      {tx("Confidence")} {dailyView.confidence}%
                     </span>
                 )}
                 {dailyView.riskLevel && (
@@ -4375,26 +4465,26 @@ export default function Home() {
                           : isLight ? "border-rose-300 bg-rose-50 text-rose-700" : "border-red-400/30 bg-red-500/15 text-red-200"
                     }`}
                   >
-                    Risk {dailyView.riskLevel}
+                    {tx("Risk")} {dailyView.riskLevel}
                   </span>
                 )}
               </div>
             )}
 
             {dailyLoading ? (
-              <div className="text-sm text-white/60 animate-pulse">Loading today’s pick...</div>
+              <div className="text-sm text-white/60 animate-pulse">{tx("Loading today’s pick...")}</div>
             ) : (
               <div className="space-y-3">
                 {dailyLaymanSummary && (
                   <div className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-slate-50 text-slate-700" : "border-white/12 bg-white/5 text-white/85"}`}>
-                    <div className={`text-[11px] font-semibold uppercase tracking-wide mb-1 ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>Layman Summary</div>
+                    <div className={`text-[11px] font-semibold uppercase tracking-wide mb-1 ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>{tx("Layman Summary")}</div>
                     <div className="text-sm leading-relaxed">{dailyLaymanSummary}</div>
                   </div>
                 )}
 
                 {dailyView.why.length > 0 && (
                   <div>
-                    <div className="text-xs text-white/60 mb-1">Why</div>
+                    <div className="text-xs text-white/60 mb-1">{tx("Why")}</div>
                     <ul className="list-disc pl-5 text-sm text-white/90 space-y-1">
                       {dailyView.why.slice(0, 4).map((x, i) => (
                         <li key={i}>{x}</li>
@@ -4405,7 +4495,7 @@ export default function Home() {
 
                 {dailyView.risks.length > 0 && (
                   <div>
-                    <div className="text-xs text-white/60 mb-1">Risks</div>
+                    <div className="text-xs text-white/60 mb-1">{tx("Risks")}</div>
                     <ul className="list-disc pl-5 text-sm text-white/90 space-y-1">
                       {dailyView.risks.slice(0, 3).map((x, i) => (
                         <li key={i}>{x}</li>
@@ -4416,7 +4506,7 @@ export default function Home() {
 
                 {dailyView.dayPlan && (
                   <div>
-                    <div className="text-xs text-white/60 mb-1">Day plan</div>
+                    <div className="text-xs text-white/60 mb-1">{tx("Day plan")}</div>
                     <div className="text-sm text-white/90">{dailyView.dayPlan}</div>
                   </div>
                 )}
@@ -4431,13 +4521,13 @@ export default function Home() {
           </Card>
           {dayTraderEligible && (
             <Card
-              title="ASTRA Day Trader Pick"
+              title={tx("ASTRA Day Trader Pick")}
               right={
                 <button
                   onClick={fetchDayTraderPick}
                   className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs"
                 >
-                  {dayTraderLoading ? "Loading..." : "Refresh"}
+                  {dayTraderLoading ? tx("Loading...") : tx("Refresh")}
                 </button>
               }
             >
@@ -4447,18 +4537,18 @@ export default function Home() {
                   <span className="text-white/80 text-sm">{dayTraderView.ticker || "—"}</span>
                   {dayTraderView.confidence > 0 && (
                     <span className={`text-[11px] rounded-full border px-2 py-0.5 ${isLight ? "border-blue-300 bg-blue-50 text-blue-700" : "border-blue-400/30 bg-blue-500/15 text-blue-200"}`}>
-                      Confidence {dayTraderView.confidence}%
+                      {tx("Confidence")} {dayTraderView.confidence}%
                     </span>
                   )}
                 </div>
               )}
               {dayTraderLoading ? (
-                <div className="text-sm text-white/60 animate-pulse">Loading day-trader pick...</div>
+                <div className="text-sm text-white/60 animate-pulse">{tx("Loading day-trader pick...")}</div>
               ) : (
                 <div className="space-y-3">
                   {dayTraderView.why.length > 0 && (
                     <div>
-                      <div className="text-xs text-white/60 mb-1">Setup rationale</div>
+                      <div className="text-xs text-white/60 mb-1">{tx("Setup rationale")}</div>
                       <ul className="list-disc pl-5 text-sm text-white/90 space-y-1">
                         {dayTraderView.why.slice(0, 4).map((x, i) => (
                           <li key={i}>{x}</li>
@@ -4468,7 +4558,7 @@ export default function Home() {
                   )}
                   {dayTraderView.dayPlan && (
                     <div>
-                      <div className="text-xs text-white/60 mb-1">Trade plan</div>
+                      <div className="text-xs text-white/60 mb-1">{tx("Trade plan")}</div>
                       <div className="text-sm text-white/90">{dayTraderView.dayPlan}</div>
                     </div>
                   )}
@@ -4960,19 +5050,19 @@ export default function Home() {
         {isNewsMode && (
           <div className="mb-6">
             <Card
-              title="World Market Impact News"
+              title={tx("World Market Impact News")}
               right={
                 <button
                   onClick={fetchMarketNews}
                   className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs"
                 >
-                  Refresh
+                  {tx("Refresh")}
                 </button>
               }
             >
               {marketNewsDigest && (
                 <div className={`mb-4 rounded-xl border p-3 ${isLight ? "border-slate-200 bg-slate-50 text-slate-700" : "border-white/12 bg-white/5 text-white/80"}`}>
-                  <div className={`text-[11px] font-semibold uppercase tracking-wide mb-1 ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>Summary</div>
+                  <div className={`text-[11px] font-semibold uppercase tracking-wide mb-1 ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>{tx("Summary")}</div>
                   <div className="text-sm leading-relaxed">{marketNewsDigest}</div>
                 </div>
               )}
@@ -5012,7 +5102,7 @@ export default function Home() {
                     </div>
                   </a>
                 ))}
-                {localizedMarketNewsWithSummary.length === 0 && <div className="text-sm text-white/60">No world-impact headlines yet.</div>}
+                {localizedMarketNewsWithSummary.length === 0 && <div className="text-sm text-white/60">{tx("No world-impact headlines yet.")}</div>}
               </div>
             </Card>
           </div>
@@ -5021,13 +5111,13 @@ export default function Home() {
         {isGeoPoliticsMode && (
           <div className="mb-6">
             <Card
-              title="Geo Politics Intelligence"
+              title={tx("Geo Politics Intelligence")}
               right={
                 <button
                   onClick={fetchMarketNews}
                   className={`px-3 py-1.5 rounded-lg text-xs ${isLight ? "bg-slate-100 hover:bg-slate-200 text-slate-700" : "bg-white/10 hover:bg-white/15 text-white"}`}
                 >
-                  Refresh
+                  {tx("Refresh")}
                 </button>
               }
             >
@@ -5036,7 +5126,7 @@ export default function Home() {
               </p>
               {marketNewsDigest && (
                 <div className={`mb-4 rounded-xl border p-3 ${isLight ? "border-slate-200 bg-slate-50 text-slate-700" : "border-white/12 bg-white/5 text-white/80"}`}>
-                  <div className={`text-[11px] font-semibold uppercase tracking-wide mb-1 ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>Summary</div>
+                  <div className={`text-[11px] font-semibold uppercase tracking-wide mb-1 ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>{tx("Summary")}</div>
                   <div className="text-sm leading-relaxed">{marketNewsDigest}</div>
                 </div>
               )}
@@ -5399,27 +5489,27 @@ export default function Home() {
         {!isNarrativeMode && (analysisLoading || analysisObj) && (
           <div className="mb-6">
             <Card
-              title="ASTRA Analysis"
+              title={tx("ASTRA Analysis")}
               right={
                 <div className="flex items-center gap-2">
                   <button
                     onClick={copyAnalysis}
                     className="px-2.5 py-1 rounded-md bg-white/10 hover:bg-white/15 text-[11px]"
                   >
-                    Copy
+                    {tx("Copy")}
                   </button>
                   <button
                     onClick={shareAnalysis}
                     className="px-2.5 py-1 rounded-md bg-white/10 hover:bg-white/15 text-[11px]"
                   >
-                    Share
+                    {tx("Share")}
                   </button>
                   <Badge value={analysisView.recommendation} light={isLight} />
                 </div>
               }
             >
               {analysisLoading ? (
-                <div className="text-white/50 text-sm animate-pulse">Analyzing...</div>
+                <div className="text-white/50 text-sm animate-pulse">{tx("Analyzing...")}</div>
               ) : (
                 <>
                   {analysisView.ticker && (
@@ -5427,12 +5517,12 @@ export default function Home() {
                       <span>Ticker: {analysisView.ticker}</span>
                       {analysisView.aiScore > 0 && (
                         <span className="text-[11px] rounded-full border border-cyan-400/30 bg-cyan-500/15 text-cyan-200 px-2 py-0.5">
-                          Analytical Score {analysisView.aiScore}/100
+                          {tx("Analytical Score")} {analysisView.aiScore}/100
                         </span>
                       )}
                       {analysisView.confidence > 0 && (
                         <span className="text-[11px] rounded-full border border-blue-400/30 bg-blue-500/15 text-blue-200 px-2 py-0.5">
-                          Confidence {analysisView.confidence}%
+                          {tx("Confidence")} {analysisView.confidence}%
                         </span>
                       )}
                       {analysisView.horizon && (
@@ -5450,7 +5540,7 @@ export default function Home() {
                                 : "border-red-400/30 bg-red-500/15 text-red-200"
                           }`}
                         >
-                          Risk {analysisView.riskLevel}
+                          {tx("Risk")} {analysisView.riskLevel}
                         </span>
                       )}
                     </div>
@@ -5463,13 +5553,13 @@ export default function Home() {
                           onClick={() => setAnalysisViewMode("short")}
                           className={`px-2.5 py-1 text-[11px] ${analysisViewMode === "short" ? "bg-blue-600 text-white" : "bg-white/5 text-white/80"}`}
                         >
-                          Short
+                          {tx("Short")}
                         </button>
                         <button
                           onClick={() => setAnalysisViewMode("long")}
                           className={`px-2.5 py-1 text-[11px] ${analysisViewMode === "long" ? "bg-blue-600 text-white" : "bg-white/5 text-white/80"}`}
                         >
-                          Detailed
+                          {tx("Detailed")}
                         </button>
                       </div>
                       <div className="text-sm text-white/90 whitespace-pre-line">
@@ -5482,12 +5572,12 @@ export default function Home() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
                     <div className="rounded-lg border border-white/10 bg-white/5 p-3">
-                      <div className="text-xs text-white/60 mb-1">Bull vs Bear Probability</div>
-                      <div className="text-sm text-green-300">Bull: {analysisView.bullProbability}%</div>
-                      <div className="text-sm text-red-300">Bear: {analysisView.bearProbability}%</div>
+                      <div className="text-xs text-white/60 mb-1">{tx("Bull vs Bear Probability")}</div>
+                      <div className="text-sm text-green-300">{tx("Bull")}: {analysisView.bullProbability}%</div>
+                      <div className="text-sm text-red-300">{tx("Bear")}: {analysisView.bearProbability}%</div>
                     </div>
                     <div className="rounded-lg border border-white/10 bg-white/5 p-3">
-                      <div className="text-xs text-white/60 mb-1">Risk Assessment</div>
+                      <div className="text-xs text-white/60 mb-1">{tx("Risk Assessment")}</div>
                       <div className="text-sm text-white/90">
                         {analysisView.riskExplanation || "Risk reflects volatility, valuation, and event exposure."}
                       </div>
@@ -5495,7 +5585,7 @@ export default function Home() {
                   </div>
 
                   <div className="rounded-lg border border-white/10 bg-white/5 p-3 mb-4">
-                    <div className="text-xs text-white/60 mb-2">Analytical Reasoning Categories</div>
+                    <div className="text-xs text-white/60 mb-2">{tx("Analytical Reasoning Categories")}</div>
                     <div className="space-y-2 text-sm">
                       {[
                         ["Fundamental", analysisView.reasoningCategories.fundamental],
@@ -5517,7 +5607,7 @@ export default function Home() {
 
                   {analysisView.strengths.length > 0 && (
                     <div className="mb-4">
-                      <div className="text-xs text-white/60 mb-2">Strengths</div>
+                      <div className="text-xs text-white/60 mb-2">{tx("Strengths")}</div>
                       <ul className="list-disc pl-5 text-sm text-white/90 space-y-1">
                         {analysisView.strengths.slice(0, 4).map((x, i) => (
                           <li key={i}>{x}</li>
@@ -5528,7 +5618,7 @@ export default function Home() {
 
                   {analysisView.why.length > 0 && (
                     <div className="mb-4">
-                      <div className="text-xs text-white/60 mb-2">Why</div>
+                      <div className="text-xs text-white/60 mb-2">{tx("Why")}</div>
                       <ul className="list-disc pl-5 text-sm text-white/90 space-y-1">
                         {analysisView.why.slice(0, 6).map((x, i) => (
                           <li key={i}>{x}</li>
@@ -5539,7 +5629,7 @@ export default function Home() {
 
                   {analysisView.risks.length > 0 && (
                     <div className="mb-4">
-                      <div className="text-xs text-white/60 mb-2">Risks</div>
+                      <div className="text-xs text-white/60 mb-2">{tx("Risks")}</div>
                       <ul className="list-disc pl-5 text-sm text-white/90 space-y-1">
                         {analysisView.risks.slice(0, 3).map((x, i) => (
                           <li key={i}>{x}</li>
@@ -5550,14 +5640,14 @@ export default function Home() {
 
                   {analysisView.dayPlan && (
                     <div className="mb-2">
-                      <div className="text-xs text-white/60 mb-2">Day plan</div>
+                      <div className="text-xs text-white/60 mb-2">{tx("Day plan")}</div>
                       <div className="text-sm text-white/90">{analysisView.dayPlan}</div>
                     </div>
                   )}
 
                   {analysisView.outlook && (
                     <div className="mb-2">
-                      <div className="text-xs text-white/60 mb-2">Outlook</div>
+                      <div className="text-xs text-white/60 mb-2">{tx("Outlook")}</div>
                       <div className="text-sm text-white/90">{analysisView.outlook}</div>
                     </div>
                   )}
@@ -5576,11 +5666,11 @@ export default function Home() {
         {/* NEWS */}
         {!isNarrativeMode && news.length > 0 && (
           <div className="mb-6">
-            <Card title="Latest News">
+            <Card title={tx("Latest News")}>
               <div className="space-y-3">
                 {latestNewsDigest && (
                   <div className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-slate-50 text-slate-700" : "border-white/12 bg-white/5 text-white/80"}`}>
-                    <div className={`text-[11px] font-semibold uppercase tracking-wide mb-1 ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>Summary</div>
+                    <div className={`text-[11px] font-semibold uppercase tracking-wide mb-1 ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>{tx("Summary")}</div>
                     <div className="text-sm leading-relaxed">{latestNewsDigest}</div>
                   </div>
                 )}
