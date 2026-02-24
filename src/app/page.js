@@ -184,7 +184,7 @@ function geopoliticsAgeLabel(value) {
 
 const SAKURA_PETAL_IDS = Array.from({ length: 14 }, (_, index) => index + 1);
 const AZULA_FLAME_IDS = Array.from({ length: 8 }, (_, index) => index + 1);
-const AZULA_LIGHTNING_IDS = Array.from({ length: 18 }, (_, index) => index + 1);
+const AZULA_LIGHTNING_IDS = Array.from({ length: 8 }, (_, index) => index + 1);
 
 const LANGUAGE_OPTIONS = [
   { code: "en", label: "English" },
@@ -860,6 +860,24 @@ function Card({ title, right, children }) {
         {right}
       </div>
       {children}
+    </div>
+  );
+}
+
+function SummaryPanel({ label = "Summary", text, isLight, className = "" }) {
+  if (!text) return null;
+  return (
+    <div
+      className={`rounded-xl border p-3.5 ${isLight ? "border-slate-200 bg-gradient-to-b from-white to-slate-50" : "border-white/12 bg-gradient-to-b from-white/[0.08] to-white/[0.03]"} ${className}`.trim()}
+    >
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <div className={`inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] ${isLight ? "text-slate-600" : "text-cyan-200/85"}`}>
+          <span className={`h-1.5 w-1.5 rounded-full ${isLight ? "bg-slate-500" : "bg-cyan-300"}`} />
+          {label}
+        </div>
+        <div className={`text-[10px] uppercase tracking-[0.14em] ${isLight ? "text-slate-400" : "text-white/45"}`}>Executive Brief</div>
+      </div>
+      <p className={`text-sm leading-relaxed ${isLight ? "text-slate-700" : "text-white/85"}`}>{text}</p>
     </div>
   );
 }
@@ -3151,7 +3169,7 @@ export default function Home() {
   );
   const isCherry = theme === "cherry";
   const isAzula = theme === "azula";
-  const isLight = theme === "light" || isCherry;
+  const isLight = theme === "light" || isCherry || isAzula;
   const trendDelta =
     chartPoints.length > 1 ? Number(chartPoints[chartPoints.length - 1].close) - Number(chartPoints[0].close) : 0;
   const trendPct =
@@ -3314,11 +3332,11 @@ export default function Home() {
 
 
   return (
-    <div className={`min-h-screen relative overflow-hidden ${isCherry ? "cherry-mode bg-[#fffefc] text-[#3a2530]" : isAzula ? "azula-mode bg-[#0b1020] text-slate-100" : isLight ? "light-mode bg-[#fbfdff] text-slate-900" : "dark-mode bg-slate-950 text-white"}`}>
+    <div className={`min-h-screen relative overflow-hidden ${isCherry ? "cherry-mode bg-[#fffefc] text-[#3a2530]" : isAzula ? "azula-mode bg-[#fafbfd] text-slate-900" : isLight ? "light-mode bg-[#fbfdff] text-slate-900" : "dark-mode bg-slate-950 text-white"}`}>
       <div>
-        <div className={`pointer-events-none absolute -top-24 -left-20 h-80 w-80 rounded-full blur-3xl ${isCherry ? "bg-rose-100/34" : isAzula ? "bg-blue-500/28" : isLight ? "bg-sky-200/35" : "bg-cyan-500/12"}`} />
-        <div className={`pointer-events-none absolute top-1/3 -right-28 h-96 w-96 rounded-full blur-3xl ${isCherry ? "bg-rose-100/28" : isAzula ? "bg-violet-500/24" : isLight ? "bg-blue-200/30" : "bg-blue-500/10"}`} />
-        <div className={`pointer-events-none absolute inset-0 ${isCherry ? "bg-[radial-gradient(circle_at_12%_6%,rgba(244,114,182,0.08),transparent_31%),radial-gradient(circle_at_86%_70%,rgba(251,113,133,0.07),transparent_36%),radial-gradient(circle_at_52%_14%,rgba(196,181,253,0.05),transparent_30%),linear-gradient(120deg,rgba(255,255,255,0.985),rgba(255,252,253,0.97),rgba(255,255,255,0.99))]" : isAzula ? "bg-[radial-gradient(circle_at_16%_9%,rgba(59,130,246,0.36),transparent_42%),radial-gradient(circle_at_86%_74%,rgba(139,92,246,0.24),transparent_46%),radial-gradient(circle_at_53%_18%,rgba(14,165,233,0.2),transparent_36%),linear-gradient(180deg,rgba(2,6,23,0.82),rgba(15,23,42,0.72),rgba(30,41,59,0.64))]" : isLight ? "bg-[radial-gradient(circle_at_15%_10%,rgba(125,211,252,0.18),transparent_40%),radial-gradient(circle_at_80%_70%,rgba(147,197,253,0.14),transparent_42%),radial-gradient(circle_at_55%_18%,rgba(59,130,246,0.09),transparent_35%)]" : "bg-[radial-gradient(circle_at_20%_10%,rgba(59,130,246,0.08),transparent_35%),radial-gradient(circle_at_80%_70%,rgba(14,165,233,0.07),transparent_35%)]"}`}/>
+        <div className={`pointer-events-none absolute -top-24 -left-20 h-80 w-80 rounded-full blur-3xl ${isCherry ? "bg-rose-100/34" : isAzula ? "bg-slate-300/8" : isLight ? "bg-sky-200/35" : "bg-cyan-500/12"}`} />
+        <div className={`pointer-events-none absolute top-1/3 -right-28 h-96 w-96 rounded-full blur-3xl ${isCherry ? "bg-rose-100/28" : isAzula ? "bg-slate-400/7" : isLight ? "bg-blue-200/30" : "bg-blue-500/10"}`} />
+        <div className={`pointer-events-none absolute inset-0 ${isCherry ? "bg-[radial-gradient(circle_at_12%_6%,rgba(244,114,182,0.08),transparent_31%),radial-gradient(circle_at_86%_70%,rgba(251,113,133,0.07),transparent_36%),radial-gradient(circle_at_52%_14%,rgba(196,181,253,0.05),transparent_30%),linear-gradient(120deg,rgba(255,255,255,0.985),rgba(255,252,253,0.97),rgba(255,255,255,0.99))]" : isAzula ? "bg-[radial-gradient(circle_at_16%_9%,rgba(100,116,139,0.08),transparent_46%),radial-gradient(circle_at_86%_74%,rgba(99,102,241,0.05),transparent_50%),radial-gradient(circle_at_53%_18%,rgba(14,165,233,0.04),transparent_40%),linear-gradient(180deg,rgba(248,250,252,0.84),rgba(246,249,252,0.74),rgba(255,255,255,0.7))]" : isLight ? "bg-[radial-gradient(circle_at_15%_10%,rgba(125,211,252,0.18),transparent_40%),radial-gradient(circle_at_80%_70%,rgba(147,197,253,0.14),transparent_42%),radial-gradient(circle_at_55%_18%,rgba(59,130,246,0.09),transparent_35%)]" : "bg-[radial-gradient(circle_at_20%_10%,rgba(59,130,246,0.08),transparent_35%),radial-gradient(circle_at_80%_70%,rgba(14,165,233,0.07),transparent_35%)]"}`}/>
 
         {isCherry && (
           <div className="pointer-events-none absolute inset-0 z-[1] overflow-hidden sakura-scene sakura-scene-pro" aria-hidden="true">
@@ -3351,7 +3369,7 @@ export default function Home() {
         <div className="relative z-10 mx-auto w-full max-w-6xl px-6 py-10 md:py-14">
         {/* HEADER */}
         <div className="text-center mb-10">
-          <div className="absolute left-6 top-0 z-40">
+          <div className="absolute left-6 top-0 z-40 flex items-start gap-2">
             <details className="relative">
               <summary className={`list-none inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer [&::-webkit-details-marker]:hidden ${
                 isCherry
@@ -3414,6 +3432,44 @@ export default function Home() {
                 >
                   {t("azula")}
                 </button>
+              </div>
+            </details>
+            <details className="relative">
+              <summary className={`list-none inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer [&::-webkit-details-marker]:hidden ${
+                isCherry
+                  ? "border-rose-200/65 bg-white/96 text-rose-900"
+                  : isLight
+                    ? "border-slate-300 bg-white/90 text-slate-800"
+                    : "border-white/15 bg-slate-900/60 text-white/85"
+              }`}>
+                {t("language")}: {activeLanguageLabel}
+                <span className="text-[10px]">▼</span>
+              </summary>
+              <div className={`absolute left-0 top-full mt-2 w-72 rounded-xl border p-2 shadow-2xl ${
+                isLight ? "border-slate-300 bg-white/95" : "border-white/15 bg-slate-900/95"
+              }`}>
+                <div className={`mb-1 px-1 text-[11px] font-semibold ${
+                  isLight ? "text-slate-500" : "text-white/60"
+                }`}>
+                  {t("language")}
+                </div>
+                <div className="grid grid-cols-3 gap-1">
+                  {LANGUAGE_OPTIONS.map((option) => (
+                    <button
+                      key={option.code}
+                      onClick={(event) => selectLanguageFromDropdown(option.code, event)}
+                      className={`rounded-md px-2 py-1.5 text-xs font-semibold ${
+                        language === option.code
+                          ? "bg-blue-600 text-white"
+                          : isLight
+                            ? "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                            : "bg-white/10 text-white/85 hover:bg-white/15"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </details>
           </div>
@@ -3486,28 +3542,6 @@ export default function Home() {
               >
                 {t("azula")}
               </button>
-            </div>
-            <div className={`px-2 pt-1 pb-0.5 text-[11px] font-semibold ${
-              isLight ? "text-slate-500" : "text-white/60"
-            }`}>
-              {t("language")}: {activeLanguageLabel}
-            </div>
-            <div className="grid grid-cols-4 gap-1 pb-1">
-              {LANGUAGE_OPTIONS.map((option) => (
-                <button
-                  key={option.code}
-                  onClick={(event) => selectLanguageFromDropdown(option.code, event)}
-                  className={`rounded-md px-1.5 py-1.5 text-[11px] font-semibold ${
-                    language === option.code
-                      ? "bg-blue-600 text-white"
-                      : isLight
-                        ? "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                        : "bg-white/10 text-white/85 hover:bg-white/15"
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
             </div>
             <div className={`my-1 h-px ${isLight ? "bg-slate-200" : "bg-white/10"}`} />
             <Link
@@ -4424,12 +4458,12 @@ export default function Home() {
               <div className="mt-2 text-xs text-white/60">
                 Tip: use code (`INR`) or country/currency name (`India`, `Japanese Yen`, `UK`).
               </div>
-              <div className={`mt-3 rounded-lg border p-3 ${isLight ? "border-slate-200 bg-slate-50 text-slate-700" : "border-white/12 bg-white/5 text-white/80"}`}>
-                <div className={`text-[11px] font-semibold uppercase tracking-wide mb-1 ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>{tx("Search Summary")}</div>
-                <div className="text-sm leading-relaxed">
-                  {fxSearchSummary || tx("No FX summary yet. Convert a pair to see the plain-language summary.")}
-                </div>
-              </div>
+              <SummaryPanel
+                label={tx("Search Summary")}
+                text={fxSearchSummary || tx("No FX summary yet. Convert a pair to see the plain-language summary.")}
+                isLight={isLight}
+                className="mt-3"
+              />
 
               {fxError && (
                 <div className="mt-3 rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
@@ -4532,12 +4566,7 @@ export default function Home() {
             }
           >
             <div className="space-y-3">
-              {marketNewsDigest && (
-                <div className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-slate-50 text-slate-700" : "border-white/12 bg-white/5 text-white/80"}`}>
-                  <div className={`text-[11px] font-semibold uppercase tracking-wide mb-1 ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>{tx("Summary")}</div>
-                  <div className="text-sm leading-relaxed">{marketNewsDigest}</div>
-                </div>
-              )}
+              <SummaryPanel label={tx("Summary")} text={marketNewsDigest} isLight={isLight} />
               {localizedMarketNewsWithSummary.slice(0, 6).map((n, idx) => (
                 <a
                   key={`${n.url}-${idx}`}
@@ -4602,12 +4631,7 @@ export default function Home() {
               <div className="text-sm text-white/60 animate-pulse">{tx("Loading today’s pick...")}</div>
             ) : (
               <div className="space-y-3">
-                {dailyLaymanSummary && (
-                  <div className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-slate-50 text-slate-700" : "border-white/12 bg-white/5 text-white/85"}`}>
-                    <div className={`text-[11px] font-semibold uppercase tracking-wide mb-1 ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>{tx("Layman Summary")}</div>
-                    <div className="text-sm leading-relaxed">{dailyLaymanSummary}</div>
-                  </div>
-                )}
+                <SummaryPanel label={tx("Layman Summary")} text={dailyLaymanSummary} isLight={isLight} />
 
                 {dailyView.why.length > 0 && (
                   <div>
@@ -5071,12 +5095,12 @@ export default function Home() {
                   ? "Search a metal symbol (XAU, XAG, XPT, XPD)"
                   : "Search a company name or symbol (stock, ETF, fund, bond ETF)"}
             </label>
-            <div className={`mt-3 rounded-lg border p-3 ${isLight ? "border-slate-200 bg-slate-50 text-slate-700" : "border-white/12 bg-white/5 text-white/80"}`}>
-              <div className={`text-[11px] font-semibold uppercase tracking-wide mb-1 ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>{tx("Search Summary")}</div>
-              <div className="text-sm leading-relaxed">
-                {searchSectionSummary || tx("No summary yet. Run a search to get a plain-language explanation.")}
-              </div>
-            </div>
+            <SummaryPanel
+              label={tx("Search Summary")}
+              text={searchSectionSummary || tx("No summary yet. Run a search to get a plain-language explanation.")}
+              isLight={isLight}
+              className="mt-3"
+            />
 
             <div className="mt-3 flex gap-2 items-start">
               <div className="flex-1 relative">
@@ -5193,12 +5217,7 @@ export default function Home() {
                 </button>
               }
             >
-              {marketNewsDigest && (
-                <div className={`mb-4 rounded-xl border p-3 ${isLight ? "border-slate-200 bg-slate-50 text-slate-700" : "border-white/12 bg-white/5 text-white/80"}`}>
-                  <div className={`text-[11px] font-semibold uppercase tracking-wide mb-1 ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>{tx("Summary")}</div>
-                  <div className="text-sm leading-relaxed">{marketNewsDigest}</div>
-                </div>
-              )}
+              <SummaryPanel label={tx("Summary")} text={marketNewsDigest} isLight={isLight} className="mb-4" />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {localizedMarketNewsWithSummary.slice(0, 24).map((n, idx) => (
                   <a
@@ -5257,12 +5276,7 @@ export default function Home() {
               <p className={`text-sm mb-4 ${isLight ? "text-slate-600" : "text-white/70"}`}>
                 Real-time geopolitical monitoring focused on conflicts, diplomacy, sanctions, energy security, and global trade routes.
               </p>
-              {marketNewsDigest && (
-                <div className={`mb-4 rounded-xl border p-3 ${isLight ? "border-slate-200 bg-slate-50 text-slate-700" : "border-white/12 bg-white/5 text-white/80"}`}>
-                  <div className={`text-[11px] font-semibold uppercase tracking-wide mb-1 ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>{tx("Summary")}</div>
-                  <div className="text-sm leading-relaxed">{marketNewsDigest}</div>
-                </div>
-              )}
+              <SummaryPanel label={tx("Summary")} text={marketNewsDigest} isLight={isLight} className="mb-4" />
 
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-5">
                 <div className={`rounded-xl border p-3 ${isLight ? "border-slate-200 bg-white/90" : "border-white/10 bg-white/5"}`}>
@@ -5801,12 +5815,7 @@ export default function Home() {
           <div className="mb-6">
             <Card title={tx("Latest News")}>
               <div className="space-y-3">
-                {latestNewsDigest && (
-                  <div className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-slate-50 text-slate-700" : "border-white/12 bg-white/5 text-white/80"}`}>
-                    <div className={`text-[11px] font-semibold uppercase tracking-wide mb-1 ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>{tx("Summary")}</div>
-                    <div className="text-sm leading-relaxed">{latestNewsDigest}</div>
-                  </div>
-                )}
+                {latestNewsDigest && <SummaryPanel label={tx("Summary")} text={latestNewsDigest} isLight={isLight} />}
                 {localizedNewsWithSummary.map((n, i) => (
                   <a key={i} href={n.url} target="_blank" rel="noreferrer" className={`block rounded-lg border p-2.5 ${isLight ? "border-slate-200 bg-white hover:bg-slate-50" : "border-white/10 bg-white/[0.03] hover:bg-white/[0.07]"}`}>
                     <div className={`text-sm font-medium hover:underline ${isLight ? "text-blue-700" : "text-blue-300"}`}>• {n.headlineDisplay}</div>

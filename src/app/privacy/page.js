@@ -16,7 +16,7 @@ const LANGUAGE_OPTIONS = [
   { code: "ur", label: "Urdu" },
 ];
 const AZULA_FLAME_IDS = Array.from({ length: 8 }, (_, index) => index + 1);
-const AZULA_LIGHTNING_IDS = Array.from({ length: 18 }, (_, index) => index + 1);
+const AZULA_LIGHTNING_IDS = Array.from({ length: 8 }, (_, index) => index + 1);
 
 const PRIVACY_TEXT = {
   en: {
@@ -90,13 +90,13 @@ export default function PrivacyPage() {
 
   const isCherry = theme === "cherry";
   const isAzula = theme === "azula";
-  const isLight = theme === "light" || isCherry;
+  const isLight = theme === "light" || isCherry || isAzula;
   const t = (key) => PRIVACY_TEXT[language]?.[key] || PRIVACY_TEXT.en[key] || key;
 
   const pageClass = isCherry
     ? "cherry-mode min-h-screen relative overflow-hidden bg-[#fffefc] text-[#3a2530]"
     : isAzula
-      ? "azula-mode min-h-screen relative overflow-hidden bg-[#0b1020] text-slate-100"
+      ? "azula-mode min-h-screen relative overflow-hidden bg-[#fafbfd] text-slate-900"
     : isLight
       ? "min-h-screen relative overflow-hidden bg-[#fbfdff] text-slate-900"
       : "min-h-screen relative overflow-hidden bg-slate-950 text-white";
