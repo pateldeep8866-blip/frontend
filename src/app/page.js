@@ -197,6 +197,33 @@ const LANGUAGE_OPTIONS = [
   { code: "ur", label: "Urdu" },
 ];
 
+const LANGUAGE_LABEL_BY_CODE = {
+  en: "English",
+  zh: "Mandarin Chinese",
+  hi: "Hindi",
+  es: "Spanish",
+  fr: "French",
+  ar: "Arabic",
+  bn: "Bengali",
+  pt: "Portuguese",
+  ru: "Russian",
+  ur: "Urdu",
+};
+
+function withLocalizedHeadlines(items, language, cache) {
+  return items.map((item) => {
+    const headlineOriginal = String(item?.headline || "");
+    const cacheKey = `${language}::${headlineOriginal}`;
+    const headlineDisplay =
+      language === "en" ? headlineOriginal : cache.get(cacheKey) || headlineOriginal;
+    return {
+      ...item,
+      headlineOriginal,
+      headlineDisplay,
+    };
+  });
+}
+
 const UI_TEXT = {
   en: {
     theme: "Theme",
@@ -762,6 +789,9 @@ export default function Home() {
   const [portfolioSuggestions, setPortfolioSuggestions] = useState([]);
   const [portfolioSuggestionLoading, setPortfolioSuggestionLoading] = useState(false);
   const [portfolioSuggestionOpen, setPortfolioSuggestionOpen] = useState(false);
+  const headlineTranslationCacheRef = useRef(new Map());
+  const headlineTranslationRequestRef = useRef(0);
+  const [headlineTranslationVersion, setHeadlineTranslationVersion] = useState(0);
   const quizPromptTimerRef = useRef(null);
   const initialQuizPromptedRef = useRef(false);
   const followupQuizPromptedRef = useRef(false);
@@ -832,6 +862,64 @@ export default function Home() {
   useEffect(() => {
     localStorage.setItem("site_language", language);
   }, [language]);
+
+  useEffect(() => {
+    if (!LANGUAGE_LABEL_BY_CODE[language]) return;
+    if (language === "en") return;
+
+    const allHeadlines = Array.from(
+      new Set(
+        [...marketNews, ...news]
+          .map((item) => String(item?.headline || "").trim())
+          .filter(Boolean)
+      )
+    );
+    if (!allHeadlines.length) return;
+
+    const cache = headlineTranslationCacheRef.current;
+    const missingHeadlines = allHeadlines.filter((headline) => !cache.has(`${language}::${headline}`));
+    if (!missingHeadlines.length) return;
+
+    const requestId = ++headlineTranslationRequestRef.current;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch("/api/translate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            language,
+            texts: missingHeadlines,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !Array.isArray(data?.translations)) return;
+
+        missingHeadlines.forEach((headline, index) => {
+          const nextValue = String(data.translations[index] || headline).trim() || headline;
+          cache.set(`${language}::${headline}`, nextValue);
+        });
+
+        if (!cancelled && requestId === headlineTranslationRequestRef.current) {
+          setHeadlineTranslationVersion((v) => v + 1);
+        }
+      } catch {}
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [language, marketNews, news]);
+
+  const localizedMarketNews = useMemo(
+    () => withLocalizedHeadlines(marketNews, language, headlineTranslationCacheRef.current),
+    [marketNews, language, headlineTranslationVersion]
+  );
+  const localizedNews = useMemo(
+    () => withLocalizedHeadlines(news, language, headlineTranslationCacheRef.current),
+    [news, language, headlineTranslationVersion]
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -2778,14 +2866,14 @@ export default function Home() {
   const dayTraderEligible = Boolean(authUser && quizCompleted && String(quizAnswers.dayTradingInterest || "").startsWith("yes"));
   const geopoliticsItems = useMemo(
     () =>
-      marketNews.map((n, idx) => ({
-        id: [idx, n?.url || n?.headline || "item"].join("-"),
+      localizedMarketNews.map((n, idx) => ({
+        id: [idx, n?.url || n?.headlineOriginal || "item"].join("-"),
         ...n,
-        theme: geopoliticsThemeFromHeadline(n?.headline),
-        region: geopoliticsRegionFromHeadline(n?.headline),
-        impact: geopoliticsImpactFromHeadline(n?.headline),
+        theme: geopoliticsThemeFromHeadline(n?.headlineOriginal),
+        region: geopoliticsRegionFromHeadline(n?.headlineOriginal),
+        impact: geopoliticsImpactFromHeadline(n?.headlineOriginal),
       })),
-    [marketNews]
+    [localizedMarketNews]
   );
   const geoRegionOptions = useMemo(() => {
     const regions = Array.from(new Set(geopoliticsItems.map((x) => x.region).filter(Boolean))).sort();
@@ -2822,7 +2910,7 @@ export default function Home() {
     return watchRules
       .map((rule) => {
         const hits = geopoliticsItems.filter((item) =>
-          rule.terms.some((term) => String(item.headline || "").toLowerCase().includes(term))
+          rule.terms.some((term) => String(item.headlineOriginal || "").toLowerCase().includes(term))
         );
         const top = hits.sort((a, b) => geopoliticsTimestamp(b.datetime) - geopoliticsTimestamp(a.datetime))[0];
         return { key: rule.key, hits: hits.length, top };
@@ -2840,7 +2928,7 @@ export default function Home() {
     const q = geoQuery.trim().toLowerCase();
     if (q) {
       items = items.filter((x) =>
-        [x.headline, x.source, x.theme, x.region].some((field) => String(field || "").toLowerCase().includes(q))
+        [x.headlineDisplay, x.headlineOriginal, x.source, x.theme, x.region].some((field) => String(field || "").toLowerCase().includes(q))
       );
     }
 
@@ -4063,7 +4151,7 @@ export default function Home() {
             }
           >
             <div className="space-y-2">
-              {marketNews.slice(0, 6).map((n, idx) => (
+              {localizedMarketNews.slice(0, 6).map((n, idx) => (
                 <a
                   key={`${n.url}-${idx}`}
                   href={n.url}
@@ -4071,10 +4159,10 @@ export default function Home() {
                   rel="noreferrer"
                   className="block text-sm text-blue-300 hover:underline"
                 >
-                  • {n.headline}
+                  • {n.headlineDisplay}
                 </a>
               ))}
-              {marketNews.length === 0 && (
+              {localizedMarketNews.length === 0 && (
                 <div className="text-sm text-white/60">{isMetalsMode ? "No metals headlines yet." : "No market headlines yet."}</div>
               )}
             </div>
@@ -4705,7 +4793,7 @@ export default function Home() {
               }
             >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {marketNews.slice(0, 24).map((n, idx) => (
+                {localizedMarketNews.slice(0, 24).map((n, idx) => (
                   <a
                     key={`${n.url}-${idx}`}
                     href={n.url}
@@ -4730,7 +4818,7 @@ export default function Home() {
                         </div>
                       </div>
                       <div className="min-w-0">
-                        <div className="text-sm text-blue-300 group-hover:underline line-clamp-3">{n.headline}</div>
+                        <div className="text-sm text-blue-300 group-hover:underline line-clamp-3">{n.headlineDisplay}</div>
                         <div className="mt-2 text-[11px] text-white/50">
                           {[n.source || safeDomainFromUrl(n.url), n.datetime].filter(Boolean).join(" • ") || "Global feed"}
                         </div>
@@ -4739,7 +4827,7 @@ export default function Home() {
                     </div>
                   </a>
                 ))}
-                {marketNews.length === 0 && <div className="text-sm text-white/60">No world-impact headlines yet.</div>}
+                {localizedMarketNews.length === 0 && <div className="text-sm text-white/60">No world-impact headlines yet.</div>}
               </div>
             </Card>
           </div>
@@ -4811,7 +4899,7 @@ export default function Home() {
                           </span>
                         </div>
                         <div className={`text-xs mt-1 line-clamp-2 ${isLight ? "text-slate-600" : "text-white/65"}`}>
-                          {watch.top?.headline || "No active signal right now."}
+                          {watch.top?.headlineDisplay || watch.top?.headlineOriginal || "No active signal right now."}
                         </div>
                       </div>
                     ))}
@@ -4927,7 +5015,7 @@ export default function Home() {
                         </div>
                       </div>
                       <div className="min-w-0">
-                        <div className={`text-sm group-hover:underline line-clamp-3 ${isLight ? "text-blue-700" : "text-blue-300"}`}>{n.headline}</div>
+                        <div className={`text-sm group-hover:underline line-clamp-3 ${isLight ? "text-blue-700" : "text-blue-300"}`}>{n.headlineDisplay}</div>
                         <div className="mt-2 flex flex-wrap items-center gap-1.5">
                           <span className={`text-[10px] px-2 py-0.5 rounded-full border ${isLight ? "border-slate-300 text-slate-600 bg-white" : "border-white/20 text-white/75 bg-white/5"}`}>
                             {n.theme}
@@ -5298,9 +5386,9 @@ export default function Home() {
           <div className="mb-6">
             <Card title="Latest News">
               <div className="space-y-2">
-                {news.map((n, i) => (
+                {localizedNews.map((n, i) => (
                   <a key={i} href={n.url} target="_blank" rel="noreferrer" className="block text-blue-300 hover:underline text-sm">
-                    • {n.headline}
+                    • {n.headlineDisplay}
                   </a>
                 ))}
               </div>
