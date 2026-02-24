@@ -326,6 +326,47 @@ function buildDailyPickLaymanSummary(view) {
   return `${ticker} ${action}. Treat this as an educational idea and verify with your own risk plan before acting.`;
 }
 
+function buildSearchSectionSummary(payload) {
+  const assetMode = String(payload?.assetMode || "stock");
+  const symbol = String(payload?.usingTicker || payload?.result?.symbol || "").trim();
+  const name = String(payload?.company?.name || "").trim();
+  const display = symbol || name || "this asset";
+  const short = cleanAiText(payload?.analysis?.shortSummary || payload?.analysis?.longSummary || "");
+  const confidence = Number(payload?.analysis?.confidence || 0);
+  const recommendation = String(payload?.analysis?.recommendation || "").trim().toUpperCase();
+  const risk = String(payload?.analysis?.riskLevel || "").trim().toUpperCase();
+  const price = String(payload?.result?.price || "").trim();
+  const change = String(payload?.result?.change || "").trim();
+  const info = String(payload?.result?.info || "").trim();
+
+  if (!display && !short && !price && !info) return "";
+
+  const parts = [`${display} ${assetMode === "crypto" ? "crypto" : assetMode === "metals" ? "metal" : "market"} snapshot.`];
+  if (short) parts.push(short);
+  if (price && price !== "Loading...") parts.push(`Current price: ${price}.`);
+  if (change) parts.push(`Day move: ${change}.`);
+  if (recommendation) {
+    parts.push(
+      confidence > 0
+        ? `ASTRA view: ${recommendation} with ${confidence}% confidence${risk ? ` and ${risk} risk` : ""}.`
+        : `ASTRA view: ${recommendation}${risk ? ` with ${risk} risk` : ""}.`
+    );
+  } else if (risk) {
+    parts.push(`Current risk level: ${risk}.`);
+  }
+  if (!short && info) parts.push(info);
+  return parts.join(" ");
+}
+
+function buildFxSearchSummary(fxResult) {
+  if (!fxResult) return "";
+  const amount = Number(fxResult?.amount);
+  const converted = Number(fxResult?.converted);
+  const rate = Number(fxResult?.rate);
+  if (!Number.isFinite(amount) || !Number.isFinite(converted) || !Number.isFinite(rate)) return "";
+  return `${amount.toFixed(2)} ${fxResult.from} converts to ${converted.toFixed(4)} ${fxResult.to} at a rate of ${rate.toFixed(6)}. This is your quick purchasing-power snapshot.`;
+}
+
 function localizeAiPayloadView(view, language, cache) {
   if (!view || typeof view !== "object") return view;
   if (language === "en") return view;
@@ -1001,6 +1042,14 @@ export default function Home() {
     const dailyViewCurrent = normalizeAiPayload(dailyObj);
     const dayTraderViewCurrent = normalizeAiPayload(dayTraderObj);
     const analysisViewCurrent = normalizeAiPayload(analysisObj);
+    const searchSectionSummary = buildSearchSectionSummary({
+      assetMode,
+      usingTicker,
+      result,
+      company,
+      analysis: analysisViewCurrent,
+    });
+    const fxSearchSummary = buildFxSearchSummary(fxResult);
     const aiTextFields = [dailyViewCurrent, dayTraderViewCurrent, analysisViewCurrent].flatMap((view) => [
       String(view?.shortSummary || ""),
       String(view?.longSummary || ""),
@@ -1050,6 +1099,14 @@ export default function Home() {
       "Loading...",
       "Loading today’s pick...",
       "Loading day-trader pick...",
+      "Search Summary",
+      "No summary yet. Run a search to get a plain-language explanation.",
+      "No FX summary yet. Convert a pair to see the plain-language summary.",
+      "Exchange Rate Converter",
+      "Converting...",
+      "Convert",
+      "Search",
+      "Clear",
     ];
     const summaryTexts = [
       ...marketHeadlines.map((headline) => buildHeadlineLaymanSummary(headline, assetMode)),
@@ -1057,6 +1114,8 @@ export default function Home() {
       buildNewsDigest(marketHeadlines, assetMode),
       buildNewsDigest(companyHeadlines, assetMode),
       buildDailyPickLaymanSummary(dailyViewCurrent),
+      searchSectionSummary,
+      fxSearchSummary,
       ...aiTextFields,
       ...staticUiPhrases,
     ].filter(Boolean);
@@ -1097,7 +1156,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [language, marketNews, news, assetMode, dailyObj, dayTraderObj, analysisObj]);
+  }, [language, marketNews, news, assetMode, dailyObj, dayTraderObj, analysisObj, usingTicker, result, company, fxResult]);
 
   const localizedMarketNews = useMemo(
     () => withLocalizedHeadlines(marketNews, language, headlineTranslationCacheRef.current),
@@ -3064,6 +3123,26 @@ export default function Home() {
     () => resolveLocalizedText(dailyLaymanSummaryRaw, language, headlineTranslationCacheRef.current),
     [dailyLaymanSummaryRaw, language, headlineTranslationVersion]
   );
+  const searchSectionSummaryRaw = useMemo(
+    () =>
+      buildSearchSectionSummary({
+        assetMode,
+        usingTicker,
+        result,
+        company,
+        analysis: analysisViewBase,
+      }),
+    [assetMode, usingTicker, result, company, analysisObj]
+  );
+  const searchSectionSummary = useMemo(
+    () => resolveLocalizedText(searchSectionSummaryRaw, language, headlineTranslationCacheRef.current),
+    [searchSectionSummaryRaw, language, headlineTranslationVersion]
+  );
+  const fxSearchSummaryRaw = useMemo(() => buildFxSearchSummary(fxResult), [fxResult]);
+  const fxSearchSummary = useMemo(
+    () => resolveLocalizedText(fxSearchSummaryRaw, language, headlineTranslationCacheRef.current),
+    [fxSearchSummaryRaw, language, headlineTranslationVersion]
+  );
   const isCherry = theme === "cherry";
   const isLight = theme === "light" || isCherry;
   const trendDelta =
@@ -4245,14 +4324,14 @@ export default function Home() {
         {isFxMode && !isNarrativeMode && (
           <div className="mb-6">
             <Card
-              title="Exchange Rate Converter"
+              title={tx("Exchange Rate Converter")}
               right={
                 <button
                   onClick={convertFx}
                   disabled={fxLoading}
                   className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs disabled:opacity-50"
                 >
-                  {fxLoading ? "Converting..." : "Convert"}
+                  {fxLoading ? tx("Converting...") : tx("Convert")}
                 </button>
               }
             >
@@ -4302,6 +4381,12 @@ export default function Home() {
 
               <div className="mt-2 text-xs text-white/60">
                 Tip: use code (`INR`) or country/currency name (`India`, `Japanese Yen`, `UK`).
+              </div>
+              <div className={`mt-3 rounded-lg border p-3 ${isLight ? "border-slate-200 bg-slate-50 text-slate-700" : "border-white/12 bg-white/5 text-white/80"}`}>
+                <div className={`text-[11px] font-semibold uppercase tracking-wide mb-1 ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>{tx("Search Summary")}</div>
+                <div className="text-sm leading-relaxed">
+                  {fxSearchSummary || tx("No FX summary yet. Convert a pair to see the plain-language summary.")}
+                </div>
               </div>
 
               {fxError && (
@@ -4927,13 +5012,13 @@ export default function Home() {
         {!isFxMode && !isNarrativeMode && (
         <div className="mb-6">
           <Card
-            title="Search"
+            title={tx("Search")}
             right={
               <button
                 onClick={resetAnalysis}
                 className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs"
               >
-                Clear
+                {tx("Clear")}
               </button>
             }
           >
@@ -4944,6 +5029,12 @@ export default function Home() {
                   ? "Search a metal symbol (XAU, XAG, XPT, XPD)"
                   : "Search a company name or symbol (stock, ETF, fund, bond ETF)"}
             </label>
+            <div className={`mt-3 rounded-lg border p-3 ${isLight ? "border-slate-200 bg-slate-50 text-slate-700" : "border-white/12 bg-white/5 text-white/80"}`}>
+              <div className={`text-[11px] font-semibold uppercase tracking-wide mb-1 ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>{tx("Search Summary")}</div>
+              <div className="text-sm leading-relaxed">
+                {searchSectionSummary || tx("No summary yet. Run a search to get a plain-language explanation.")}
+              </div>
+            </div>
 
             <div className="mt-3 flex gap-2 items-start">
               <div className="flex-1 relative">
