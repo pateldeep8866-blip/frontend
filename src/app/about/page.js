@@ -5,9 +5,15 @@ import Link from "next/link";
 
 const LANGUAGE_OPTIONS = [
   { code: "en", label: "English" },
+  { code: "zh", label: "Mandarin Chinese" },
+  { code: "hi", label: "Hindi" },
   { code: "es", label: "Espanol" },
   { code: "fr", label: "Francais" },
-  { code: "hi", label: "Hindi" },
+  { code: "ar", label: "Arabic" },
+  { code: "bn", label: "Bengali" },
+  { code: "pt", label: "Portuguese" },
+  { code: "ru", label: "Russian" },
+  { code: "ur", label: "Urdu" },
 ];
 
 const ABOUT_TEXT = {

@@ -186,9 +186,15 @@ const SAKURA_PETAL_IDS = Array.from({ length: 14 }, (_, index) => index + 1);
 
 const LANGUAGE_OPTIONS = [
   { code: "en", label: "English" },
+  { code: "zh", label: "Mandarin Chinese" },
+  { code: "hi", label: "Hindi" },
   { code: "es", label: "Espanol" },
   { code: "fr", label: "Francais" },
-  { code: "hi", label: "Hindi" },
+  { code: "ar", label: "Arabic" },
+  { code: "bn", label: "Bengali" },
+  { code: "pt", label: "Portuguese" },
+  { code: "ru", label: "Russian" },
+  { code: "ur", label: "Urdu" },
 ];
 
 const UI_TEXT = {
