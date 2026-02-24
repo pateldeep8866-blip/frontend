@@ -238,7 +238,7 @@ function marketContextLabel(assetMode) {
   if (assetMode === "metals") return "metals prices";
   if (assetMode === "fx") return "currency pairs";
   if (assetMode === "geopolitics") return "global risk";
-  if (assetMode === "news") return "cross-market sentiment";
+  if (assetMode === "news" || assetMode === "globalmarket") return "cross-market sentiment";
   return "stock prices";
 }
 
@@ -420,6 +420,7 @@ const UI_TEXT = {
     fx: "FX",
     news: "News",
     geoPolitics: "Geo Politics",
+    globalMarket: "Global Market",
   },
   es: {
     theme: "Tema",
@@ -448,6 +449,7 @@ const UI_TEXT = {
     fx: "FX",
     news: "Noticias",
     geoPolitics: "Geopolitica",
+    globalMarket: "Mercado Global",
   },
   fr: {
     theme: "Theme",
@@ -476,6 +478,7 @@ const UI_TEXT = {
     fx: "FX",
     news: "Actualites",
     geoPolitics: "Geopolitique",
+    globalMarket: "Marche Global",
   },
   hi: {
     theme: "थीम",
@@ -504,6 +507,7 @@ const UI_TEXT = {
     fx: "एफएक्स",
     news: "समाचार",
     geoPolitics: "जियो पॉलिटिक्स",
+    globalMarket: "ग्लोबल मार्केट",
   },
 };
 
@@ -1690,7 +1694,7 @@ export default function Home() {
   }
 
   async function fetchDailyPick() {
-    if (assetMode === "fx" || assetMode === "news" || assetMode === "geopolitics") {
+    if (assetMode === "fx" || assetMode === "news" || assetMode === "globalmarket" || assetMode === "geopolitics") {
       setDailyObj(null);
       return;
     }
@@ -1708,7 +1712,7 @@ export default function Home() {
 
   async function fetchOverview() {
     try {
-      if (assetMode === "news" || assetMode === "geopolitics") {
+      if (assetMode === "news" || assetMode === "globalmarket" || assetMode === "geopolitics") {
         setOverview([]);
         return;
       }
@@ -1780,7 +1784,7 @@ export default function Home() {
       const res = await fetch(
         assetMode === "geopolitics"
           ? "/api/geopolitics-news"
-          : assetMode === "news"
+          : assetMode === "news" || assetMode === "globalmarket"
             ? "/api/global-impact-news"
           : assetMode === "crypto"
             ? "/api/crypto-market-news"
@@ -1789,7 +1793,7 @@ export default function Home() {
               : "/api/market-news"
       );
       const data = await res.json().catch(() => ({}));
-      const maxItems = assetMode === "geopolitics" || assetMode === "news" ? 30 : 12;
+      const maxItems = assetMode === "geopolitics" || assetMode === "news" || assetMode === "globalmarket" ? 30 : 12;
       setMarketNews(Array.isArray(data?.news) ? data.news.slice(0, maxItems) : []);
     } catch {
       setMarketNews([]);
@@ -1797,7 +1801,7 @@ export default function Home() {
   }
 
   async function fetchMovers() {
-    if (assetMode === "fx" || assetMode === "news" || assetMode === "geopolitics") {
+    if (assetMode === "fx" || assetMode === "news" || assetMode === "globalmarket" || assetMode === "geopolitics") {
       setMovers({ gainers: [], losers: [] });
       return;
     }
@@ -1832,7 +1836,7 @@ export default function Home() {
   }
 
   async function runComparison() {
-    if (assetMode === "fx" || assetMode === "news" || assetMode === "geopolitics") {
+    if (assetMode === "fx" || assetMode === "news" || assetMode === "globalmarket" || assetMode === "geopolitics") {
       setCompareRows([]);
       return;
     }
@@ -2058,7 +2062,7 @@ export default function Home() {
     fetchMarketNews();
     setTimeout(fetchMovers, 1200);
     const overviewTimer = setInterval(fetchOverview, 60000);
-    const newsRefreshMs = assetMode === "geopolitics" || assetMode === "news" ? 30000 : 90000;
+    const newsRefreshMs = assetMode === "geopolitics" || assetMode === "news" || assetMode === "globalmarket" ? 30000 : 90000;
     const newsTimer = setInterval(fetchMarketNews, newsRefreshMs);
     return () => {
       clearInterval(overviewTimer);
@@ -3008,7 +3012,7 @@ export default function Home() {
 
   const fetchDayTraderPick = async () => {
     const enabled = Boolean(authUser && quizCompleted && String(quizAnswers.dayTradingInterest || "").startsWith("yes"));
-    if (!enabled || assetMode === "fx" || assetMode === "news" || assetMode === "geopolitics") {
+    if (!enabled || assetMode === "fx" || assetMode === "news" || assetMode === "globalmarket" || assetMode === "geopolitics") {
       setDayTraderObj(null);
       return;
     }
@@ -3190,26 +3194,26 @@ export default function Home() {
       ? "crypto"
       : assetMode === "metals"
         ? "metals"
-        : assetMode === "fx"
-          ? "FX"
-          : assetMode === "news"
-            ? "world news"
-            : assetMode === "geopolitics"
-              ? "geopolitics"
+          : assetMode === "fx"
+            ? "FX"
+            : assetMode === "news" || assetMode === "globalmarket"
+              ? "world news"
+              : assetMode === "geopolitics"
+                ? "geopolitics"
               : "stock";
   const chatInputPlaceholder =
     assetMode === "crypto"
       ? "Ask anything (crypto, stocks, metals, FX, news, geopolitics)..."
       : assetMode === "metals"
         ? "Ask anything (metals, crypto, stocks, FX, news, geopolitics)..."
-        : assetMode === "fx"
-          ? "Ask anything (FX, stocks, crypto, metals, news, geopolitics)..."
-          : assetMode === "news"
-            ? "Ask anything (world news, markets, crypto, FX, metals, geopolitics)..."
+          : assetMode === "fx"
+            ? "Ask anything (FX, stocks, crypto, metals, news, geopolitics)..."
+            : assetMode === "news" || assetMode === "globalmarket"
+              ? "Ask anything (world news, markets, crypto, FX, metals, geopolitics)..."
             : assetMode === "geopolitics"
               ? "Ask anything (global conflicts, diplomacy, sanctions, trade, markets)..."
               : "Ask anything (stocks, crypto, metals, FX, news, geopolitics)...";
-  const isNewsMode = assetMode === "news";
+  const isNewsMode = assetMode === "news" || assetMode === "globalmarket";
   const isGeoPoliticsMode = assetMode === "geopolitics";
   const isNarrativeMode = isNewsMode || isGeoPoliticsMode;
   const isMetalsMode = assetMode === "metals";
@@ -4027,6 +4031,14 @@ export default function Home() {
               }`}
             >
               {t("geoPolitics")}
+            </button>
+            <button
+              onClick={() => setAssetMode("globalmarket")}
+              className={`px-3 py-1.5 text-xs font-semibold ${
+                assetMode === "globalmarket" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-700" : "bg-transparent text-white/80"
+              }`}
+            >
+              {t("globalMarket")}
             </button>
           </div>
         </div>
