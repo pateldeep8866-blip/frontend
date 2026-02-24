@@ -224,6 +224,108 @@ function withLocalizedHeadlines(items, language, cache) {
   });
 }
 
+function resolveLocalizedText(text, language, cache) {
+  const raw = String(text || "").trim();
+  if (!raw) return "";
+  if (language === "en") return raw;
+  return cache.get(`${language}::${raw}`) || raw;
+}
+
+function marketContextLabel(assetMode) {
+  if (assetMode === "crypto") return "crypto prices";
+  if (assetMode === "metals") return "metals prices";
+  if (assetMode === "fx") return "currency pairs";
+  if (assetMode === "geopolitics") return "global risk";
+  if (assetMode === "news") return "cross-market sentiment";
+  return "stock prices";
+}
+
+function buildHeadlineLaymanSummary(headline, assetMode = "stock") {
+  const text = String(headline || "").toLowerCase();
+  const context = marketContextLabel(assetMode);
+  if (!text) return `This update can move ${context} in the short term.`;
+
+  if (/(rise|rises|rally|surge|jump|gain|record high|all-time high|beat estimates)/.test(text)) {
+    return "This is generally positive news and may support prices if momentum continues.";
+  }
+  if (/(fall|falls|drop|drops|slump|plunge|misses|downgrade|cuts forecast)/.test(text)) {
+    return "This is generally negative news and may pressure prices until confidence improves.";
+  }
+  if (/(fed|ecb|boj|central bank|interest rate|rate cut|rate hike|cpi|inflation|jobs report|payroll)/.test(text)) {
+    return "This is macro policy news that can move the whole market by changing rate and growth expectations.";
+  }
+  if (/(earnings|revenue|profit|guidance|quarter|forecast)/.test(text)) {
+    return "This is company performance news. Investors compare results versus expectations to decide direction.";
+  }
+  if (/(sanction|tariff|export|import|trade|embargo|regulation|sec)/.test(text)) {
+    return "This is policy or regulation news that can raise uncertainty and reprice risk quickly.";
+  }
+  if (/(oil|gas|lng|opec|pipeline|shipping|strait|red sea)/.test(text)) {
+    return "This is energy and supply-chain news that can impact inflation, transport costs, and market volatility.";
+  }
+  if (/(bitcoin|ethereum|crypto|token|etf approval|etf flows)/.test(text)) {
+    return "This is crypto-specific news that can change risk appetite and near-term demand for digital assets.";
+  }
+  if (/(gold|silver|platinum|palladium|copper|metals)/.test(text)) {
+    return "This is metals-market news tied to inflation, safe-haven demand, and industrial growth expectations.";
+  }
+
+  return `This headline can shift ${context} sentiment and short-term price direction.`;
+}
+
+function buildNewsDigest(headlines, assetMode = "stock") {
+  const list = Array.isArray(headlines)
+    ? headlines.map((h) => String(h || "").toLowerCase()).filter(Boolean)
+    : [];
+  if (!list.length) return "";
+
+  let macro = 0;
+  let earnings = 0;
+  let policy = 0;
+  let risk = 0;
+  let positive = 0;
+  let negative = 0;
+
+  for (const text of list) {
+    if (/(fed|ecb|boj|interest rate|cpi|inflation|jobs|payroll)/.test(text)) macro += 1;
+    if (/(earnings|revenue|profit|guidance|quarter)/.test(text)) earnings += 1;
+    if (/(sanction|tariff|regulation|sec|policy|export|import|embargo)/.test(text)) policy += 1;
+    if (/(war|missile|conflict|attack|shipping|strait|oil|gas)/.test(text)) risk += 1;
+    if (/(rise|rally|surge|jump|beat|record high)/.test(text)) positive += 1;
+    if (/(fall|drop|slump|plunge|miss|downgrade|cuts forecast)/.test(text)) negative += 1;
+  }
+
+  const segments = [];
+  if (macro >= 2) segments.push("Macro signals are a major driver right now.");
+  if (policy >= 2) segments.push("Policy and regulation headlines are raising uncertainty.");
+  if (earnings >= 2) segments.push("Earnings updates are shaping near-term direction.");
+  if (risk >= 2) segments.push("Geopolitical and supply risks are still in play.");
+
+  if (positive > negative) {
+    segments.push(`Overall tone is slightly risk-on, which can support ${marketContextLabel(assetMode)}.`);
+  } else if (negative > positive) {
+    segments.push(`Overall tone is risk-off, which can pressure ${marketContextLabel(assetMode)}.`);
+  } else {
+    segments.push("Headline tone is mixed, so expect two-way volatility.");
+  }
+
+  return segments.join(" ");
+}
+
+function buildDailyPickLaymanSummary(view) {
+  const short = cleanAiText(view?.shortSummary || view?.longSummary || "");
+  if (short) return short;
+  const ticker = String(view?.ticker || "this asset").trim() || "this asset";
+  const recommendation = String(view?.recommendation || "HOLD").toUpperCase();
+  const firstWhy = Array.isArray(view?.why) ? String(view.why[0] || "").trim() : "";
+  const firstRisk = Array.isArray(view?.risks) ? String(view.risks[0] || "").trim() : "";
+  const action = recommendation === "BUY" ? "has a constructive setup" : recommendation === "AVOID" ? "has elevated downside risk" : "is currently a watchlist setup";
+  if (firstWhy || firstRisk) {
+    return `${ticker} ${action}. Main reason: ${firstWhy || "setup quality"}. Main risk: ${firstRisk || "headline volatility"}.`;
+  }
+  return `${ticker} ${action}. Treat this as an educational idea and verify with your own risk plan before acting.`;
+}
+
 const UI_TEXT = {
   en: {
     theme: "Theme",
@@ -236,6 +338,7 @@ const UI_TEXT = {
     portfolio: "Portfolio",
     about: "About",
     terms: "Terms of Service",
+    privacy: "Privacy Policy",
     help: "Help",
     loginSignup: "Login / Signup",
     supportEmail: "Support Email",
@@ -262,6 +365,7 @@ const UI_TEXT = {
     portfolio: "Portafolio",
     about: "Acerca de",
     terms: "Terminos de servicio",
+    privacy: "Politica de privacidad",
     help: "Ayuda",
     loginSignup: "Iniciar sesion / Registro",
     supportEmail: "Correo de soporte",
@@ -288,6 +392,7 @@ const UI_TEXT = {
     portfolio: "Portefeuille",
     about: "A propos",
     terms: "Conditions d'utilisation",
+    privacy: "Politique de confidentialite",
     help: "Aide",
     loginSignup: "Connexion / Inscription",
     supportEmail: "Email de support",
@@ -314,6 +419,7 @@ const UI_TEXT = {
     portfolio: "पोर्टफोलियो",
     about: "अबाउट",
     terms: "सेवा की शर्तें",
+    privacy: "प्राइवेसी पॉलिसी",
     help: "मदद",
     loginSignup: "लॉगिन / साइनअप",
     supportEmail: "सपोर्ट ईमेल",
@@ -867,18 +973,22 @@ export default function Home() {
     if (!LANGUAGE_LABEL_BY_CODE[language]) return;
     if (language === "en") return;
 
-    const allHeadlines = Array.from(
-      new Set(
-        [...marketNews, ...news]
-          .map((item) => String(item?.headline || "").trim())
-          .filter(Boolean)
-      )
-    );
-    if (!allHeadlines.length) return;
+    const marketHeadlines = marketNews.map((item) => String(item?.headline || "").trim()).filter(Boolean);
+    const companyHeadlines = news.map((item) => String(item?.headline || "").trim()).filter(Boolean);
+    const dailyViewCurrent = normalizeAiPayload(dailyObj);
+    const summaryTexts = [
+      ...marketHeadlines.map((headline) => buildHeadlineLaymanSummary(headline, assetMode)),
+      ...companyHeadlines.map((headline) => buildHeadlineLaymanSummary(headline, assetMode)),
+      buildNewsDigest(marketHeadlines, assetMode),
+      buildNewsDigest(companyHeadlines, assetMode),
+      buildDailyPickLaymanSummary(dailyViewCurrent),
+    ].filter(Boolean);
+    const allTexts = Array.from(new Set([...marketHeadlines, ...companyHeadlines, ...summaryTexts]));
+    if (!allTexts.length) return;
 
     const cache = headlineTranslationCacheRef.current;
-    const missingHeadlines = allHeadlines.filter((headline) => !cache.has(`${language}::${headline}`));
-    if (!missingHeadlines.length) return;
+    const missingTexts = allTexts.filter((text) => !cache.has(`${language}::${text}`));
+    if (!missingTexts.length) return;
 
     const requestId = ++headlineTranslationRequestRef.current;
     let cancelled = false;
@@ -890,15 +1000,15 @@ export default function Home() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             language,
-            texts: missingHeadlines,
+            texts: missingTexts,
           }),
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !Array.isArray(data?.translations)) return;
 
-        missingHeadlines.forEach((headline, index) => {
-          const nextValue = String(data.translations[index] || headline).trim() || headline;
-          cache.set(`${language}::${headline}`, nextValue);
+        missingTexts.forEach((text, index) => {
+          const nextValue = String(data.translations[index] || text).trim() || text;
+          cache.set(`${language}::${text}`, nextValue);
         });
 
         if (!cancelled && requestId === headlineTranslationRequestRef.current) {
@@ -910,7 +1020,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [language, marketNews, news]);
+  }, [language, marketNews, news, assetMode, dailyObj]);
 
   const localizedMarketNews = useMemo(
     () => withLocalizedHeadlines(marketNews, language, headlineTranslationCacheRef.current),
@@ -919,6 +1029,44 @@ export default function Home() {
   const localizedNews = useMemo(
     () => withLocalizedHeadlines(news, language, headlineTranslationCacheRef.current),
     [news, language, headlineTranslationVersion]
+  );
+  const localizedMarketNewsWithSummary = useMemo(
+    () =>
+      localizedMarketNews.map((item) => {
+        const summaryRaw = buildHeadlineLaymanSummary(item.headlineOriginal || item.headlineDisplay, assetMode);
+        return {
+          ...item,
+          laymanSummary: resolveLocalizedText(summaryRaw, language, headlineTranslationCacheRef.current),
+        };
+      }),
+    [localizedMarketNews, assetMode, language, headlineTranslationVersion]
+  );
+  const localizedNewsWithSummary = useMemo(
+    () =>
+      localizedNews.map((item) => {
+        const summaryRaw = buildHeadlineLaymanSummary(item.headlineOriginal || item.headlineDisplay, assetMode);
+        return {
+          ...item,
+          laymanSummary: resolveLocalizedText(summaryRaw, language, headlineTranslationCacheRef.current),
+        };
+      }),
+    [localizedNews, assetMode, language, headlineTranslationVersion]
+  );
+  const marketNewsDigestRaw = useMemo(
+    () => buildNewsDigest(localizedMarketNews.map((item) => item.headlineOriginal || item.headlineDisplay), assetMode),
+    [localizedMarketNews, assetMode]
+  );
+  const marketNewsDigest = useMemo(
+    () => resolveLocalizedText(marketNewsDigestRaw, language, headlineTranslationCacheRef.current),
+    [marketNewsDigestRaw, language, headlineTranslationVersion]
+  );
+  const latestNewsDigestRaw = useMemo(
+    () => buildNewsDigest(localizedNews.map((item) => item.headlineOriginal || item.headlineDisplay), assetMode),
+    [localizedNews, assetMode]
+  );
+  const latestNewsDigest = useMemo(
+    () => resolveLocalizedText(latestNewsDigestRaw, language, headlineTranslationCacheRef.current),
+    [latestNewsDigestRaw, language, headlineTranslationVersion]
   );
 
   useEffect(() => {
@@ -2822,6 +2970,11 @@ export default function Home() {
   const dailyView = normalizeAiPayload(dailyObj);
   const dayTraderView = normalizeAiPayload(dayTraderObj);
   const analysisView = normalizeAiPayload(analysisObj);
+  const dailyLaymanSummaryRaw = useMemo(() => buildDailyPickLaymanSummary(dailyView), [dailyObj]);
+  const dailyLaymanSummary = useMemo(
+    () => resolveLocalizedText(dailyLaymanSummaryRaw, language, headlineTranslationCacheRef.current),
+    [dailyLaymanSummaryRaw, language, headlineTranslationVersion]
+  );
   const isCherry = theme === "cherry";
   const isLight = theme === "light" || isCherry;
   const trendDelta =
@@ -2866,14 +3019,14 @@ export default function Home() {
   const dayTraderEligible = Boolean(authUser && quizCompleted && String(quizAnswers.dayTradingInterest || "").startsWith("yes"));
   const geopoliticsItems = useMemo(
     () =>
-      localizedMarketNews.map((n, idx) => ({
+      localizedMarketNewsWithSummary.map((n, idx) => ({
         id: [idx, n?.url || n?.headlineOriginal || "item"].join("-"),
         ...n,
         theme: geopoliticsThemeFromHeadline(n?.headlineOriginal),
         region: geopoliticsRegionFromHeadline(n?.headlineOriginal),
         impact: geopoliticsImpactFromHeadline(n?.headlineOriginal),
       })),
-    [localizedMarketNews]
+    [localizedMarketNewsWithSummary]
   );
   const geoRegionOptions = useMemo(() => {
     const regions = Array.from(new Set(geopoliticsItems.map((x) => x.region).filter(Boolean))).sort();
@@ -3191,6 +3344,17 @@ export default function Home() {
               }`}
             >
               {t("terms")}
+            </Link>
+            <Link
+              href="/privacy"
+              onClick={closeParentDropdown}
+              className={`px-3 py-1.5 rounded-lg border text-xs ${
+                isLight
+                  ? "border-slate-300 bg-white/90 text-slate-700 hover:bg-slate-100"
+                  : "border-white/15 bg-slate-900/60 text-white/85 hover:bg-slate-800/70"
+              }`}
+            >
+              {t("privacy")}
             </Link>
             <div className="relative">
               <button
@@ -4150,19 +4314,26 @@ export default function Home() {
               </button>
             }
           >
-            <div className="space-y-2">
-              {localizedMarketNews.slice(0, 6).map((n, idx) => (
+            <div className="space-y-3">
+              {marketNewsDigest && (
+                <div className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-slate-50 text-slate-700" : "border-white/12 bg-white/5 text-white/80"}`}>
+                  <div className={`text-[11px] font-semibold uppercase tracking-wide mb-1 ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>Summary</div>
+                  <div className="text-sm leading-relaxed">{marketNewsDigest}</div>
+                </div>
+              )}
+              {localizedMarketNewsWithSummary.slice(0, 6).map((n, idx) => (
                 <a
                   key={`${n.url}-${idx}`}
                   href={n.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="block text-sm text-blue-300 hover:underline"
+                  className={`block rounded-lg border p-2.5 transition-colors ${isLight ? "border-slate-200 bg-white hover:bg-slate-50" : "border-white/10 bg-white/[0.03] hover:bg-white/[0.07]"}`}
                 >
-                  • {n.headlineDisplay}
+                  <div className={`text-sm font-medium hover:underline ${isLight ? "text-blue-700" : "text-blue-300"}`}>• {n.headlineDisplay}</div>
+                  <div className={`mt-1 text-xs leading-relaxed ${isLight ? "text-slate-600" : "text-white/65"}`}>{n.laymanSummary}</div>
                 </a>
               ))}
-              {localizedMarketNews.length === 0 && (
+              {localizedMarketNewsWithSummary.length === 0 && (
                 <div className="text-sm text-white/60">{isMetalsMode ? "No metals headlines yet." : "No market headlines yet."}</div>
               )}
             </div>
@@ -4214,6 +4385,13 @@ export default function Home() {
               <div className="text-sm text-white/60 animate-pulse">Loading today’s pick...</div>
             ) : (
               <div className="space-y-3">
+                {dailyLaymanSummary && (
+                  <div className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-slate-50 text-slate-700" : "border-white/12 bg-white/5 text-white/85"}`}>
+                    <div className={`text-[11px] font-semibold uppercase tracking-wide mb-1 ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>Layman Summary</div>
+                    <div className="text-sm leading-relaxed">{dailyLaymanSummary}</div>
+                  </div>
+                )}
+
                 {dailyView.why.length > 0 && (
                   <div>
                     <div className="text-xs text-white/60 mb-1">Why</div>
@@ -4792,8 +4970,14 @@ export default function Home() {
                 </button>
               }
             >
+              {marketNewsDigest && (
+                <div className={`mb-4 rounded-xl border p-3 ${isLight ? "border-slate-200 bg-slate-50 text-slate-700" : "border-white/12 bg-white/5 text-white/80"}`}>
+                  <div className={`text-[11px] font-semibold uppercase tracking-wide mb-1 ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>Summary</div>
+                  <div className="text-sm leading-relaxed">{marketNewsDigest}</div>
+                </div>
+              )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {localizedMarketNews.slice(0, 24).map((n, idx) => (
+                {localizedMarketNewsWithSummary.slice(0, 24).map((n, idx) => (
                   <a
                     key={`${n.url}-${idx}`}
                     href={n.url}
@@ -4819,6 +5003,7 @@ export default function Home() {
                       </div>
                       <div className="min-w-0">
                         <div className="text-sm text-blue-300 group-hover:underline line-clamp-3">{n.headlineDisplay}</div>
+                        <div className="mt-1 text-xs text-white/70 line-clamp-3">{n.laymanSummary}</div>
                         <div className="mt-2 text-[11px] text-white/50">
                           {[n.source || safeDomainFromUrl(n.url), n.datetime].filter(Boolean).join(" • ") || "Global feed"}
                         </div>
@@ -4827,7 +5012,7 @@ export default function Home() {
                     </div>
                   </a>
                 ))}
-                {localizedMarketNews.length === 0 && <div className="text-sm text-white/60">No world-impact headlines yet.</div>}
+                {localizedMarketNewsWithSummary.length === 0 && <div className="text-sm text-white/60">No world-impact headlines yet.</div>}
               </div>
             </Card>
           </div>
@@ -4849,6 +5034,12 @@ export default function Home() {
               <p className={`text-sm mb-4 ${isLight ? "text-slate-600" : "text-white/70"}`}>
                 Real-time geopolitical monitoring focused on conflicts, diplomacy, sanctions, energy security, and global trade routes.
               </p>
+              {marketNewsDigest && (
+                <div className={`mb-4 rounded-xl border p-3 ${isLight ? "border-slate-200 bg-slate-50 text-slate-700" : "border-white/12 bg-white/5 text-white/80"}`}>
+                  <div className={`text-[11px] font-semibold uppercase tracking-wide mb-1 ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>Summary</div>
+                  <div className="text-sm leading-relaxed">{marketNewsDigest}</div>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-5">
                 <div className={`rounded-xl border p-3 ${isLight ? "border-slate-200 bg-white/90" : "border-white/10 bg-white/5"}`}>
@@ -5016,6 +5207,7 @@ export default function Home() {
                       </div>
                       <div className="min-w-0">
                         <div className={`text-sm group-hover:underline line-clamp-3 ${isLight ? "text-blue-700" : "text-blue-300"}`}>{n.headlineDisplay}</div>
+                        <div className={`mt-1 text-xs leading-relaxed line-clamp-3 ${isLight ? "text-slate-600" : "text-white/68"}`}>{n.laymanSummary}</div>
                         <div className="mt-2 flex flex-wrap items-center gap-1.5">
                           <span className={`text-[10px] px-2 py-0.5 rounded-full border ${isLight ? "border-slate-300 text-slate-600 bg-white" : "border-white/20 text-white/75 bg-white/5"}`}>
                             {n.theme}
@@ -5385,10 +5577,17 @@ export default function Home() {
         {!isNarrativeMode && news.length > 0 && (
           <div className="mb-6">
             <Card title="Latest News">
-              <div className="space-y-2">
-                {localizedNews.map((n, i) => (
-                  <a key={i} href={n.url} target="_blank" rel="noreferrer" className="block text-blue-300 hover:underline text-sm">
-                    • {n.headlineDisplay}
+              <div className="space-y-3">
+                {latestNewsDigest && (
+                  <div className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-slate-50 text-slate-700" : "border-white/12 bg-white/5 text-white/80"}`}>
+                    <div className={`text-[11px] font-semibold uppercase tracking-wide mb-1 ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>Summary</div>
+                    <div className="text-sm leading-relaxed">{latestNewsDigest}</div>
+                  </div>
+                )}
+                {localizedNewsWithSummary.map((n, i) => (
+                  <a key={i} href={n.url} target="_blank" rel="noreferrer" className={`block rounded-lg border p-2.5 ${isLight ? "border-slate-200 bg-white hover:bg-slate-50" : "border-white/10 bg-white/[0.03] hover:bg-white/[0.07]"}`}>
+                    <div className={`text-sm font-medium hover:underline ${isLight ? "text-blue-700" : "text-blue-300"}`}>• {n.headlineDisplay}</div>
+                    <div className={`mt-1 text-xs leading-relaxed ${isLight ? "text-slate-600" : "text-white/65"}`}>{n.laymanSummary}</div>
                   </a>
                 ))}
               </div>
