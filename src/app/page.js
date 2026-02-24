@@ -183,6 +183,8 @@ function geopoliticsAgeLabel(value) {
 }
 
 const SAKURA_PETAL_IDS = Array.from({ length: 14 }, (_, index) => index + 1);
+const AZULA_FLAME_IDS = Array.from({ length: 8 }, (_, index) => index + 1);
+const AZULA_LIGHTNING_IDS = Array.from({ length: 5 }, (_, index) => index + 1);
 
 const LANGUAGE_OPTIONS = [
   { code: "en", label: "English" },
@@ -398,6 +400,7 @@ const UI_TEXT = {
     dark: "Dark",
     light: "Light",
     sakura: "Sakura",
+    azula: "Azula",
     home: "Home",
     portfolio: "Portfolio",
     about: "About",
@@ -425,6 +428,7 @@ const UI_TEXT = {
     dark: "Oscuro",
     light: "Claro",
     sakura: "Sakura",
+    azula: "Azula",
     home: "Inicio",
     portfolio: "Portafolio",
     about: "Acerca de",
@@ -452,6 +456,7 @@ const UI_TEXT = {
     dark: "Sombre",
     light: "Clair",
     sakura: "Sakura",
+    azula: "Azula",
     home: "Accueil",
     portfolio: "Portefeuille",
     about: "A propos",
@@ -479,6 +484,7 @@ const UI_TEXT = {
     dark: "डार्क",
     light: "लाइट",
     sakura: "सकुरा",
+    azula: "अज़ूला",
     home: "होम",
     portfolio: "पोर्टफोलियो",
     about: "अबाउट",
@@ -1013,7 +1019,7 @@ export default function Home() {
     } catch {}
     try {
       const t = localStorage.getItem("theme_mode");
-      if (t === "light" || t === "dark" || t === "cherry") setTheme(t);
+      if (t === "light" || t === "dark" || t === "cherry" || t === "azula") setTheme(t);
     } catch {}
     try {
       const l = localStorage.getItem("site_language");
@@ -3144,7 +3150,8 @@ export default function Home() {
     [fxSearchSummaryRaw, language, headlineTranslationVersion]
   );
   const isCherry = theme === "cherry";
-  const isLight = theme === "light" || isCherry;
+  const isAzula = theme === "azula";
+  const isLight = theme === "light" || isCherry || isAzula;
   const trendDelta =
     chartPoints.length > 1 ? Number(chartPoints[chartPoints.length - 1].close) - Number(chartPoints[0].close) : 0;
   const trendPct =
@@ -3289,7 +3296,8 @@ export default function Home() {
   }, [geopoliticsItems]);
   const t = (key) => UI_TEXT[language]?.[key] || UI_TEXT.en[key] || key;
   const tx = (text) => resolveLocalizedText(text, language, headlineTranslationCacheRef.current);
-  const activeThemeLabel = theme === "cherry" ? t("sakura") : theme === "light" ? t("light") : t("dark");
+  const activeThemeLabel =
+    theme === "cherry" ? t("sakura") : theme === "azula" ? t("azula") : theme === "light" ? t("light") : t("dark");
   const activeLanguageLabel = LANGUAGE_OPTIONS.find((x) => x.code === language)?.label || "English";
   const closeParentDropdown = (event) => {
     event?.currentTarget?.closest("details")?.removeAttribute("open");
@@ -3306,11 +3314,11 @@ export default function Home() {
 
 
   return (
-    <div className={`min-h-screen relative overflow-hidden ${isCherry ? "cherry-mode bg-[#fffefc] text-[#3a2530]" : isLight ? "light-mode bg-[#fbfdff] text-slate-900" : "dark-mode bg-slate-950 text-white"}`}>
+    <div className={`min-h-screen relative overflow-hidden ${isCherry ? "cherry-mode bg-[#fffefc] text-[#3a2530]" : isAzula ? "azula-mode bg-[#fcfeff] text-[#0f2a46]" : isLight ? "light-mode bg-[#fbfdff] text-slate-900" : "dark-mode bg-slate-950 text-white"}`}>
       <div>
-        <div className={`pointer-events-none absolute -top-24 -left-20 h-80 w-80 rounded-full blur-3xl ${isCherry ? "bg-rose-100/34" : isLight ? "bg-sky-200/35" : "bg-cyan-500/12"}`} />
-        <div className={`pointer-events-none absolute top-1/3 -right-28 h-96 w-96 rounded-full blur-3xl ${isCherry ? "bg-rose-100/28" : isLight ? "bg-blue-200/30" : "bg-blue-500/10"}`} />
-        <div className={`pointer-events-none absolute inset-0 ${isCherry ? "bg-[radial-gradient(circle_at_12%_6%,rgba(244,114,182,0.08),transparent_31%),radial-gradient(circle_at_86%_70%,rgba(251,113,133,0.07),transparent_36%),radial-gradient(circle_at_52%_14%,rgba(196,181,253,0.05),transparent_30%),linear-gradient(120deg,rgba(255,255,255,0.985),rgba(255,252,253,0.97),rgba(255,255,255,0.99))]" : isLight ? "bg-[radial-gradient(circle_at_15%_10%,rgba(125,211,252,0.18),transparent_40%),radial-gradient(circle_at_80%_70%,rgba(147,197,253,0.14),transparent_42%),radial-gradient(circle_at_55%_18%,rgba(59,130,246,0.09),transparent_35%)]" : "bg-[radial-gradient(circle_at_20%_10%,rgba(59,130,246,0.08),transparent_35%),radial-gradient(circle_at_80%_70%,rgba(14,165,233,0.07),transparent_35%)]"}`}/>
+        <div className={`pointer-events-none absolute -top-24 -left-20 h-80 w-80 rounded-full blur-3xl ${isCherry ? "bg-rose-100/34" : isAzula ? "bg-sky-300/32" : isLight ? "bg-sky-200/35" : "bg-cyan-500/12"}`} />
+        <div className={`pointer-events-none absolute top-1/3 -right-28 h-96 w-96 rounded-full blur-3xl ${isCherry ? "bg-rose-100/28" : isAzula ? "bg-blue-300/32" : isLight ? "bg-blue-200/30" : "bg-blue-500/10"}`} />
+        <div className={`pointer-events-none absolute inset-0 ${isCherry ? "bg-[radial-gradient(circle_at_12%_6%,rgba(244,114,182,0.08),transparent_31%),radial-gradient(circle_at_86%_70%,rgba(251,113,133,0.07),transparent_36%),radial-gradient(circle_at_52%_14%,rgba(196,181,253,0.05),transparent_30%),linear-gradient(120deg,rgba(255,255,255,0.985),rgba(255,252,253,0.97),rgba(255,255,255,0.99))]" : isAzula ? "bg-[radial-gradient(circle_at_16%_9%,rgba(56,189,248,0.22),transparent_42%),radial-gradient(circle_at_86%_74%,rgba(37,99,235,0.2),transparent_46%),radial-gradient(circle_at_53%_18%,rgba(14,165,233,0.12),transparent_36%),linear-gradient(118deg,rgba(255,255,255,0.995),rgba(245,250,255,0.99),rgba(255,255,255,0.995))]" : isLight ? "bg-[radial-gradient(circle_at_15%_10%,rgba(125,211,252,0.18),transparent_40%),radial-gradient(circle_at_80%_70%,rgba(147,197,253,0.14),transparent_42%),radial-gradient(circle_at_55%_18%,rgba(59,130,246,0.09),transparent_35%)]" : "bg-[radial-gradient(circle_at_20%_10%,rgba(59,130,246,0.08),transparent_35%),radial-gradient(circle_at_80%_70%,rgba(14,165,233,0.07),transparent_35%)]"}`}/>
 
         {isCherry && (
           <div className="pointer-events-none absolute inset-0 z-[1] overflow-hidden sakura-scene sakura-scene-pro" aria-hidden="true">
@@ -3326,6 +3334,16 @@ export default function Home() {
             <img src="/sakura-tree.svg" alt="" className="sakura-tree sakura-tree-right" />
             {SAKURA_PETAL_IDS.map((petalId) => (
               <span key={petalId} className={`sakura-petal sakura-petal-${petalId}`} />
+            ))}
+          </div>
+        )}
+        {isAzula && (
+          <div className="pointer-events-none absolute inset-0 z-[1] overflow-hidden azula-scene" aria-hidden="true">
+            {AZULA_FLAME_IDS.map((flameId) => (
+              <span key={`azula-flame-${flameId}`} className={`azula-flame azula-flame-${flameId}`} />
+            ))}
+            {AZULA_LIGHTNING_IDS.map((boltId) => (
+              <span key={`azula-bolt-${boltId}`} className={`azula-lightning azula-lightning-${boltId}`} />
             ))}
           </div>
         )}
@@ -3384,6 +3402,18 @@ export default function Home() {
                 >
                   {t("sakura")}
                 </button>
+                <button
+                  onClick={(event) => selectThemeFromDropdown("azula", event)}
+                  className={`mt-1 w-full rounded-lg px-3 py-2 text-left text-xs font-semibold ${
+                    theme === "azula"
+                      ? "bg-sky-600 text-white"
+                      : isLight
+                        ? "text-sky-800 hover:bg-sky-50"
+                        : "text-white/85 hover:bg-white/10"
+                  }`}
+                >
+                  {t("azula")}
+                </button>
               </div>
             </details>
           </div>
@@ -3407,7 +3437,7 @@ export default function Home() {
             }`}>
               {t("theme")}
             </div>
-            <div className="grid grid-cols-3 gap-1 pb-1">
+            <div className="grid grid-cols-4 gap-1 pb-1">
               <button
                 onClick={(event) => selectThemeFromDropdown("dark", event)}
                 className={`rounded-md px-2 py-1.5 text-xs font-semibold ${
@@ -3443,6 +3473,18 @@ export default function Home() {
                 }`}
               >
                 {t("sakura")}
+              </button>
+              <button
+                onClick={(event) => selectThemeFromDropdown("azula", event)}
+                className={`rounded-md px-2 py-1.5 text-xs font-semibold ${
+                  theme === "azula"
+                    ? "bg-sky-600 text-white"
+                    : isLight
+                      ? "bg-sky-50 text-sky-800 hover:bg-sky-100"
+                      : "bg-white/10 text-white/85 hover:bg-white/15"
+                }`}
+              >
+                {t("azula")}
               </button>
             </div>
             <div className={`px-2 pt-1 pb-0.5 text-[11px] font-semibold ${

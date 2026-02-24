@@ -22,6 +22,7 @@ const ABOUT_TEXT = {
     dark: "Dark",
     light: "Light",
     sakura: "Sakura",
+    azula: "Azula",
     aboutTitle: "About Arthastra",
     clarity: "Clarity in Every Market.",
     intro:
@@ -45,6 +46,7 @@ const ABOUT_TEXT = {
     dark: "Oscuro",
     light: "Claro",
     sakura: "Sakura",
+    azula: "Azula",
     aboutTitle: "Acerca de Arthastra",
     clarity: "Claridad en cada mercado.",
     intro:
@@ -68,6 +70,7 @@ const ABOUT_TEXT = {
     dark: "Sombre",
     light: "Clair",
     sakura: "Sakura",
+    azula: "Azula",
     aboutTitle: "A propos d'Arthastra",
     clarity: "Clarte sur chaque marche.",
     intro:
@@ -91,6 +94,7 @@ const ABOUT_TEXT = {
     dark: "डार्क",
     light: "लाइट",
     sakura: "सकुरा",
+    azula: "अज़ूला",
     aboutTitle: "Arthastra के बारे में",
     clarity: "हर बाजार में स्पष्टता।",
     intro:
@@ -118,7 +122,7 @@ export default function AboutPage() {
   useEffect(() => {
     try {
       const saved = localStorage.getItem("theme_mode");
-      if (saved === "light" || saved === "dark" || saved === "cherry") setTheme(saved);
+      if (saved === "light" || saved === "dark" || saved === "cherry" || saved === "azula") setTheme(saved);
     } catch {}
     try {
       const lang = localStorage.getItem("site_language");
@@ -139,22 +143,29 @@ export default function AboutPage() {
   }, [language]);
 
   const isCherry = theme === "cherry";
-  const isLight = theme === "light" || isCherry;
+  const isAzula = theme === "azula";
+  const isLight = theme === "light" || isCherry || isAzula;
 
   const pageClass = isCherry
     ? "cherry-mode min-h-screen relative overflow-hidden bg-[#fffefc] text-[#3a2530]"
+    : isAzula
+      ? "azula-mode min-h-screen relative overflow-hidden bg-[#fcfeff] text-[#0f2a46]"
     : isLight
       ? "min-h-screen relative overflow-hidden bg-gradient-to-br from-white via-blue-50 to-cyan-50 text-slate-900"
       : "min-h-screen relative overflow-hidden bg-slate-950 text-white";
 
   const cardClass = isCherry
     ? "rounded-2xl border border-rose-200/60 bg-white/90 backdrop-blur-sm p-6 shadow-[0_10px_36px_rgba(190,24,93,0.12)]"
+    : isAzula
+      ? "rounded-2xl border border-sky-200/70 bg-white/92 backdrop-blur-sm p-6 shadow-[0_10px_36px_rgba(14,116,144,0.14)]"
     : isLight
       ? "rounded-2xl border border-blue-200/80 bg-white/85 backdrop-blur-sm p-6 shadow-[0_10px_40px_rgba(59,130,246,0.12)]"
       : "rounded-2xl border border-white/12 bg-slate-900/55 p-6";
 
   const chipClass = isCherry
     ? "rounded-xl border border-rose-200/70 bg-rose-50/70 p-3 text-rose-900"
+    : isAzula
+      ? "rounded-xl border border-sky-200 bg-sky-50/80 p-3 text-sky-900"
     : isLight
       ? "rounded-xl border border-blue-200 bg-blue-50/80 p-3 text-slate-700"
       : "rounded-xl border border-white/10 bg-white/5 p-3 text-slate-300";
@@ -164,18 +175,20 @@ export default function AboutPage() {
     <div className={pageClass}>
       <div
         className={`pointer-events-none absolute -top-24 -left-20 h-80 w-80 rounded-full blur-3xl ${
-          isCherry ? "bg-rose-200/28" : isLight ? "bg-blue-300/35" : "bg-cyan-500/12"
+          isCherry ? "bg-rose-200/28" : isAzula ? "bg-sky-300/32" : isLight ? "bg-blue-300/35" : "bg-cyan-500/12"
         }`}
       />
       <div
         className={`pointer-events-none absolute top-1/3 -right-28 h-96 w-96 rounded-full blur-3xl ${
-          isCherry ? "bg-rose-200/24" : isLight ? "bg-cyan-300/30" : "bg-blue-500/10"
+          isCherry ? "bg-rose-200/24" : isAzula ? "bg-blue-300/30" : isLight ? "bg-cyan-300/30" : "bg-blue-500/10"
         }`}
       />
       <div
         className={`pointer-events-none absolute inset-0 ${
           isCherry
             ? "bg-[radial-gradient(circle_at_16%_12%,rgba(244,114,182,0.12),transparent_34%),radial-gradient(circle_at_84%_72%,rgba(251,113,133,0.1),transparent_36%)]"
+            : isAzula
+              ? "bg-[radial-gradient(circle_at_20%_10%,rgba(56,189,248,0.2),transparent_36%),radial-gradient(circle_at_80%_70%,rgba(37,99,235,0.18),transparent_38%)]"
             : isLight
               ? "bg-[radial-gradient(circle_at_20%_10%,rgba(59,130,246,0.12),transparent_35%),radial-gradient(circle_at_80%_70%,rgba(6,182,212,0.12),transparent_35%)]"
               : "bg-[radial-gradient(circle_at_20%_10%,rgba(59,130,246,0.08),transparent_35%),radial-gradient(circle_at_80%_70%,rgba(14,165,233,0.07),transparent_35%)]"
@@ -231,6 +244,18 @@ export default function AboutPage() {
               }`}
             >
               {t("sakura")}
+            </button>
+            <button
+              onClick={() => setTheme("azula")}
+              className={`px-3 py-1.5 rounded-lg border text-xs ${
+                theme === "azula"
+                  ? "bg-sky-600 text-white border-sky-500"
+                  : isLight
+                    ? "border-sky-200 bg-white/90 text-sky-800"
+                    : "border-white/15 bg-slate-900/60 text-white/85"
+              }`}
+            >
+              {t("azula")}
             </button>
             <select
               value={language}

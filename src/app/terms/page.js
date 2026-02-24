@@ -17,10 +17,10 @@ const LANGUAGE_OPTIONS = [
 ];
 
 const TERMS_TEXT = {
-  en: { backHome: "Back Home", dark: "Dark", light: "Light", sakura: "Sakura", title: "Terms of Service", effectiveDate: "Effective Date: February 24, 2026" },
-  es: { backHome: "Inicio", dark: "Oscuro", light: "Claro", sakura: "Sakura", title: "Terminos de Servicio", effectiveDate: "Fecha efectiva: 24 de febrero de 2026" },
-  fr: { backHome: "Accueil", dark: "Sombre", light: "Clair", sakura: "Sakura", title: "Conditions d'utilisation", effectiveDate: "Date d'effet : 24 fevrier 2026" },
-  hi: { backHome: "होम", dark: "डार्क", light: "लाइट", sakura: "सकुरा", title: "सेवा की शर्तें", effectiveDate: "प्रभावी तिथि: 24 फरवरी 2026" },
+  en: { backHome: "Back Home", dark: "Dark", light: "Light", sakura: "Sakura", azula: "Azula", title: "Terms of Service", effectiveDate: "Effective Date: February 24, 2026" },
+  es: { backHome: "Inicio", dark: "Oscuro", light: "Claro", sakura: "Sakura", azula: "Azula", title: "Terminos de Servicio", effectiveDate: "Fecha efectiva: 24 de febrero de 2026" },
+  fr: { backHome: "Accueil", dark: "Sombre", light: "Clair", sakura: "Sakura", azula: "Azula", title: "Conditions d'utilisation", effectiveDate: "Date d'effet : 24 fevrier 2026" },
+  hi: { backHome: "होम", dark: "डार्क", light: "लाइट", sakura: "सकुरा", azula: "अज़ूला", title: "सेवा की शर्तें", effectiveDate: "प्रभावी तिथि: 24 फरवरी 2026" },
 };
 
 export default function TermsPage() {
@@ -30,7 +30,7 @@ export default function TermsPage() {
   useEffect(() => {
     try {
       const saved = localStorage.getItem("theme_mode");
-      if (saved === "light" || saved === "dark" || saved === "cherry") setTheme(saved);
+      if (saved === "light" || saved === "dark" || saved === "cherry" || saved === "azula") setTheme(saved);
     } catch {}
     try {
       const lang = localStorage.getItem("site_language");
@@ -51,29 +51,34 @@ export default function TermsPage() {
   }, [language]);
 
   const isCherry = theme === "cherry";
-  const isLight = theme === "light" || isCherry;
+  const isAzula = theme === "azula";
+  const isLight = theme === "light" || isCherry || isAzula;
   const pageClass = isCherry
     ? "cherry-mode min-h-screen relative overflow-hidden bg-[#fffefc] text-[#3a2530]"
+    : isAzula
+      ? "azula-mode min-h-screen relative overflow-hidden bg-[#fcfeff] text-[#0f2a46]"
     : isLight
       ? "min-h-screen relative overflow-hidden bg-[#fbfdff] text-slate-900"
       : "min-h-screen relative overflow-hidden bg-slate-950 text-white";
 
   const cardClass = isCherry
     ? "rounded-2xl border border-rose-200/60 bg-white/92 p-6 md:p-7 shadow-[0_14px_34px_-20px_rgba(190,24,93,0.2)]"
+    : isAzula
+      ? "rounded-2xl border border-sky-200/70 bg-white/92 p-6 md:p-7 shadow-[0_14px_34px_-20px_rgba(14,116,144,0.18)]"
     : isLight
       ? "rounded-2xl border border-slate-200 bg-white/90 p-6 md:p-7 shadow-[0_14px_34px_-20px_rgba(59,130,246,0.16)]"
       : "rounded-2xl border border-white/12 bg-slate-900/55 p-6 md:p-7";
 
   const headingClass = isLight ? "text-slate-900" : "text-white";
-  const textClass = isCherry ? "text-rose-900/80" : isLight ? "text-slate-700" : "text-slate-300";
-  const mutedTextClass = isCherry ? "text-rose-900/65" : isLight ? "text-slate-500" : "text-slate-400";
+  const textClass = isCherry ? "text-rose-900/80" : isAzula ? "text-sky-950/85" : isLight ? "text-slate-700" : "text-slate-300";
+  const mutedTextClass = isCherry ? "text-rose-900/65" : isAzula ? "text-sky-900/65" : isLight ? "text-slate-500" : "text-slate-400";
   const t = (key) => TERMS_TEXT[language]?.[key] || TERMS_TEXT.en[key] || key;
 
   return (
     <div className={pageClass}>
-      <div className={`pointer-events-none absolute -top-24 -left-20 h-80 w-80 rounded-full blur-3xl ${isCherry ? "bg-rose-100/34" : isLight ? "bg-sky-200/35" : "bg-cyan-500/12"}`} />
-      <div className={`pointer-events-none absolute top-1/3 -right-28 h-96 w-96 rounded-full blur-3xl ${isCherry ? "bg-rose-100/28" : isLight ? "bg-blue-200/30" : "bg-blue-500/10"}`} />
-      <div className={`pointer-events-none absolute inset-0 ${isCherry ? "bg-[radial-gradient(circle_at_12%_6%,rgba(244,114,182,0.08),transparent_31%),radial-gradient(circle_at_86%_70%,rgba(251,113,133,0.07),transparent_36%)]" : isLight ? "bg-[radial-gradient(circle_at_15%_10%,rgba(125,211,252,0.18),transparent_40%),radial-gradient(circle_at_80%_70%,rgba(147,197,253,0.14),transparent_42%)]" : "bg-[radial-gradient(circle_at_20%_10%,rgba(59,130,246,0.08),transparent_35%),radial-gradient(circle_at_80%_70%,rgba(14,165,233,0.07),transparent_35%)]"}`} />
+      <div className={`pointer-events-none absolute -top-24 -left-20 h-80 w-80 rounded-full blur-3xl ${isCherry ? "bg-rose-100/34" : isAzula ? "bg-sky-300/32" : isLight ? "bg-sky-200/35" : "bg-cyan-500/12"}`} />
+      <div className={`pointer-events-none absolute top-1/3 -right-28 h-96 w-96 rounded-full blur-3xl ${isCherry ? "bg-rose-100/28" : isAzula ? "bg-blue-300/30" : isLight ? "bg-blue-200/30" : "bg-blue-500/10"}`} />
+      <div className={`pointer-events-none absolute inset-0 ${isCherry ? "bg-[radial-gradient(circle_at_12%_6%,rgba(244,114,182,0.08),transparent_31%),radial-gradient(circle_at_86%_70%,rgba(251,113,133,0.07),transparent_36%)]" : isAzula ? "bg-[radial-gradient(circle_at_15%_10%,rgba(56,189,248,0.2),transparent_40%),radial-gradient(circle_at_80%_70%,rgba(37,99,235,0.18),transparent_42%)]" : isLight ? "bg-[radial-gradient(circle_at_15%_10%,rgba(125,211,252,0.18),transparent_40%),radial-gradient(circle_at_80%_70%,rgba(147,197,253,0.14),transparent_42%)]" : "bg-[radial-gradient(circle_at_20%_10%,rgba(59,130,246,0.08),transparent_35%),radial-gradient(circle_at_80%_70%,rgba(14,165,233,0.07),transparent_35%)]"}`} />
 
       <div className="relative z-10 mx-auto w-full max-w-5xl px-6 py-10 md:py-14">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-8">
@@ -101,6 +106,12 @@ export default function TermsPage() {
               className={`px-3 py-1.5 text-xs font-semibold ${theme === "cherry" ? "bg-rose-600 text-white" : isLight ? "bg-transparent text-rose-800" : "bg-transparent text-white/85"}`}
             >
               {t("sakura")}
+            </button>
+            <button
+              onClick={() => setTheme("azula")}
+              className={`px-3 py-1.5 text-xs font-semibold ${theme === "azula" ? "bg-sky-600 text-white" : isLight ? "bg-transparent text-sky-800" : "bg-transparent text-white/85"}`}
+            >
+              {t("azula")}
             </button>
           </div>
           <select
