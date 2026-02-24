@@ -2756,6 +2756,50 @@ export default function Home() {
               <div className={`absolute right-0 top-full mt-2 w-64 rounded-xl border p-2 shadow-2xl flex flex-col gap-1 ${
                 isLight ? "border-slate-300 bg-white/95" : "border-white/15 bg-slate-900/95"
               }`}>
+            <div className={`px-2 pt-1 pb-0.5 text-[11px] font-semibold ${
+              isLight ? "text-slate-500" : "text-white/60"
+            }`}>
+              Theme
+            </div>
+            <div className="grid grid-cols-3 gap-1 pb-1">
+              <button
+                onClick={(event) => selectThemeFromDropdown("dark", event)}
+                className={`rounded-md px-2 py-1.5 text-xs font-semibold ${
+                  theme === "dark"
+                    ? "bg-blue-600 text-white"
+                    : isLight
+                      ? "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                      : "bg-white/10 text-white/85 hover:bg-white/15"
+                }`}
+              >
+                Dark
+              </button>
+              <button
+                onClick={(event) => selectThemeFromDropdown("light", event)}
+                className={`rounded-md px-2 py-1.5 text-xs font-semibold ${
+                  theme === "light"
+                    ? "bg-blue-600 text-white"
+                    : isLight
+                      ? "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                      : "bg-white/10 text-white/85 hover:bg-white/15"
+                }`}
+              >
+                Light
+              </button>
+              <button
+                onClick={(event) => selectThemeFromDropdown("cherry", event)}
+                className={`rounded-md px-2 py-1.5 text-xs font-semibold ${
+                  theme === "cherry"
+                    ? "bg-rose-600 text-white"
+                    : isLight
+                      ? "bg-rose-50 text-rose-800 hover:bg-rose-100"
+                      : "bg-white/10 text-white/85 hover:bg-white/15"
+                }`}
+              >
+                Sakura
+              </button>
+            </div>
+            <div className={`my-1 h-px ${isLight ? "bg-slate-200" : "bg-white/10"}`} />
             <Link
               href="/"
               onClick={closeParentDropdown}

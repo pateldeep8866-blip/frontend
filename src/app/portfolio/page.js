@@ -159,11 +159,21 @@ function AllocationPie({ items = [], size = 208, stroke = 26 }) {
   );
 }
 
-function Card({ title, right, children }) {
+function Card({ title, right, children, theme = "dark" }) {
+  const isCherry = theme === "cherry";
+  const isLight = theme === "light" || isCherry;
   return (
-    <div className="rounded-2xl border border-white/12 bg-slate-900/55 backdrop-blur-md p-5 md:p-6 shadow-[0_14px_40px_-22px_rgba(15,23,42,0.9)]">
+    <div
+      className={`rounded-2xl backdrop-blur-md p-5 md:p-6 ${
+        isCherry
+          ? "border border-rose-200/60 bg-white/90 shadow-[0_14px_34px_-22px_rgba(190,24,93,0.2)]"
+          : isLight
+            ? "border border-slate-200 bg-white/90 shadow-[0_14px_34px_-22px_rgba(59,130,246,0.18)]"
+            : "border border-white/12 bg-slate-900/55 shadow-[0_14px_40px_-22px_rgba(15,23,42,0.9)]"
+      }`}
+    >
       <div className="flex items-center justify-between mb-4">
-        <div className="text-sm font-semibold text-slate-100 tracking-wide">{title}</div>
+        <div className={`text-sm font-semibold tracking-wide ${isLight ? "text-slate-900" : "text-slate-100"}`}>{title}</div>
         {right}
       </div>
       {children}
@@ -202,7 +212,7 @@ export default function PortfolioPage() {
   useEffect(() => {
     try {
       const t = localStorage.getItem("theme_mode");
-      if (t === "light" || t === "dark") setTheme(t);
+      if (t === "light" || t === "dark" || t === "cherry") setTheme(t);
     } catch {}
   }, []);
 
@@ -636,7 +646,8 @@ export default function PortfolioPage() {
     }
   };
 
-  const isLight = theme === "light";
+  const isCherry = theme === "cherry";
+  const isLight = theme === "light" || isCherry;
   const summary = useMemo(() => {
     const count = portfolioHoldings.length;
     return count ? `${count} holding${count === 1 ? "" : "s"} saved` : "No holdings saved yet";
@@ -707,10 +718,10 @@ export default function PortfolioPage() {
   };
 
   return (
-    <div className={`min-h-screen relative overflow-hidden ${isLight ? "bg-[#fbfdff] text-slate-900" : "bg-slate-950 text-white"}`}>
-      <div className={`pointer-events-none absolute -top-24 -left-20 h-80 w-80 rounded-full blur-3xl ${isLight ? "bg-sky-200/35" : "bg-cyan-500/12"}`} />
-      <div className={`pointer-events-none absolute top-1/3 -right-28 h-96 w-96 rounded-full blur-3xl ${isLight ? "bg-blue-200/30" : "bg-blue-500/10"}`} />
-      <div className={`pointer-events-none absolute inset-0 ${isLight ? "bg-[radial-gradient(circle_at_15%_10%,rgba(125,211,252,0.18),transparent_40%),radial-gradient(circle_at_80%_70%,rgba(147,197,253,0.14),transparent_42%),radial-gradient(circle_at_55%_18%,rgba(59,130,246,0.09),transparent_35%)]" : "bg-[radial-gradient(circle_at_20%_10%,rgba(59,130,246,0.08),transparent_35%),radial-gradient(circle_at_80%_70%,rgba(14,165,233,0.07),transparent_35%)]"}`} />
+    <div className={`min-h-screen relative overflow-hidden ${isCherry ? "cherry-mode bg-[#fffefc] text-[#3a2530]" : isLight ? "light-mode bg-[#fbfdff] text-slate-900" : "dark-mode bg-slate-950 text-white"}`}>
+      <div className={`pointer-events-none absolute -top-24 -left-20 h-80 w-80 rounded-full blur-3xl ${isCherry ? "bg-rose-100/34" : isLight ? "bg-sky-200/35" : "bg-cyan-500/12"}`} />
+      <div className={`pointer-events-none absolute top-1/3 -right-28 h-96 w-96 rounded-full blur-3xl ${isCherry ? "bg-rose-100/28" : isLight ? "bg-blue-200/30" : "bg-blue-500/10"}`} />
+      <div className={`pointer-events-none absolute inset-0 ${isCherry ? "bg-[radial-gradient(circle_at_12%_6%,rgba(244,114,182,0.08),transparent_31%),radial-gradient(circle_at_86%_70%,rgba(251,113,133,0.07),transparent_36%),radial-gradient(circle_at_52%_14%,rgba(196,181,253,0.05),transparent_30%),linear-gradient(120deg,rgba(255,255,255,0.985),rgba(255,252,253,0.97),rgba(255,255,255,0.99))]" : isLight ? "bg-[radial-gradient(circle_at_15%_10%,rgba(125,211,252,0.18),transparent_40%),radial-gradient(circle_at_80%_70%,rgba(147,197,253,0.14),transparent_42%),radial-gradient(circle_at_55%_18%,rgba(59,130,246,0.09),transparent_35%)]" : "bg-[radial-gradient(circle_at_20%_10%,rgba(59,130,246,0.08),transparent_35%),radial-gradient(circle_at_80%_70%,rgba(14,165,233,0.07),transparent_35%)]"}`} />
 
       <div className="relative z-10 mx-auto w-full max-w-6xl px-6 py-10 md:py-14">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-8">
@@ -722,7 +733,7 @@ export default function PortfolioPage() {
           >
             Back Home
           </Link>
-          <div className="inline-flex rounded-xl overflow-hidden border border-white/15 bg-slate-900/60">
+          <div className={`inline-flex rounded-xl overflow-hidden border ${isLight ? "border-slate-300 bg-white/90" : "border-white/15 bg-slate-900/60"}`}>
             <button
               onClick={() => setTheme("dark")}
               className={`px-3 py-1.5 text-xs font-semibold ${theme === "dark" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-800" : "bg-transparent text-white/85"}`}
@@ -735,6 +746,12 @@ export default function PortfolioPage() {
             >
               Light
             </button>
+            <button
+              onClick={() => setTheme("cherry")}
+              className={`px-3 py-1.5 text-xs font-semibold ${theme === "cherry" ? "bg-rose-600 text-white" : isLight ? "bg-transparent text-rose-800" : "bg-transparent text-white/85"}`}
+            >
+              Sakura
+            </button>
           </div>
         </div>
 
@@ -744,23 +761,26 @@ export default function PortfolioPage() {
         </div>
 
         {!authReady ? (
-          <Card title="Loading">
-            <div className="text-sm text-white/70">Checking account...</div>
+          <Card title="Loading" theme={theme}>
+            <div className={`text-sm ${isLight ? "text-slate-600" : "text-white/70"}`}>Checking account...</div>
           </Card>
         ) : !authUser ? (
-          <Card title="Login Required">
-            <div className="text-sm text-white/80">Please sign in from the home page to manage portfolio holdings (stocks, ETFs, funds, bonds, and crypto).</div>
+          <Card title="Login Required" theme={theme}>
+            <div className={`text-sm ${isLight ? "text-slate-700" : "text-white/80"}`}>Please sign in from the home page to manage portfolio holdings (stocks, ETFs, funds, bonds, and crypto).</div>
           </Card>
         ) : (
           <>
             <div className="mb-6">
               <Card
+                theme={theme}
                 title="Add / Edit Portfolio"
                 right={
                   <button
                     onClick={runPortfolioAnalysis}
                     disabled={portfolioLoading}
-                    className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs disabled:opacity-50"
+                    className={`px-3 py-1.5 rounded-lg text-xs disabled:opacity-50 ${
+                      isLight ? "bg-slate-100 hover:bg-slate-200 text-slate-700" : "bg-white/10 hover:bg-white/15 text-white"
+                    }`}
                   >
                     {portfolioLoading ? "Analyzing..." : "ASTRA Portfolio Analysis"}
                   </button>
@@ -930,7 +950,7 @@ export default function PortfolioPage() {
             </div>
 
             <div className="mb-6">
-              <Card title="Sector Allocation & Diversification">
+              <Card title="Sector Allocation & Diversification" theme={theme}>
                 {sectorAllocation.items.length === 0 ? (
                   <div className="text-sm text-white/65">Add holdings to see allocation by sector.</div>
                 ) : (
@@ -974,7 +994,7 @@ export default function PortfolioPage() {
             </div>
 
             {portfolioAnalysis && (
-              <Card title="ASTRA Portfolio Analysis">
+              <Card title="ASTRA Portfolio Analysis" theme={theme}>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
                   <div className="rounded-lg border border-cyan-400/30 bg-cyan-500/10 p-3">
                     <div className="text-xs text-cyan-200/90 mb-1">Overall Score</div>
