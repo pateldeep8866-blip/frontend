@@ -3,13 +3,32 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+const LANGUAGE_OPTIONS = [
+  { code: "en", label: "English" },
+  { code: "es", label: "Espanol" },
+  { code: "fr", label: "Francais" },
+  { code: "hi", label: "Hindi" },
+];
+
+const TERMS_TEXT = {
+  en: { backHome: "Back Home", dark: "Dark", light: "Light", sakura: "Sakura", title: "Terms of Service", effectiveDate: "Effective Date: February 24, 2026" },
+  es: { backHome: "Inicio", dark: "Oscuro", light: "Claro", sakura: "Sakura", title: "Terminos de Servicio", effectiveDate: "Fecha efectiva: 24 de febrero de 2026" },
+  fr: { backHome: "Accueil", dark: "Sombre", light: "Clair", sakura: "Sakura", title: "Conditions d'utilisation", effectiveDate: "Date d'effet : 24 fevrier 2026" },
+  hi: { backHome: "होम", dark: "डार्क", light: "लाइट", sakura: "सकुरा", title: "सेवा की शर्तें", effectiveDate: "प्रभावी तिथि: 24 फरवरी 2026" },
+};
+
 export default function TermsPage() {
   const [theme, setTheme] = useState("dark");
+  const [language, setLanguage] = useState("en");
 
   useEffect(() => {
     try {
       const saved = localStorage.getItem("theme_mode");
       if (saved === "light" || saved === "dark" || saved === "cherry") setTheme(saved);
+    } catch {}
+    try {
+      const lang = localStorage.getItem("site_language");
+      if (LANGUAGE_OPTIONS.some((x) => x.code === lang)) setLanguage(lang);
     } catch {}
   }, []);
 
@@ -18,6 +37,12 @@ export default function TermsPage() {
       localStorage.setItem("theme_mode", theme);
     } catch {}
   }, [theme]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("site_language", language);
+    } catch {}
+  }, [language]);
 
   const isCherry = theme === "cherry";
   const isLight = theme === "light" || isCherry;
@@ -36,6 +61,7 @@ export default function TermsPage() {
   const headingClass = isLight ? "text-slate-900" : "text-white";
   const textClass = isCherry ? "text-rose-900/80" : isLight ? "text-slate-700" : "text-slate-300";
   const mutedTextClass = isCherry ? "text-rose-900/65" : isLight ? "text-slate-500" : "text-slate-400";
+  const t = (key) => TERMS_TEXT[language]?.[key] || TERMS_TEXT.en[key] || key;
 
   return (
     <div className={pageClass}>
@@ -49,33 +75,46 @@ export default function TermsPage() {
             href="/"
             className={`px-3 py-1.5 rounded-lg border text-xs ${isLight ? "border-slate-300 bg-white/90 text-slate-700 hover:bg-slate-100" : "border-white/15 bg-slate-900/60 text-white/85 hover:bg-slate-800/70"}`}
           >
-            Back Home
+            {t("backHome")}
           </Link>
           <div className={`inline-flex rounded-xl overflow-hidden border ${isLight ? "border-slate-300 bg-white/90" : "border-white/15 bg-slate-900/60"}`}>
             <button
               onClick={() => setTheme("dark")}
               className={`px-3 py-1.5 text-xs font-semibold ${theme === "dark" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-800" : "bg-transparent text-white/85"}`}
             >
-              Dark
+              {t("dark")}
             </button>
             <button
               onClick={() => setTheme("light")}
               className={`px-3 py-1.5 text-xs font-semibold ${theme === "light" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-800" : "bg-transparent text-white/85"}`}
             >
-              Light
+              {t("light")}
             </button>
             <button
               onClick={() => setTheme("cherry")}
               className={`px-3 py-1.5 text-xs font-semibold ${theme === "cherry" ? "bg-rose-600 text-white" : isLight ? "bg-transparent text-rose-800" : "bg-transparent text-white/85"}`}
             >
-              Sakura
+              {t("sakura")}
             </button>
           </div>
+          <select
+            value={language}
+            onChange={(e) => setLanguage(e.target.value)}
+            className={`px-2.5 py-1.5 rounded-lg border text-xs ${
+              isLight ? "border-slate-300 bg-white/90 text-slate-700" : "border-white/15 bg-slate-900/60 text-white/85"
+            }`}
+          >
+            {LANGUAGE_OPTIONS.map((option) => (
+              <option key={option.code} value={option.code}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className={cardClass}>
-          <h1 className={`text-3xl md:text-4xl font-semibold tracking-tight ${headingClass}`}>Terms of Service</h1>
-          <p className={`mt-2 text-sm ${mutedTextClass}`}>Effective Date: February 24, 2026</p>
+          <h1 className={`text-3xl md:text-4xl font-semibold tracking-tight ${headingClass}`}>{t("title")}</h1>
+          <p className={`mt-2 text-sm ${mutedTextClass}`}>{t("effectiveDate")}</p>
           <p className={`mt-4 text-sm leading-relaxed ${textClass}`}>
             Arthastra AI is an educational and informational research platform. It is not a broker-dealer,
             not an investment adviser, and does not make investment decisions for users.

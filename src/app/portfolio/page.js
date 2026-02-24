@@ -4,6 +4,20 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { getSupabaseClient } from "@/app/api/_lib/supabaseClient";
 
+const LANGUAGE_OPTIONS = [
+  { code: "en", label: "English" },
+  { code: "es", label: "Espanol" },
+  { code: "fr", label: "Francais" },
+  { code: "hi", label: "Hindi" },
+];
+
+const PORTFOLIO_TEXT = {
+  en: { backHome: "Back Home", dark: "Dark", light: "Light", sakura: "Sakura", portfolio: "Portfolio", loading: "Loading", checking: "Checking account...", loginRequired: "Login Required", loginMessage: "Please sign in from the home page to manage portfolio holdings (stocks, ETFs, funds, bonds, and crypto)." },
+  es: { backHome: "Inicio", dark: "Oscuro", light: "Claro", sakura: "Sakura", portfolio: "Portafolio", loading: "Cargando", checking: "Verificando cuenta...", loginRequired: "Inicio de sesion requerido", loginMessage: "Inicia sesion desde la pagina principal para administrar tu portafolio." },
+  fr: { backHome: "Accueil", dark: "Sombre", light: "Clair", sakura: "Sakura", portfolio: "Portefeuille", loading: "Chargement", checking: "Verification du compte...", loginRequired: "Connexion requise", loginMessage: "Connectez-vous depuis la page d'accueil pour gerer votre portefeuille." },
+  hi: { backHome: "होम", dark: "डार्क", light: "लाइट", sakura: "सकुरा", portfolio: "पोर्टफोलियो", loading: "लोड हो रहा है", checking: "अकाउंट जांचा जा रहा है...", loginRequired: "लॉगिन आवश्यक", loginMessage: "पोर्टफोलियो प्रबंधित करने के लिए होम पेज से लॉगिन करें।" },
+};
+
 function canonicalTicker(input) {
   return String(input || "")
     .trim()
@@ -183,6 +197,7 @@ function Card({ title, right, children, theme = "dark" }) {
 
 export default function PortfolioPage() {
   const [theme, setTheme] = useState("dark");
+  const [language, setLanguage] = useState("en");
   const [authReady, setAuthReady] = useState(false);
   const [authUser, setAuthUser] = useState(null);
 
@@ -214,6 +229,10 @@ export default function PortfolioPage() {
       const t = localStorage.getItem("theme_mode");
       if (t === "light" || t === "dark" || t === "cherry") setTheme(t);
     } catch {}
+    try {
+      const lang = localStorage.getItem("site_language");
+      if (LANGUAGE_OPTIONS.some((x) => x.code === lang)) setLanguage(lang);
+    } catch {}
   }, []);
 
   useEffect(() => {
@@ -221,6 +240,12 @@ export default function PortfolioPage() {
       localStorage.setItem("theme_mode", theme);
     } catch {}
   }, [theme]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("site_language", language);
+    } catch {}
+  }, [language]);
 
   useEffect(() => {
     let mounted = true;
@@ -648,6 +673,7 @@ export default function PortfolioPage() {
 
   const isCherry = theme === "cherry";
   const isLight = theme === "light" || isCherry;
+  const t = (key) => PORTFOLIO_TEXT[language]?.[key] || PORTFOLIO_TEXT.en[key] || key;
   const summary = useMemo(() => {
     const count = portfolioHoldings.length;
     return count ? `${count} holding${count === 1 ? "" : "s"} saved` : "No holdings saved yet";
@@ -731,42 +757,55 @@ export default function PortfolioPage() {
               isLight ? "border-slate-300 bg-white/90 text-slate-700 hover:bg-slate-100" : "border-white/15 bg-slate-900/60 text-white/85 hover:bg-slate-800/70"
             }`}
           >
-            Back Home
+            {t("backHome")}
           </Link>
           <div className={`inline-flex rounded-xl overflow-hidden border ${isLight ? "border-slate-300 bg-white/90" : "border-white/15 bg-slate-900/60"}`}>
             <button
               onClick={() => setTheme("dark")}
               className={`px-3 py-1.5 text-xs font-semibold ${theme === "dark" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-800" : "bg-transparent text-white/85"}`}
             >
-              Dark
+              {t("dark")}
             </button>
             <button
               onClick={() => setTheme("light")}
               className={`px-3 py-1.5 text-xs font-semibold ${theme === "light" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-800" : "bg-transparent text-white/85"}`}
             >
-              Light
+              {t("light")}
             </button>
             <button
               onClick={() => setTheme("cherry")}
               className={`px-3 py-1.5 text-xs font-semibold ${theme === "cherry" ? "bg-rose-600 text-white" : isLight ? "bg-transparent text-rose-800" : "bg-transparent text-white/85"}`}
             >
-              Sakura
+              {t("sakura")}
             </button>
           </div>
+          <select
+            value={language}
+            onChange={(e) => setLanguage(e.target.value)}
+            className={`px-2.5 py-1.5 rounded-lg border text-xs ${
+              isLight ? "border-slate-300 bg-white/90 text-slate-700" : "border-white/15 bg-slate-900/60 text-white/85"
+            }`}
+          >
+            {LANGUAGE_OPTIONS.map((option) => (
+              <option key={option.code} value={option.code}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="text-center mb-8">
-          <h1 className="text-3xl md:text-4xl font-semibold tracking-tight">Portfolio</h1>
+          <h1 className="text-3xl md:text-4xl font-semibold tracking-tight">{t("portfolio")}</h1>
           <p className={`mt-2 text-sm ${isLight ? "text-slate-600" : "text-white/70"}`}>{summary}</p>
         </div>
 
         {!authReady ? (
-          <Card title="Loading" theme={theme}>
-            <div className={`text-sm ${isLight ? "text-slate-600" : "text-white/70"}`}>Checking account...</div>
+          <Card title={t("loading")} theme={theme}>
+            <div className={`text-sm ${isLight ? "text-slate-600" : "text-white/70"}`}>{t("checking")}</div>
           </Card>
         ) : !authUser ? (
-          <Card title="Login Required" theme={theme}>
-            <div className={`text-sm ${isLight ? "text-slate-700" : "text-white/80"}`}>Please sign in from the home page to manage portfolio holdings (stocks, ETFs, funds, bonds, and crypto).</div>
+          <Card title={t("loginRequired")} theme={theme}>
+            <div className={`text-sm ${isLight ? "text-slate-700" : "text-white/80"}`}>{t("loginMessage")}</div>
           </Card>
         ) : (
           <>

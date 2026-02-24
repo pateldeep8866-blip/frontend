@@ -184,6 +184,120 @@ function geopoliticsAgeLabel(value) {
 
 const SAKURA_PETAL_IDS = Array.from({ length: 14 }, (_, index) => index + 1);
 
+const LANGUAGE_OPTIONS = [
+  { code: "en", label: "English" },
+  { code: "es", label: "Espanol" },
+  { code: "fr", label: "Francais" },
+  { code: "hi", label: "Hindi" },
+];
+
+const UI_TEXT = {
+  en: {
+    theme: "Theme",
+    menu: "Menu",
+    language: "Language",
+    dark: "Dark",
+    light: "Light",
+    sakura: "Sakura",
+    home: "Home",
+    portfolio: "Portfolio",
+    about: "About",
+    terms: "Terms of Service",
+    help: "Help",
+    loginSignup: "Login / Signup",
+    supportEmail: "Support Email",
+    copyEmail: "Copy email",
+    analyticalInformation: "Analytical Information",
+    clarityLine: "Clarity in Every Market.",
+    founder: "Founder",
+    coFounder: "Co-founder",
+    stock: "Stock",
+    crypto: "Crypto",
+    metals: "Metals",
+    fx: "FX",
+    news: "News",
+    geoPolitics: "Geo Politics",
+  },
+  es: {
+    theme: "Tema",
+    menu: "Menu",
+    language: "Idioma",
+    dark: "Oscuro",
+    light: "Claro",
+    sakura: "Sakura",
+    home: "Inicio",
+    portfolio: "Portafolio",
+    about: "Acerca de",
+    terms: "Terminos de servicio",
+    help: "Ayuda",
+    loginSignup: "Iniciar sesion / Registro",
+    supportEmail: "Correo de soporte",
+    copyEmail: "Copiar correo",
+    analyticalInformation: "Informacion Analitica",
+    clarityLine: "Claridad en cada mercado.",
+    founder: "Fundador",
+    coFounder: "Cofundador",
+    stock: "Acciones",
+    crypto: "Cripto",
+    metals: "Metales",
+    fx: "FX",
+    news: "Noticias",
+    geoPolitics: "Geopolitica",
+  },
+  fr: {
+    theme: "Theme",
+    menu: "Menu",
+    language: "Langue",
+    dark: "Sombre",
+    light: "Clair",
+    sakura: "Sakura",
+    home: "Accueil",
+    portfolio: "Portefeuille",
+    about: "A propos",
+    terms: "Conditions d'utilisation",
+    help: "Aide",
+    loginSignup: "Connexion / Inscription",
+    supportEmail: "Email de support",
+    copyEmail: "Copier l'email",
+    analyticalInformation: "Information Analytique",
+    clarityLine: "Clarte sur chaque marche.",
+    founder: "Fondateur",
+    coFounder: "Cofondateur",
+    stock: "Actions",
+    crypto: "Crypto",
+    metals: "Metaux",
+    fx: "FX",
+    news: "Actualites",
+    geoPolitics: "Geopolitique",
+  },
+  hi: {
+    theme: "थीम",
+    menu: "मेन्यू",
+    language: "भाषा",
+    dark: "डार्क",
+    light: "लाइट",
+    sakura: "सकुरा",
+    home: "होम",
+    portfolio: "पोर्टफोलियो",
+    about: "अबाउट",
+    terms: "सेवा की शर्तें",
+    help: "मदद",
+    loginSignup: "लॉगिन / साइनअप",
+    supportEmail: "सपोर्ट ईमेल",
+    copyEmail: "ईमेल कॉपी करें",
+    analyticalInformation: "विश्लेषणात्मक जानकारी",
+    clarityLine: "हर बाजार में स्पष्टता।",
+    founder: "संस्थापक",
+    coFounder: "सह-संस्थापक",
+    stock: "स्टॉक",
+    crypto: "क्रिप्टो",
+    metals: "मेटल्स",
+    fx: "एफएक्स",
+    news: "समाचार",
+    geoPolitics: "जियो पॉलिटिक्स",
+  },
+};
+
 
 function normalizeQuizAnswers(value) {
   const raw = value && typeof value === "object" ? value : {};
@@ -557,6 +671,7 @@ export default function Home() {
   const [suppressSuggestions, setSuppressSuggestions] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [theme, setTheme] = useState("dark");
+  const [language, setLanguage] = useState("en");
   const [analysisViewMode, setAnalysisViewMode] = useState("short");
   const [marketNews, setMarketNews] = useState([]);
   const [geoFilter, setGeoFilter] = useState("all");
@@ -694,6 +809,10 @@ export default function Home() {
       const t = localStorage.getItem("theme_mode");
       if (t === "light" || t === "dark" || t === "cherry") setTheme(t);
     } catch {}
+    try {
+      const l = localStorage.getItem("site_language");
+      if (LANGUAGE_OPTIONS.some((x) => x.code === l)) setLanguage(l);
+    } catch {}
   }, []);
 
   useEffect(() => {
@@ -703,6 +822,10 @@ export default function Home() {
   useEffect(() => {
     localStorage.setItem("theme_mode", theme);
   }, [theme]);
+
+  useEffect(() => {
+    localStorage.setItem("site_language", language);
+  }, [language]);
 
   useEffect(() => {
     let mounted = true;
@@ -2749,12 +2872,19 @@ export default function Home() {
       updatedTs,
     };
   }, [geopoliticsItems]);
-  const activeThemeLabel = theme === "cherry" ? "Sakura" : theme === "light" ? "Light" : "Dark";
+  const t = (key) => UI_TEXT[language]?.[key] || UI_TEXT.en[key] || key;
+  const activeThemeLabel = theme === "cherry" ? t("sakura") : theme === "light" ? t("light") : t("dark");
+  const activeLanguageLabel = LANGUAGE_OPTIONS.find((x) => x.code === language)?.label || "English";
   const closeParentDropdown = (event) => {
     event?.currentTarget?.closest("details")?.removeAttribute("open");
   };
   const selectThemeFromDropdown = (nextTheme, event) => {
     setTheme(nextTheme);
+    closeParentDropdown(event);
+  };
+  const selectLanguageFromDropdown = (nextLanguage, event) => {
+    if (!LANGUAGE_OPTIONS.some((x) => x.code === nextLanguage)) return;
+    setLanguage(nextLanguage);
     closeParentDropdown(event);
   };
 
@@ -2796,7 +2926,7 @@ export default function Home() {
                     ? "border-slate-300 bg-white/90 text-slate-800"
                     : "border-white/15 bg-slate-900/60 text-white/85"
               }`}>
-                Theme: {activeThemeLabel}
+                {t("theme")}: {activeThemeLabel}
                 <span className="text-[10px]">▼</span>
               </summary>
               <div className={`absolute left-0 top-full mt-2 w-44 rounded-xl border p-1.5 shadow-2xl ${
@@ -2812,7 +2942,7 @@ export default function Home() {
                         : "text-white/85 hover:bg-white/10"
                   }`}
                 >
-                  Dark
+                  {t("dark")}
                 </button>
                 <button
                   onClick={(event) => selectThemeFromDropdown("light", event)}
@@ -2824,7 +2954,7 @@ export default function Home() {
                         : "text-white/85 hover:bg-white/10"
                   }`}
                 >
-                  Light
+                  {t("light")}
                 </button>
                 <button
                   onClick={(event) => selectThemeFromDropdown("cherry", event)}
@@ -2836,7 +2966,7 @@ export default function Home() {
                         : "text-white/85 hover:bg-white/10"
                   }`}
                 >
-                  Sakura
+                  {t("sakura")}
                 </button>
               </div>
             </details>
@@ -2850,7 +2980,7 @@ export default function Home() {
                     ? "border-slate-300 bg-white/90 text-slate-800"
                     : "border-white/15 bg-slate-900/60 text-white/85"
               }`}>
-                Menu
+                {t("menu")}
                 <span className="text-[10px]">▼</span>
               </summary>
               <div className={`absolute right-0 top-full mt-2 w-64 rounded-xl border p-2 shadow-2xl flex flex-col gap-1 ${
@@ -2859,7 +2989,7 @@ export default function Home() {
             <div className={`px-2 pt-1 pb-0.5 text-[11px] font-semibold ${
               isLight ? "text-slate-500" : "text-white/60"
             }`}>
-              Theme
+              {t("theme")}
             </div>
             <div className="grid grid-cols-3 gap-1 pb-1">
               <button
@@ -2872,7 +3002,7 @@ export default function Home() {
                       : "bg-white/10 text-white/85 hover:bg-white/15"
                 }`}
               >
-                Dark
+                {t("dark")}
               </button>
               <button
                 onClick={(event) => selectThemeFromDropdown("light", event)}
@@ -2884,7 +3014,7 @@ export default function Home() {
                       : "bg-white/10 text-white/85 hover:bg-white/15"
                 }`}
               >
-                Light
+                {t("light")}
               </button>
               <button
                 onClick={(event) => selectThemeFromDropdown("cherry", event)}
@@ -2896,8 +3026,30 @@ export default function Home() {
                       : "bg-white/10 text-white/85 hover:bg-white/15"
                 }`}
               >
-                Sakura
+                {t("sakura")}
               </button>
+            </div>
+            <div className={`px-2 pt-1 pb-0.5 text-[11px] font-semibold ${
+              isLight ? "text-slate-500" : "text-white/60"
+            }`}>
+              {t("language")}: {activeLanguageLabel}
+            </div>
+            <div className="grid grid-cols-4 gap-1 pb-1">
+              {LANGUAGE_OPTIONS.map((option) => (
+                <button
+                  key={option.code}
+                  onClick={(event) => selectLanguageFromDropdown(option.code, event)}
+                  className={`rounded-md px-1.5 py-1.5 text-[11px] font-semibold ${
+                    language === option.code
+                      ? "bg-blue-600 text-white"
+                      : isLight
+                        ? "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                        : "bg-white/10 text-white/85 hover:bg-white/15"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
             </div>
             <div className={`my-1 h-px ${isLight ? "bg-slate-200" : "bg-white/10"}`} />
             <Link
@@ -2909,7 +3061,7 @@ export default function Home() {
                   : "border-white/15 bg-slate-900/60 text-white/85 hover:bg-slate-800/70"
               }`}
             >
-              Home
+              {t("home")}
             </Link>
             {authUser && (
               <Link
@@ -2921,7 +3073,7 @@ export default function Home() {
                     : "border-white/15 bg-slate-900/60 text-white/85 hover:bg-slate-800/70"
                 }`}
               >
-                Portfolio
+                {t("portfolio")}
               </Link>
             )}
             <Link
@@ -2933,7 +3085,7 @@ export default function Home() {
                   : "border-white/15 bg-slate-900/60 text-white/85 hover:bg-slate-800/70"
               }`}
             >
-              About
+              {t("about")}
             </Link>
             <Link
               href="/terms"
@@ -2944,7 +3096,7 @@ export default function Home() {
                   : "border-white/15 bg-slate-900/60 text-white/85 hover:bg-slate-800/70"
               }`}
             >
-              Terms of Service
+              {t("terms")}
             </Link>
             <div className="relative">
               <button
@@ -2958,13 +3110,13 @@ export default function Home() {
                     : "border-white/15 bg-slate-900/60 text-white/85 hover:bg-slate-800/70"
                 }`}
               >
-                Help
+                {t("help")}
               </button>
               {supportOpen && (
                 <div className={`absolute right-0 top-full mt-2 w-72 rounded-xl border p-3 shadow-2xl z-30 ${
                   isLight ? "border-slate-300 bg-white/95" : "border-white/15 bg-slate-900/95"
                 }`}>
-                  <div className={`text-xs ${isLight ? "text-slate-500" : "text-white/70"}`}>Support Email</div>
+                  <div className={`text-xs ${isLight ? "text-slate-500" : "text-white/70"}`}>{t("supportEmail")}</div>
                   <a href="mailto:support@arthastraai.com" className={`block text-sm mt-1 underline ${isLight ? "text-slate-900" : "text-white"}`}>
                     support@arthastraai.com
                   </a>
@@ -2978,7 +3130,7 @@ export default function Home() {
                       isLight ? "bg-slate-100 hover:bg-slate-200 text-slate-700" : "bg-white/10 hover:bg-white/15 text-white/90"
                     }`}
                   >
-                    Copy email
+                    {t("copyEmail")}
                   </button>
                 </div>
               )}
@@ -3050,7 +3202,7 @@ export default function Home() {
                       : "border-white/15 bg-slate-900/60 text-white/85 hover:bg-slate-800/70"
                   }`}
                 >
-                  Login / Signup
+                  {t("loginSignup")}
                 </button>
                 {authPanelOpen && (
                   <div
@@ -3283,13 +3435,13 @@ export default function Home() {
                   Arthastra
                 </h1>
                 <p className={`mt-2 text-3xl md:text-4xl font-medium leading-none tracking-tight ${isCherry ? "text-rose-900" : isLight ? "text-slate-700" : "text-cyan-100/90"}`}>
-                  Analytical Information
+                  {t("analyticalInformation")}
                 </p>
               </div>
             </div>
           </div>
-          <p className={`mt-5 text-lg md:text-xl font-medium ${isCherry ? "text-rose-900/90" : isLight ? "text-slate-700" : "text-slate-200/90"}`}>Clarity in Every Market.</p>
-          <p className={`text-xs mt-3 ${isCherry ? "text-rose-800/80" : isLight ? "text-slate-500" : "text-slate-400/80"}`}>Founder: Deep Patel • Co-founder: Juan M. Ramirez</p>
+          <p className={`mt-5 text-lg md:text-xl font-medium ${isCherry ? "text-rose-900/90" : isLight ? "text-slate-700" : "text-slate-200/90"}`}>{t("clarityLine")}</p>
+          <p className={`text-xs mt-3 ${isCherry ? "text-rose-800/80" : isLight ? "text-slate-500" : "text-slate-400/80"}`}>{t("founder")}: Deep Patel • {t("coFounder")}: Juan M. Ramirez</p>
           <div className={`mt-5 inline-flex rounded-xl overflow-hidden border ${
             isLight ? "border-slate-300 bg-white/85 shadow-sm" : "border-white/15 bg-slate-900/60"
           }`}>
@@ -3299,7 +3451,7 @@ export default function Home() {
                 assetMode === "stock" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-700" : "bg-transparent text-white/80"
               }`}
             >
-              Stock
+              {t("stock")}
             </button>
             <button
               onClick={() => setAssetMode("crypto")}
@@ -3307,7 +3459,7 @@ export default function Home() {
                 assetMode === "crypto" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-700" : "bg-transparent text-white/80"
               }`}
             >
-              Crypto
+              {t("crypto")}
             </button>
             <button
               onClick={() => setAssetMode("metals")}
@@ -3315,7 +3467,7 @@ export default function Home() {
                 assetMode === "metals" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-700" : "bg-transparent text-white/80"
               }`}
             >
-              Metals
+              {t("metals")}
             </button>
             <button
               onClick={() => setAssetMode("fx")}
@@ -3323,7 +3475,7 @@ export default function Home() {
                 assetMode === "fx" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-700" : "bg-transparent text-white/80"
               }`}
             >
-              FX
+              {t("fx")}
             </button>
             <button
               onClick={() => setAssetMode("news")}
@@ -3331,7 +3483,7 @@ export default function Home() {
                 assetMode === "news" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-700" : "bg-transparent text-white/80"
               }`}
             >
-              News
+              {t("news")}
             </button>
             <button
               onClick={() => setAssetMode("geopolitics")}
@@ -3339,7 +3491,7 @@ export default function Home() {
                 assetMode === "geopolitics" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-700" : "bg-transparent text-white/80"
               }`}
             >
-              Geo Politics
+              {t("geoPolitics")}
             </button>
           </div>
         </div>
