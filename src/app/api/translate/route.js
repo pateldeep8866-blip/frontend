@@ -16,6 +16,19 @@ const LANGUAGE_LABEL_BY_CODE = {
   ur: "Urdu",
 };
 
+const GOOGLE_TRANSLATE_LANG_BY_CODE = {
+  en: "en",
+  zh: "zh-CN",
+  hi: "hi",
+  es: "es",
+  fr: "fr",
+  ar: "ar",
+  bn: "bn",
+  pt: "pt",
+  ru: "ru",
+  ur: "ur",
+};
+
 function safeJsonParse(text) {
   try {
     return JSON.parse(text);
@@ -61,6 +74,35 @@ function normalizeTranslation(value, fallback) {
   return out || fallback;
 }
 
+async function translateViaGoogleFallback(texts, language) {
+  const targetLang = GOOGLE_TRANSLATE_LANG_BY_CODE[language] || "en";
+  if (targetLang === "en") return texts;
+
+  const translated = await Promise.all(
+    texts.map(async (text) => {
+      try {
+        const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=${encodeURIComponent(targetLang)}&dt=t&q=${encodeURIComponent(text)}`;
+        const res = await fetch(url, {
+          headers: {
+            "User-Agent": "Mozilla/5.0",
+          },
+        });
+        const payload = await res.json().catch(() => null);
+        if (!res.ok || !Array.isArray(payload?.[0])) return text;
+        const sentence = payload[0]
+          .map((entry) => String(entry?.[0] || ""))
+          .join("")
+          .trim();
+        return sentence || text;
+      } catch {
+        return text;
+      }
+    })
+  );
+
+  return translated;
+}
+
 export async function POST(req) {
   try {
     const body = await req.json().catch(() => ({}));
@@ -79,7 +121,8 @@ export async function POST(req) {
     const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
     const key = OPENAI_API_KEY || OPENROUTER_API_KEY;
     if (!key || key.includes("PASTE_")) {
-      return NextResponse.json({ translations: texts });
+      const fallbackTranslations = await translateViaGoogleFallback(texts, language);
+      return NextResponse.json({ translations: fallbackTranslations, provider: "google-fallback" });
     }
 
     const useOpenRouter = key.startsWith("sk-or-");
@@ -124,18 +167,29 @@ ${JSON.stringify(texts)}
     });
 
     const data = await resp.json().catch(() => ({}));
-    if (!resp.ok) return NextResponse.json({ translations: texts });
+    if (!resp.ok) {
+      const fallbackTranslations = await translateViaGoogleFallback(texts, language);
+      return NextResponse.json({ translations: fallbackTranslations, provider: "google-fallback" });
+    }
 
     const raw = data?.choices?.[0]?.message?.content || "";
     const parsedTranslations = parseTranslations(raw);
     const translations = texts.map((text, index) => normalizeTranslation(parsedTranslations[index], text));
+    const hasRealTranslation = translations.some((value, index) => String(value || "").trim() !== String(texts[index] || "").trim());
+    if (!hasRealTranslation) {
+      const fallbackTranslations = await translateViaGoogleFallback(texts, language);
+      return NextResponse.json({
+        translations: fallbackTranslations,
+        provider: "google-fallback",
+      });
+    }
 
     return NextResponse.json({
       translations,
       model_used: useOpenRouter ? OPENROUTER_MODEL : OPENAI_MODEL,
+      provider: useOpenRouter ? "openrouter" : "openai",
     });
   } catch {
     return NextResponse.json({ translations: [] });
   }
 }
-
