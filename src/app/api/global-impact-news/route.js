@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+export const dynamic = "force-dynamic";
 
 function parseRssItems(xml, sourceLabel) {
   const items = [];
@@ -37,6 +38,11 @@ function dedupeNews(items) {
   return out;
 }
 
+function toEpoch(value) {
+  const ts = Date.parse(String(value || ""));
+  return Number.isFinite(ts) ? ts : 0;
+}
+
 export async function GET() {
   try {
     const sources = [
@@ -71,8 +77,13 @@ export async function GET() {
       })
     );
 
-    const merged = dedupeNews(results.flat()).slice(0, 30);
-    return NextResponse.json({ news: merged });
+    const merged = dedupeNews(results.flat())
+      .sort((a, b) => toEpoch(b.datetime) - toEpoch(a.datetime))
+      .slice(0, 40);
+    return NextResponse.json(
+      { news: merged, asOf: new Date().toISOString() },
+      { headers: { "cache-control": "no-store, max-age=0" } }
+    );
   } catch (e) {
     return NextResponse.json({ error: "Server error", details: String(e?.message || e) }, { status: 500 });
   }

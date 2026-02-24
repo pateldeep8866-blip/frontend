@@ -1789,7 +1789,8 @@ export default function Home() {
               : "/api/market-news"
       );
       const data = await res.json().catch(() => ({}));
-      setMarketNews(Array.isArray(data?.news) ? data.news.slice(0, 8) : []);
+      const maxItems = assetMode === "geopolitics" || assetMode === "news" ? 30 : 12;
+      setMarketNews(Array.isArray(data?.news) ? data.news.slice(0, maxItems) : []);
     } catch {
       setMarketNews([]);
     }
@@ -2056,8 +2057,13 @@ export default function Home() {
     fetchOverview();
     fetchMarketNews();
     setTimeout(fetchMovers, 1200);
-    const t = setInterval(fetchOverview, 60000);
-    return () => clearInterval(t);
+    const overviewTimer = setInterval(fetchOverview, 60000);
+    const newsRefreshMs = assetMode === "geopolitics" || assetMode === "news" ? 30000 : 90000;
+    const newsTimer = setInterval(fetchMarketNews, newsRefreshMs);
+    return () => {
+      clearInterval(overviewTimer);
+      clearInterval(newsTimer);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assetMode]);
 
@@ -3312,6 +3318,32 @@ export default function Home() {
       updatedTs,
     };
   }, [geopoliticsItems]);
+  const geopoliticsExecutiveSummary = useMemo(() => {
+    const total = geopoliticsStats.total;
+    if (!total) {
+      return "No geopolitical signals are active yet. Refresh the feed to establish current global risk posture.";
+    }
+    const riskLabel =
+      geopoliticsStats.riskScore >= 70 ? "elevated and unstable"
+      : geopoliticsStats.riskScore >= 40 ? "mixed with two-way volatility"
+      : "contained but worth monitoring";
+    const dominantTheme = Object.entries(geopoliticsThemeCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || "cross-regional developments";
+    const dominantRegion = geopoliticsRegionCounts[0]?.region || "global markets";
+    return `Global geopolitical risk is ${riskLabel}. ${geopoliticsStats.highImpact} high-impact alerts are active across ${geopoliticsStats.regions} regions, with ${dominantTheme.toLowerCase()} leading the tape. Current pressure is concentrated in ${dominantRegion}, which can drive faster sentiment rotation across equities, commodities, and FX.`;
+  }, [geopoliticsStats, geopoliticsThemeCounts, geopoliticsRegionCounts]);
+  const geopoliticsWatchNarrative = useMemo(() => {
+    const lead = filteredGeopoliticsItems[0];
+    const second = filteredGeopoliticsItems[1];
+    const third = filteredGeopoliticsItems[2];
+    const leadText = lead?.headlineDisplay || lead?.headlineOriginal || "No lead catalyst yet.";
+    const secondText = second?.headlineDisplay || second?.headlineOriginal || "No second-order catalyst yet.";
+    const thirdText = third?.headlineDisplay || third?.headlineOriginal || "No third-order catalyst yet.";
+    return {
+      changed: leadText,
+      market: secondText,
+      watch: thirdText,
+    };
+  }, [filteredGeopoliticsItems]);
   const t = (key) => UI_TEXT[language]?.[key] || UI_TEXT.en[key] || key;
   const tx = (text) => resolveLocalizedText(text, language, headlineTranslationCacheRef.current);
   const activeThemeLabel =
@@ -5274,8 +5306,9 @@ export default function Home() {
               }
             >
               <p className={`text-sm mb-4 ${isLight ? "text-slate-600" : "text-white/70"}`}>
-                Real-time geopolitical monitoring focused on conflicts, diplomacy, sanctions, energy security, and global trade routes.
+                Real-time geopolitical intelligence focused on conflict escalation, policy shifts, sanctions, logistics corridors, and macro risk transmission into markets.
               </p>
+              <SummaryPanel label={tx("Executive Brief")} text={geopoliticsExecutiveSummary} isLight={isLight} className="mb-3" />
               <SummaryPanel label={tx("Summary")} text={marketNewsDigest} isLight={isLight} className="mb-4" />
 
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-5">
@@ -5295,6 +5328,36 @@ export default function Home() {
                   <div className={`text-xs ${isLight ? "text-amber-700" : "text-amber-200/90"}`}>Risk Gauge</div>
                   <div className={`text-2xl font-semibold mt-1 ${isLight ? "text-amber-700" : "text-amber-200"}`}>{geopoliticsStats.riskScore}</div>
                   <div className={`text-[11px] mt-0.5 ${isLight ? "text-amber-700/80" : "text-amber-100/70"}`}>/100 composite</div>
+                </div>
+              </div>
+              <div className={`mb-5 rounded-xl border p-3 ${isLight ? "border-slate-200 bg-white/90" : "border-white/10 bg-white/5"}`}>
+                <div className="flex items-center justify-between gap-3 mb-2">
+                  <div className={`text-xs font-semibold uppercase tracking-wide ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>
+                    Strategic Lens
+                  </div>
+                  <div className={`text-[11px] ${isLight ? "text-slate-500" : "text-white/60"}`}>
+                    Risk posture {geopoliticsStats.riskScore}/100
+                  </div>
+                </div>
+                <div className={`h-2.5 rounded-full overflow-hidden mb-3 ${isLight ? "bg-slate-200" : "bg-white/10"}`}>
+                  <div
+                    className={`${geopoliticsStats.riskScore >= 70 ? "bg-rose-500" : geopoliticsStats.riskScore >= 40 ? "bg-amber-500" : "bg-emerald-500"} h-full rounded-full transition-all`}
+                    style={{ width: `${Math.max(4, geopoliticsStats.riskScore)}%` }}
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                  <div className={`rounded-lg border p-2.5 ${isLight ? "border-slate-200 bg-slate-50/70" : "border-white/10 bg-white/[0.03]"}`}>
+                    <div className={`text-[11px] font-semibold uppercase tracking-wide mb-1 ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>What Changed</div>
+                    <div className={`text-xs leading-relaxed ${isLight ? "text-slate-700" : "text-white/78"}`}>{geopoliticsWatchNarrative.changed}</div>
+                  </div>
+                  <div className={`rounded-lg border p-2.5 ${isLight ? "border-slate-200 bg-slate-50/70" : "border-white/10 bg-white/[0.03]"}`}>
+                    <div className={`text-[11px] font-semibold uppercase tracking-wide mb-1 ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>Why Markets Care</div>
+                    <div className={`text-xs leading-relaxed ${isLight ? "text-slate-700" : "text-white/78"}`}>{geopoliticsWatchNarrative.market}</div>
+                  </div>
+                  <div className={`rounded-lg border p-2.5 ${isLight ? "border-slate-200 bg-slate-50/70" : "border-white/10 bg-white/[0.03]"}`}>
+                    <div className={`text-[11px] font-semibold uppercase tracking-wide mb-1 ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>What To Watch Next</div>
+                    <div className={`text-xs leading-relaxed ${isLight ? "text-slate-700" : "text-white/78"}`}>{geopoliticsWatchNarrative.watch}</div>
+                  </div>
                 </div>
               </div>
 

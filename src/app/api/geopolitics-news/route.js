@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+export const dynamic = "force-dynamic";
 
 function parseRssItems(xml, sourceLabel) {
   const items = [];
@@ -25,6 +26,11 @@ function parseRssItems(xml, sourceLabel) {
   return items;
 }
 
+function toEpoch(value) {
+  const ts = Date.parse(String(value || ""));
+  return Number.isFinite(ts) ? ts : 0;
+}
+
 function dedupeNews(items) {
   const seen = new Set();
   const out = [];
@@ -46,19 +52,39 @@ export async function GET() {
       },
       {
         label: "Google News",
-        url: "https://news.google.com/rss/search?q=US+China+Russia+Middle+East+Europe+security&hl=en-US&gl=US&ceid=US:en",
+        url: "https://news.google.com/rss/search?q=ukraine+russia+war+frontline+missile+drone&hl=en-US&gl=US&ceid=US:en",
       },
       {
         label: "Google News",
-        url: "https://news.google.com/rss/search?q=energy+security+shipping+red+sea+strait+trade+routes&hl=en-US&gl=US&ceid=US:en",
+        url: "https://news.google.com/rss/search?q=israel+gaza+ceasefire+middle+east+conflict&hl=en-US&gl=US&ceid=US:en",
+      },
+      {
+        label: "Google News",
+        url: "https://news.google.com/rss/search?q=taiwan+south+china+sea+military+drills+security&hl=en-US&gl=US&ceid=US:en",
+      },
+      {
+        label: "Google News",
+        url: "https://news.google.com/rss/search?q=red+sea+houthi+shipping+strait+hormuz+supply+chain&hl=en-US&gl=US&ceid=US:en",
+      },
+      {
+        label: "Google News",
+        url: "https://news.google.com/rss/search?q=sudan+conflict+sahel+coup+africa+security&hl=en-US&gl=US&ceid=US:en",
       },
       {
         label: "Reuters",
         url: "https://feeds.reuters.com/Reuters/worldNews",
       },
       {
+        label: "Reuters",
+        url: "https://feeds.reuters.com/reuters/topNews",
+      },
+      {
         label: "AP",
         url: "https://news.google.com/rss/search?q=AP+world+politics+security&hl=en-US&gl=US&ceid=US:en",
+      },
+      {
+        label: "BBC",
+        url: "https://feeds.bbci.co.uk/news/world/rss.xml",
       },
     ];
 
@@ -75,8 +101,13 @@ export async function GET() {
       })
     );
 
-    const merged = dedupeNews(results.flat()).slice(0, 30);
-    return NextResponse.json({ news: merged });
+    const merged = dedupeNews(results.flat())
+      .sort((a, b) => toEpoch(b.datetime) - toEpoch(a.datetime))
+      .slice(0, 40);
+    return NextResponse.json(
+      { news: merged, asOf: new Date().toISOString() },
+      { headers: { "cache-control": "no-store, max-age=0" } }
+    );
   } catch (e) {
     return NextResponse.json({ error: "Server error", details: String(e?.message || e) }, { status: 500 });
   }
