@@ -160,7 +160,7 @@ function geopoliticsImpactFromHeadline(headline) {
   return "Low";
 }
 
-const SAKURA_PETAL_IDS = Array.from({ length: 8 }, (_, index) => index + 1);
+const SAKURA_PETAL_IDS = Array.from({ length: 14 }, (_, index) => index + 1);
 
 
 function normalizeQuizAnswers(value) {

@@ -1,0 +1,31 @@
+<svg width="1800" height="640" viewBox="0 0 1800 640" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="mist" x1="900" y1="170" x2="900" y2="640" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF7FA"/>
+      <stop offset="0.62" stop-color="#FFFDFD"/>
+      <stop offset="1" stop-color="#FFFFFF"/>
+    </linearGradient>
+    <linearGradient id="ridgeA" x1="400" y1="228" x2="1100" y2="326" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#B7A4AC"/>
+      <stop offset="1" stop-color="#C9BEC4"/>
+    </linearGradient>
+    <linearGradient id="ridgeB" x1="740" y1="216" x2="1460" y2="332" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#A796A1"/>
+      <stop offset="1" stop-color="#BDAFB8"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(1268 186) rotate(90) scale(116 116)">
+      <stop stop-color="#FFF4ED"/>
+      <stop offset="0.78" stop-color="#FFE8E2"/>
+      <stop offset="1" stop-color="#FDECEB" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1800" height="640" fill="url(#mist)"/>
+  <circle cx="1268" cy="186" r="128" fill="url(#sun)"/>
+
+  <path d="M90 360C238 330 356 298 510 314C612 324 706 364 804 362C928 360 1032 294 1150 292C1288 290 1410 358 1534 376C1642 392 1716 374 1800 350V640H0V402C28 392 52 382 90 360Z" fill="url(#ridgeA)" fill-opacity="0.32"/>
+  <path d="M0 420C154 388 274 336 412 338C558 340 690 404 834 402C998 400 1138 322 1298 330C1468 338 1620 422 1800 446V640H0V420Z" fill="url(#ridgeB)" fill-opacity="0.24"/>
+
+  <path d="M0 470C248 450 430 432 654 442C866 452 1054 494 1260 498C1488 502 1650 468 1800 442" stroke="#D6CDD2" stroke-opacity="0.55" stroke-width="2"/>
+  <path d="M0 494C230 472 446 458 646 468C854 478 1048 516 1242 522C1454 528 1624 506 1800 482" stroke="#E2D8DD" stroke-opacity="0.5" stroke-width="2"/>
+</svg>
