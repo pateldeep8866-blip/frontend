@@ -160,6 +160,28 @@ function geopoliticsImpactFromHeadline(headline) {
   return "Low";
 }
 
+function geopoliticsTimestamp(value) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value > 1e12 ? value : value * 1000;
+  }
+  const parsed = Date.parse(String(value || ""));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function geopoliticsAgeLabel(value) {
+  const ts = geopoliticsTimestamp(value);
+  if (!ts) return "";
+  const diffMs = Date.now() - ts;
+  if (!Number.isFinite(diffMs) || diffMs < 0) return "just now";
+  const diffHours = Math.floor(diffMs / 3600000);
+  if (diffHours < 1) return "just now";
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) return `${diffDays}d ago`;
+  const diffWeeks = Math.floor(diffDays / 7);
+  return `${diffWeeks}w ago`;
+}
+
 const SAKURA_PETAL_IDS = Array.from({ length: 14 }, (_, index) => index + 1);
 
 
@@ -538,6 +560,9 @@ export default function Home() {
   const [analysisViewMode, setAnalysisViewMode] = useState("short");
   const [marketNews, setMarketNews] = useState([]);
   const [geoFilter, setGeoFilter] = useState("all");
+  const [geoRegionFilter, setGeoRegionFilter] = useState("all");
+  const [geoSort, setGeoSort] = useState("impact");
+  const [geoQuery, setGeoQuery] = useState("");
   const [movers, setMovers] = useState({ gainers: [], losers: [] });
   const [sectorInfo, setSectorInfo] = useState(null);
   const [compareInput, setCompareInput] = useState("AAPL,MSFT,NVDA");
@@ -2633,20 +2658,95 @@ export default function Home() {
       })),
     [marketNews]
   );
+  const geoRegionOptions = useMemo(() => {
+    const regions = Array.from(new Set(geopoliticsItems.map((x) => x.region).filter(Boolean))).sort();
+    return ["all", ...regions];
+  }, [geopoliticsItems]);
+
+  const geopoliticsThemeCounts = useMemo(() => {
+    const counts = {};
+    for (const item of geopoliticsItems) {
+      const key = item.theme || "Strategic Watch";
+      counts[key] = (counts[key] || 0) + 1;
+    }
+    return counts;
+  }, [geopoliticsItems]);
+
+  const geopoliticsRegionCounts = useMemo(() => {
+    const counts = {};
+    for (const item of geopoliticsItems) {
+      const key = item.region || "Global";
+      counts[key] = (counts[key] || 0) + 1;
+    }
+    return Object.entries(counts)
+      .map(([region, count]) => ({ region, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 6);
+  }, [geopoliticsItems]);
+
+  const geopoliticsWatchlist = useMemo(() => {
+    const watchRules = [
+      { key: "Energy Chokepoints", terms: ["strait", "shipping", "red sea", "pipeline", "lng", "opec", "oil", "gas"] },
+      { key: "Sanctions & Trade", terms: ["sanction", "tariff", "export", "import", "embargo", "trade"] },
+      { key: "Military Escalation", terms: ["attack", "missile", "troops", "war", "strike", "ceasefire"] },
+    ];
+    return watchRules
+      .map((rule) => {
+        const hits = geopoliticsItems.filter((item) =>
+          rule.terms.some((term) => String(item.headline || "").toLowerCase().includes(term))
+        );
+        const top = hits.sort((a, b) => geopoliticsTimestamp(b.datetime) - geopoliticsTimestamp(a.datetime))[0];
+        return { key: rule.key, hits: hits.length, top };
+      })
+      .sort((a, b) => b.hits - a.hits);
+  }, [geopoliticsItems]);
 
   const filteredGeopoliticsItems = useMemo(() => {
-    if (geoFilter === "all") return geopoliticsItems;
-    if (geoFilter === "high") return geopoliticsItems.filter((x) => x.impact === "High");
-    return geopoliticsItems.filter((x) => x.theme === geoFilter);
-  }, [geoFilter, geopoliticsItems]);
+    let items = [...geopoliticsItems];
+    if (geoFilter === "high") items = items.filter((x) => x.impact === "High");
+    else if (geoFilter !== "all") items = items.filter((x) => x.theme === geoFilter);
+
+    if (geoRegionFilter !== "all") items = items.filter((x) => x.region === geoRegionFilter);
+
+    const q = geoQuery.trim().toLowerCase();
+    if (q) {
+      items = items.filter((x) =>
+        [x.headline, x.source, x.theme, x.region].some((field) => String(field || "").toLowerCase().includes(q))
+      );
+    }
+
+    const impactScore = { High: 3, Medium: 2, Low: 1 };
+    if (geoSort === "latest") {
+      items.sort((a, b) => geopoliticsTimestamp(b.datetime) - geopoliticsTimestamp(a.datetime));
+    } else if (geoSort === "oldest") {
+      items.sort((a, b) => geopoliticsTimestamp(a.datetime) - geopoliticsTimestamp(b.datetime));
+    } else {
+      items.sort((a, b) => {
+        const byImpact = (impactScore[b.impact] || 0) - (impactScore[a.impact] || 0);
+        if (byImpact !== 0) return byImpact;
+        return geopoliticsTimestamp(b.datetime) - geopoliticsTimestamp(a.datetime);
+      });
+    }
+
+    return items;
+  }, [geoFilter, geopoliticsItems, geoRegionFilter, geoSort, geoQuery]);
 
   const geopoliticsStats = useMemo(() => {
     const highImpact = geopoliticsItems.filter((x) => x.impact === "High").length;
+    const mediumImpact = geopoliticsItems.filter((x) => x.impact === "Medium").length;
+    const lowImpact = geopoliticsItems.filter((x) => x.impact === "Low").length;
     const regions = new Set(geopoliticsItems.map((x) => x.region).filter(Boolean));
+    const total = geopoliticsItems.length;
+    const weightedRisk = highImpact * 3 + mediumImpact * 2 + lowImpact;
+    const riskScore = total > 0 ? Math.round((weightedRisk / (total * 3)) * 100) : 0;
+    const updatedTs = Math.max(0, ...geopoliticsItems.map((x) => geopoliticsTimestamp(x.datetime)));
     return {
-      total: geopoliticsItems.length,
+      total,
       highImpact,
+      mediumImpact,
       regions: regions.size,
+      riskScore,
+      updatedTs,
     };
   }, [geopoliticsItems]);
   const activeThemeLabel = theme === "cherry" ? "Sakura" : theme === "light" ? "Light" : "Dark";
@@ -4504,7 +4604,7 @@ export default function Home() {
                 Real-time geopolitical monitoring focused on conflicts, diplomacy, sanctions, energy security, and global trade routes.
               </p>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-5">
                 <div className={`rounded-xl border p-3 ${isLight ? "border-slate-200 bg-white/90" : "border-white/10 bg-white/5"}`}>
                   <div className={`text-xs ${isLight ? "text-slate-500" : "text-white/60"}`}>Headlines Tracked</div>
                   <div className={`text-2xl font-semibold mt-1 ${isLight ? "text-slate-900" : "text-white"}`}>{geopoliticsStats.total}</div>
@@ -4517,6 +4617,11 @@ export default function Home() {
                   <div className={`text-xs ${isLight ? "text-slate-500" : "text-white/60"}`}>Regions In Focus</div>
                   <div className={`text-2xl font-semibold mt-1 ${isLight ? "text-slate-900" : "text-white"}`}>{geopoliticsStats.regions}</div>
                 </div>
+                <div className={`rounded-xl border p-3 ${isLight ? "border-amber-200 bg-amber-50" : "border-amber-400/30 bg-amber-500/10"}`}>
+                  <div className={`text-xs ${isLight ? "text-amber-700" : "text-amber-200/90"}`}>Risk Gauge</div>
+                  <div className={`text-2xl font-semibold mt-1 ${isLight ? "text-amber-700" : "text-amber-200"}`}>{geopoliticsStats.riskScore}</div>
+                  <div className={`text-[11px] mt-0.5 ${isLight ? "text-amber-700/80" : "text-amber-100/70"}`}>/100 composite</div>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
@@ -4526,11 +4631,96 @@ export default function Home() {
                     className={`rounded-xl border p-3 ${isLight ? "border-slate-200 bg-white/90" : "border-white/10 bg-white/5"}`}
                   >
                     <div className={`text-xs font-semibold uppercase tracking-wide mb-1 ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>
-                      {theme.title}
+                      {theme.title} · {geopoliticsThemeCounts[theme.title] || 0}
                     </div>
                     <div className={`text-sm ${isLight ? "text-slate-700" : "text-white/85"}`}>{theme.detail}</div>
                   </div>
                 ))}
+              </div>
+
+              <div className="mb-5 grid grid-cols-1 lg:grid-cols-2 gap-3">
+                <div className={`rounded-xl border p-3 ${isLight ? "border-slate-200 bg-white/90" : "border-white/10 bg-white/5"}`}>
+                  <div className={`text-xs font-semibold uppercase tracking-wide mb-2 ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>
+                    Top Flashpoints
+                  </div>
+                  <div className="space-y-2.5">
+                    {geopoliticsWatchlist.map((watch) => (
+                      <div key={watch.key} className={`rounded-lg border px-3 py-2 ${isLight ? "border-slate-200 bg-slate-50/60" : "border-white/10 bg-white/[0.04]"}`}>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className={`text-sm font-semibold ${isLight ? "text-slate-800" : "text-white/90"}`}>{watch.key}</div>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full border ${watch.hits > 0 ? (isLight ? "border-rose-300 bg-rose-50 text-rose-700" : "border-rose-400/35 bg-rose-500/15 text-rose-200") : (isLight ? "border-slate-300 bg-white text-slate-600" : "border-white/20 bg-white/5 text-white/70")}`}>
+                            {watch.hits} hits
+                          </span>
+                        </div>
+                        <div className={`text-xs mt-1 line-clamp-2 ${isLight ? "text-slate-600" : "text-white/65"}`}>
+                          {watch.top?.headline || "No active signal right now."}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className={`rounded-xl border p-3 ${isLight ? "border-slate-200 bg-white/90" : "border-white/10 bg-white/5"}`}>
+                  <div className={`text-xs font-semibold uppercase tracking-wide mb-2 ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>
+                    Regional Heat
+                  </div>
+                  <div className="space-y-2.5">
+                    {geopoliticsRegionCounts.map((entry) => (
+                      <div key={entry.region}>
+                        <div className="flex items-center justify-between text-xs mb-1">
+                          <span className={isLight ? "text-slate-700" : "text-white/80"}>{entry.region}</span>
+                          <span className={isLight ? "text-slate-500" : "text-white/60"}>{entry.count}</span>
+                        </div>
+                        <div className={`h-2 rounded-full overflow-hidden ${isLight ? "bg-slate-200" : "bg-white/10"}`}>
+                          <div
+                            className={`h-full rounded-full ${isLight ? "bg-slate-700" : "bg-cyan-300/80"}`}
+                            style={{ width: `${Math.max(8, Math.round((entry.count / Math.max(1, geopoliticsStats.total)) * 100))}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                    {geopoliticsRegionCounts.length === 0 && (
+                      <div className={`text-sm ${isLight ? "text-slate-500" : "text-white/60"}`}>No regional distribution yet.</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className={`mb-4 rounded-xl border p-3 ${isLight ? "border-slate-200 bg-white/90" : "border-white/10 bg-white/5"}`}>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                  <input
+                    value={geoQuery}
+                    onChange={(e) => setGeoQuery(e.target.value)}
+                    placeholder="Search headlines, themes, regions..."
+                    className={`px-3 py-2 rounded-lg text-sm border outline-none ${
+                      isLight ? "border-slate-300 bg-white text-slate-900 focus:border-slate-500" : "border-white/15 bg-slate-900/60 text-white focus:border-cyan-400/50"
+                    }`}
+                  />
+                  <select
+                    value={geoRegionFilter}
+                    onChange={(e) => setGeoRegionFilter(e.target.value)}
+                    className={`px-3 py-2 rounded-lg text-sm border outline-none ${
+                      isLight ? "border-slate-300 bg-white text-slate-900 focus:border-slate-500" : "border-white/15 bg-slate-900/60 text-white focus:border-cyan-400/50"
+                    }`}
+                  >
+                    {geoRegionOptions.map((region) => (
+                      <option key={region} value={region}>{region === "all" ? "All Regions" : region}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={geoSort}
+                    onChange={(e) => setGeoSort(e.target.value)}
+                    className={`px-3 py-2 rounded-lg text-sm border outline-none ${
+                      isLight ? "border-slate-300 bg-white text-slate-900 focus:border-slate-500" : "border-white/15 bg-slate-900/60 text-white focus:border-cyan-400/50"
+                    }`}
+                  >
+                    <option value="impact">Sort: Impact Priority</option>
+                    <option value="latest">Sort: Newest First</option>
+                    <option value="oldest">Sort: Oldest First</option>
+                  </select>
+                  <div className={`px-3 py-2 rounded-lg text-xs border flex items-center ${isLight ? "border-slate-300 bg-slate-50 text-slate-600" : "border-white/15 bg-white/[0.04] text-white/65"}`}>
+                    Updated {geopoliticsAgeLabel(geopoliticsStats.updatedTs) || "N/A"}
+                  </div>
+                </div>
               </div>
 
               <div className="mb-4 flex flex-wrap gap-2">
@@ -4604,7 +4794,7 @@ export default function Home() {
                           </span>
                         </div>
                         <div className={`mt-2 text-[11px] ${isLight ? "text-slate-500" : "text-white/50"}`}>
-                          {[n.source || safeDomainFromUrl(n.url), n.datetime].filter(Boolean).join(" • ") || "Global feed"}
+                          {[n.source || safeDomainFromUrl(n.url), geopoliticsAgeLabel(n.datetime)].filter(Boolean).join(" • ") || "Global feed"}
                         </div>
                         <div className={`mt-1 text-[11px] truncate ${isLight ? "text-slate-400" : "text-white/40"}`}>{safeDomainFromUrl(n.url)}</div>
                       </div>
@@ -4612,7 +4802,7 @@ export default function Home() {
                   </a>
                 ))}
                 {filteredGeopoliticsItems.length === 0 && (
-                  <div className={`text-sm ${isLight ? "text-slate-600" : "text-white/60"}`}>No headlines for this filter yet.</div>
+                  <div className={`text-sm ${isLight ? "text-slate-600" : "text-white/60"}`}>No headlines match your current filters.</div>
                 )}
               </div>
             </Card>
