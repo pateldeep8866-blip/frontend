@@ -2835,6 +2835,17 @@ export default function Home() {
             >
               About
             </Link>
+            <Link
+              href="/terms"
+              onClick={closeParentDropdown}
+              className={`px-3 py-1.5 rounded-lg border text-xs ${
+                isLight
+                  ? "border-slate-300 bg-white/90 text-slate-700 hover:bg-slate-100"
+                  : "border-white/15 bg-slate-900/60 text-white/85 hover:bg-slate-800/70"
+              }`}
+            >
+              Terms of Service
+            </Link>
             <div className="relative">
               <button
                 onClick={(event) => {
