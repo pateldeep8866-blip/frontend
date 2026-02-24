@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { geoMercator, geoPath } from "d3-geo";
 import { getSupabaseClient } from "@/app/api/_lib/supabaseClient";
 
 function Badge({ value, light = false }) {
@@ -138,6 +139,47 @@ const GEO_REGION_RULES = [
   { label: "Americas", terms: ["united states", "u.s.", "canada", "mexico", "brazil", "latam"] },
   { label: "Africa", terms: ["africa", "sudan", "niger", "ethiopia", "congo"] },
 ];
+const GLOBAL_MAP_WIDTH = 1000;
+const GLOBAL_MAP_HEIGHT = 520;
+const GLOBAL_MARKET_GEOJSON_URL =
+  "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson";
+const GLOBAL_MARKET_COUNTRIES = [
+  { code: "US", iso2: "US", name: "United States", lon: -98, lat: 39, symbols: [{ symbol: "SPY", label: "S&P 500 Proxy" }, { symbol: "DIA", label: "Dow 30 Proxy" }], keywords: ["united states", "u.s.", "wall street", "federal reserve", "nasdaq", "dow", "s&p"] },
+  { code: "CA", iso2: "CA", name: "Canada", lon: -106, lat: 56, symbols: [{ symbol: "EWC", label: "Canada ETF" }], keywords: ["canada", "toronto", "tsx"] },
+  { code: "MX", iso2: "MX", name: "Mexico", lon: -102, lat: 23, symbols: [{ symbol: "EWW", label: "Mexico ETF" }], keywords: ["mexico", "peso", "mexican"] },
+  { code: "BR", iso2: "BR", name: "Brazil", lon: -52, lat: -14, symbols: [{ symbol: "EWZ", label: "Brazil ETF" }], keywords: ["brazil", "brazilian", "bovespa"] },
+  { code: "UK", iso2: "GB", name: "United Kingdom", lon: -1.5, lat: 53.5, symbols: [{ symbol: "EWU", label: "UK ETF" }], keywords: ["uk", "britain", "london", "united kingdom"] },
+  { code: "DE", iso2: "DE", name: "Germany", lon: 10.3, lat: 51.2, symbols: [{ symbol: "EWG", label: "Germany ETF" }], keywords: ["germany", "berlin", "frankfurt", "bund"] },
+  { code: "FR", iso2: "FR", name: "France", lon: 2.2, lat: 46.2, symbols: [{ symbol: "EWQ", label: "France ETF" }], keywords: ["france", "paris"] },
+  { code: "SA", iso2: "SA", name: "Saudi Arabia", lon: 45, lat: 23.8, symbols: [{ symbol: "KSA", label: "Saudi ETF" }], keywords: ["saudi", "riyadh", "aramco"] },
+  { code: "AE", iso2: "AE", name: "UAE", lon: 54.3, lat: 24.5, symbols: [{ symbol: "UAE", label: "UAE ETF" }], keywords: ["uae", "dubai", "abu dhabi", "emirates"] },
+  { code: "IN", iso2: "IN", name: "India", lon: 78.9, lat: 22.9, symbols: [{ symbol: "INDA", label: "India ETF" }], keywords: ["india", "nifty", "sensex", "rupee"] },
+  { code: "CN", iso2: "CN", name: "China", lon: 104, lat: 35.8, symbols: [{ symbol: "MCHI", label: "China ETF" }], keywords: ["china", "beijing", "yuan", "renminbi"] },
+  { code: "JP", iso2: "JP", name: "Japan", lon: 138, lat: 36.2, symbols: [{ symbol: "EWJ", label: "Japan ETF" }], keywords: ["japan", "tokyo", "nikkei", "yen"] },
+  { code: "KR", iso2: "KR", name: "South Korea", lon: 127.7, lat: 36.3, symbols: [{ symbol: "EWY", label: "Korea ETF" }], keywords: ["korea", "seoul", "kospi"] },
+  { code: "AU", iso2: "AU", name: "Australia", lon: 134.5, lat: -25.5, symbols: [{ symbol: "EWA", label: "Australia ETF" }], keywords: ["australia", "asx", "australian"] },
+  { code: "ZA", iso2: "ZA", name: "South Africa", lon: 24.5, lat: -29, symbols: [{ symbol: "EZA", label: "South Africa ETF" }], keywords: ["south africa", "johannesburg", "rand"] },
+];
+const COUNTRY_NAME_TO_ISO = {
+  "United States of America": "US",
+  "United States": "US",
+  "United Kingdom": "GB",
+  Russia: "RU",
+  "South Korea": "KR",
+  Korea: "KR",
+  "Dem. Rep. Korea": "KP",
+  "Czechia": "CZ",
+};
+
+function geoFeatureIso2(feature) {
+  const props = feature?.properties || {};
+  const iso = String(
+    props.ISO_A2 || props.ISO_A2_EH || props.ADM0_A3_US || props.WB_A2 || ""
+  ).toUpperCase();
+  if (iso && iso !== "-99") return iso;
+  const byName = COUNTRY_NAME_TO_ISO[String(props.NAME || props.NAME_EN || "").trim()];
+  return byName || "";
+}
 
 function geopoliticsThemeFromHeadline(headline) {
   const text = String(headline || "").toLowerCase();
@@ -905,6 +947,12 @@ export default function Home() {
   const [language, setLanguage] = useState("en");
   const [analysisViewMode, setAnalysisViewMode] = useState("short");
   const [marketNews, setMarketNews] = useState([]);
+  const [globalMarketCountry, setGlobalMarketCountry] = useState("US");
+  const [globalCountryQuotes, setGlobalCountryQuotes] = useState([]);
+  const [globalCountryQuotesLoading, setGlobalCountryQuotesLoading] = useState(false);
+  const [globalWorldFeatures, setGlobalWorldFeatures] = useState([]);
+  const [globalWorldLoading, setGlobalWorldLoading] = useState(false);
+  const [globalWorldError, setGlobalWorldError] = useState("");
   const [geoFilter, setGeoFilter] = useState("all");
   const [geoRegionFilter, setGeoRegionFilter] = useState("all");
   const [geoSort, setGeoSort] = useState("impact");
@@ -3213,9 +3261,10 @@ export default function Home() {
             : assetMode === "geopolitics"
               ? "Ask anything (global conflicts, diplomacy, sanctions, trade, markets)..."
               : "Ask anything (stocks, crypto, metals, FX, news, geopolitics)...";
-  const isNewsMode = assetMode === "news" || assetMode === "globalmarket";
+  const isNewsMode = assetMode === "news";
+  const isGlobalMarketMode = assetMode === "globalmarket";
   const isGeoPoliticsMode = assetMode === "geopolitics";
-  const isNarrativeMode = isNewsMode || isGeoPoliticsMode;
+  const isNarrativeMode = isNewsMode || isGlobalMarketMode || isGeoPoliticsMode;
   const isMetalsMode = assetMode === "metals";
   const overviewLoop = overview.length ? [...overview, ...overview] : [];
   const supabaseConfigured = Boolean(getSupabaseClient());
@@ -3348,6 +3397,110 @@ export default function Home() {
       watch: thirdText,
     };
   }, [filteredGeopoliticsItems]);
+  const selectedGlobalCountry = useMemo(
+    () => GLOBAL_MARKET_COUNTRIES.find((country) => country.code === globalMarketCountry) || GLOBAL_MARKET_COUNTRIES[0],
+    [globalMarketCountry]
+  );
+  const globalProjection = useMemo(
+    () => geoMercator().scale(130).translate([GLOBAL_MAP_WIDTH / 2, GLOBAL_MAP_HEIGHT / 1.5]),
+    []
+  );
+  const globalPath = useMemo(() => geoPath(globalProjection), [globalProjection]);
+  const globalMarkers = useMemo(
+    () =>
+      GLOBAL_MARKET_COUNTRIES.map((country) => {
+        const point = globalProjection([country.lon, country.lat]);
+        return { ...country, point: Array.isArray(point) ? point : null };
+      }).filter((country) => Array.isArray(country.point)),
+    [globalProjection]
+  );
+  const globalCountryNews = useMemo(() => {
+    const keywords = selectedGlobalCountry?.keywords || [];
+    const filtered = localizedMarketNewsWithSummary.filter((item) => {
+      const text = [
+        String(item?.headlineOriginal || ""),
+        String(item?.headlineDisplay || ""),
+        String(item?.source || ""),
+      ]
+        .join(" ")
+        .toLowerCase();
+      return keywords.some((keyword) => text.includes(keyword));
+    });
+    if (filtered.length) return filtered.slice(0, 10);
+    return localizedMarketNewsWithSummary.slice(0, 10);
+  }, [localizedMarketNewsWithSummary, selectedGlobalCountry]);
+  const globalMarketExecutiveSummary = useMemo(() => {
+    const lead = globalCountryNews[0];
+    const proxyCount = selectedGlobalCountry?.symbols?.length || 0;
+    if (!lead) {
+      return `Select a country on the map to track its market pulse and local macro headlines in one view.`;
+    }
+    const leadText = lead.headlineDisplay || lead.headlineOriginal || "";
+    return `${selectedGlobalCountry.name} is now in focus. Monitoring ${proxyCount} market proxy ${proxyCount === 1 ? "instrument" : "instruments"} and latest catalysts: ${leadText}`;
+  }, [globalCountryNews, selectedGlobalCountry]);
+  useEffect(() => {
+    let cancelled = false;
+    const loadWorld = async () => {
+      try {
+        setGlobalWorldLoading(true);
+        setGlobalWorldError("");
+        const res = await fetch(GLOBAL_MARKET_GEOJSON_URL, { cache: "no-store" });
+        const data = await res.json().catch(() => ({}));
+        const features = Array.isArray(data?.features) ? data.features : [];
+        if (!cancelled) setGlobalWorldFeatures(features);
+      } catch {
+        if (!cancelled) {
+          setGlobalWorldFeatures([]);
+          setGlobalWorldError("Unable to load world map.");
+        }
+      } finally {
+        if (!cancelled) setGlobalWorldLoading(false);
+      }
+    };
+    loadWorld();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  useEffect(() => {
+    if (!isGlobalMarketMode) return;
+    const symbols = selectedGlobalCountry?.symbols || [];
+    if (!symbols.length) {
+      setGlobalCountryQuotes([]);
+      return;
+    }
+    let cancelled = false;
+    const run = async () => {
+      try {
+        setGlobalCountryQuotesLoading(true);
+        const rows = await Promise.all(
+          symbols.map(async (item) => {
+            try {
+              const res = await fetch(`/api/quote?symbol=${encodeURIComponent(item.symbol)}`);
+              const data = await res.json().catch(() => ({}));
+              if (!res.ok) return { ...item, price: null, percentChange: null, error: true };
+              return {
+                ...item,
+                symbol: data?.symbol || item.symbol,
+                price: Number.isFinite(Number(data?.price)) ? Number(data.price) : null,
+                percentChange: Number.isFinite(Number(data?.percentChange)) ? Number(data.percentChange) : null,
+                error: false,
+              };
+            } catch {
+              return { ...item, price: null, percentChange: null, error: true };
+            }
+          })
+        );
+        if (!cancelled) setGlobalCountryQuotes(rows);
+      } finally {
+        if (!cancelled) setGlobalCountryQuotesLoading(false);
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [isGlobalMarketMode, selectedGlobalCountry]);
   const t = (key) => UI_TEXT[language]?.[key] || UI_TEXT.en[key] || key;
   const tx = (text) => resolveLocalizedText(text, language, headlineTranslationCacheRef.current);
   const activeThemeLabel =
@@ -5299,6 +5452,239 @@ export default function Home() {
                   </a>
                 ))}
                 {localizedMarketNewsWithSummary.length === 0 && <div className="text-sm text-white/60">{tx("No world-impact headlines yet.")}</div>}
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {isGlobalMarketMode && (
+          <div className="mb-6">
+            <Card
+              title={tx("Global Market Map")}
+              right={
+                <button
+                  onClick={fetchMarketNews}
+                  className={`px-3 py-1.5 rounded-lg text-xs ${isLight ? "bg-slate-100 hover:bg-slate-200 text-slate-700" : "bg-white/10 hover:bg-white/15 text-white"}`}
+                >
+                  {tx("Refresh")}
+                </button>
+              }
+            >
+              <SummaryPanel label={tx("Executive Brief")} text={globalMarketExecutiveSummary} isLight={isLight} className="mb-4" />
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+                <div className={`lg:col-span-3 rounded-xl border p-3 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/[0.03]"}`}>
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <div className={`text-xs font-semibold uppercase tracking-wide ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>
+                      Interactive World Map
+                    </div>
+                    <button
+                      onClick={() => setGlobalMarketCountry("US")}
+                      className={`text-[11px] px-2.5 py-1 rounded-md border ${isLight ? "border-slate-300 bg-slate-50 text-slate-600 hover:bg-slate-100" : "border-white/15 bg-white/5 text-white/70 hover:bg-white/10"}`}
+                    >
+                      Reset Focus
+                    </button>
+                  </div>
+                  <div className={`relative h-[360px] rounded-xl overflow-hidden border ${isLight ? "border-slate-200 bg-slate-50" : "border-white/10 bg-slate-950/45"}`}>
+                    <svg viewBox={`0 0 ${GLOBAL_MAP_WIDTH} ${GLOBAL_MAP_HEIGHT}`} className="h-full w-full">
+                      <defs>
+                        <linearGradient id="gm-ocean" x1="0" y1="0" x2="1" y2="1">
+                          <stop offset="0%" stopColor={isLight ? "#f8fafc" : "#0b1223"} />
+                          <stop offset="100%" stopColor={isLight ? "#e2e8f0" : "#111b31"} />
+                        </linearGradient>
+                        <radialGradient id="gm-hotspot" cx="50%" cy="50%" r="50%">
+                          <stop offset="0%" stopColor={isLight ? "#60a5fa" : "#38bdf8"} stopOpacity="0.38" />
+                          <stop offset="100%" stopColor={isLight ? "#60a5fa" : "#38bdf8"} stopOpacity="0" />
+                        </radialGradient>
+                        <filter id="gm-glow">
+                          <feGaussianBlur stdDeviation="2.2" result="blur" />
+                          <feMerge>
+                            <feMergeNode in="blur" />
+                            <feMergeNode in="SourceGraphic" />
+                          </feMerge>
+                        </filter>
+                      </defs>
+                      <rect x="0" y="0" width={GLOBAL_MAP_WIDTH} height={GLOBAL_MAP_HEIGHT} fill="url(#gm-ocean)" />
+                      {Array.from({ length: 11 }, (_, idx) => (
+                        <line
+                          key={`lat-${idx}`}
+                          x1="0"
+                          y1={40 + idx * 44}
+                          x2={GLOBAL_MAP_WIDTH}
+                          y2={40 + idx * 44}
+                          stroke={isLight ? "#94a3b8" : "#1e293b"}
+                          strokeOpacity={0.18}
+                          strokeWidth="1"
+                        />
+                      ))}
+                      {Array.from({ length: 13 }, (_, idx) => (
+                        <line
+                          key={`lon-${idx}`}
+                          x1={40 + idx * 76}
+                          y1="0"
+                          x2={40 + idx * 76}
+                          y2={GLOBAL_MAP_HEIGHT}
+                          stroke={isLight ? "#94a3b8" : "#1e293b"}
+                          strokeOpacity={0.14}
+                          strokeWidth="1"
+                        />
+                      ))}
+                      <g>
+                        {globalWorldFeatures.map((feature, idx) => {
+                          const d = globalPath(feature);
+                          if (!d) return null;
+                          const iso2 = geoFeatureIso2(feature);
+                          const matched = GLOBAL_MARKET_COUNTRIES.find(
+                            (country) => String(country.iso2 || country.code || "").toUpperCase() === iso2
+                          );
+                          const active = matched?.code === selectedGlobalCountry.code;
+                          return (
+                            <path
+                              key={`country-${idx}`}
+                              d={d}
+                              fill={
+                                active
+                                  ? (isLight ? "#60a5fa" : "#3b82f6")
+                                  : isLight
+                                    ? "#cbd5e1"
+                                    : "#1f2f4f"
+                              }
+                              stroke={isLight ? "#e2e8f0" : "#334155"}
+                              strokeWidth={active ? 1.2 : 0.7}
+                              className={matched ? "cursor-pointer transition-colors duration-200" : ""}
+                              onClick={() => {
+                                if (matched) setGlobalMarketCountry(matched.code);
+                              }}
+                            />
+                          );
+                        })}
+                        {globalMarkers.map((country) => {
+                          const [x, y] = country.point;
+                          const active = country.code === selectedGlobalCountry.code;
+                          return (
+                            <g key={`marker-${country.code}`}>
+                              {active && (
+                                <>
+                                  <circle cx={x} cy={y} r={36} fill="url(#gm-hotspot)" />
+                                  <circle cx={x} cy={y} r={22} stroke={isLight ? "#2563eb" : "#7dd3fc"} strokeOpacity="0.35" strokeWidth="2" fill="none" />
+                                </>
+                              )}
+                              <circle
+                                cx={x}
+                                cy={y}
+                                r={active ? 10 : 7}
+                                fill={active ? "#2563eb" : isLight ? "#334155" : "#67e8f9"}
+                                opacity={active ? 0.95 : 0.78}
+                                filter={active ? "url(#gm-glow)" : undefined}
+                                className="cursor-pointer transition-all"
+                                onClick={() => setGlobalMarketCountry(country.code)}
+                              />
+                              <text
+                                x={x + 11}
+                                y={y - 9}
+                                fontSize={active ? 11 : 10}
+                                fill={active ? "#e2e8f0" : isLight ? "#334155" : "#cbd5e1"}
+                                className="pointer-events-none select-none"
+                              >
+                                {country.code}
+                              </text>
+                            </g>
+                          );
+                        })}
+                      </g>
+                    </svg>
+                    {globalWorldLoading && (
+                      <div className={`pointer-events-none absolute inset-0 flex items-center justify-center text-xs ${isLight ? "text-slate-600" : "text-white/70"}`}>
+                        Loading geographic map...
+                      </div>
+                    )}
+                    {globalWorldError && (
+                      <div className="absolute bottom-2 left-2 rounded-md bg-rose-500/20 px-2 py-1 text-[11px] text-rose-200">
+                        {globalWorldError}
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {GLOBAL_MARKET_COUNTRIES.slice(0, 10).map((country) => (
+                      <button
+                        key={`chip-${country.code}`}
+                        onClick={() => setGlobalMarketCountry(country.code)}
+                        className={`px-2.5 py-1 rounded-full text-[11px] border transition ${
+                          country.code === selectedGlobalCountry.code
+                            ? "bg-blue-600 text-white border-blue-500"
+                            : isLight
+                              ? "bg-white text-slate-700 border-slate-300 hover:bg-slate-100"
+                              : "bg-white/5 text-white/80 border-white/15 hover:bg-white/10"
+                        }`}
+                      >
+                        {country.code}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className={`lg:col-span-2 rounded-xl border p-3 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/[0.03]"}`}>
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <div>
+                      <div className={`text-xs uppercase tracking-wide ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>Country Focus</div>
+                      <div className={`text-lg font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{selectedGlobalCountry.name}</div>
+                    </div>
+                    <select
+                      value={selectedGlobalCountry.code}
+                      onChange={(e) => setGlobalMarketCountry(e.target.value)}
+                      className={`px-2 py-1.5 rounded-lg text-xs border outline-none ${
+                        isLight ? "border-slate-300 bg-white text-slate-900 focus:border-slate-500" : "border-white/15 bg-slate-900/60 text-white focus:border-cyan-400/50"
+                      }`}
+                    >
+                      {GLOBAL_MARKET_COUNTRIES.map((country) => (
+                        <option key={country.code} value={country.code}>{country.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-2 mb-3">
+                    {globalCountryQuotesLoading && (
+                      <div className={`text-xs ${isLight ? "text-slate-500" : "text-white/60"}`}>Loading market proxies...</div>
+                    )}
+                    {!globalCountryQuotesLoading && globalCountryQuotes.map((row) => (
+                      <div key={row.symbol} className={`rounded-lg border p-2.5 ${isLight ? "border-slate-200 bg-slate-50" : "border-white/10 bg-white/[0.04]"}`}>
+                        <div className="flex items-center justify-between gap-2">
+                          <div>
+                            <div className={`text-xs font-semibold ${isLight ? "text-slate-700" : "text-white/85"}`}>{row.label}</div>
+                            <div className={`text-[11px] ${isLight ? "text-slate-500" : "text-white/55"}`}>{row.symbol}</div>
+                          </div>
+                          <div className="text-right">
+                            <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>
+                              {Number.isFinite(row.price) ? `$${Number(row.price).toFixed(2)}` : "—"}
+                            </div>
+                            <div className={`text-xs ${Number(row.percentChange) >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
+                              {Number.isFinite(row.percentChange) ? `${row.percentChange > 0 ? "+" : ""}${Number(row.percentChange).toFixed(2)}%` : "—"}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className={`text-xs font-semibold uppercase tracking-wide mb-2 ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>
+                    {selectedGlobalCountry.name} News
+                  </div>
+                  <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
+                    {globalCountryNews.map((item, idx) => (
+                      <a
+                        key={`${item.url}-${idx}`}
+                        href={item.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={`block rounded-lg border p-2 ${isLight ? "border-slate-200 bg-slate-50 hover:bg-slate-100" : "border-white/10 bg-white/[0.04] hover:bg-white/[0.09]"}`}
+                      >
+                        <div className={`text-xs font-medium leading-relaxed ${isLight ? "text-blue-700" : "text-blue-300"}`}>{item.headlineDisplay}</div>
+                        <div className={`mt-1 text-[11px] ${isLight ? "text-slate-600" : "text-white/68"}`}>{item.laymanSummary}</div>
+                      </a>
+                    ))}
+                    {globalCountryNews.length === 0 && (
+                      <div className={`text-xs ${isLight ? "text-slate-500" : "text-white/60"}`}>No country-specific headlines yet.</div>
+                    )}
+                  </div>
+                </div>
               </div>
             </Card>
           </div>
