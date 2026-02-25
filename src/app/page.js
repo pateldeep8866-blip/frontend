@@ -47,6 +47,18 @@ function fmtLarge(n) {
   return `${v.toFixed(2)}`;
 }
 
+function globalMarketHeatFill(percentChange, isLight) {
+  const v = Number(percentChange);
+  if (!Number.isFinite(v)) return isLight ? "#d1d5db" : "#334155";
+  if (v >= 2) return "#15803d";
+  if (v >= 0.5) return "#4ade80";
+  if (v > 0) return "#bbf7d0";
+  if (v <= -2) return "#b91c1c";
+  if (v <= -0.5) return "#f87171";
+  if (v < 0) return "#fecaca";
+  return isLight ? "#cbd5e1" : "#475569";
+}
+
 function normalizeHistoryEntry(value) {
   const raw =
     typeof value === "string"
@@ -953,6 +965,7 @@ export default function Home() {
   const [globalWorldFeatures, setGlobalWorldFeatures] = useState([]);
   const [globalWorldLoading, setGlobalWorldLoading] = useState(false);
   const [globalWorldError, setGlobalWorldError] = useState("");
+  const [globalMarketPerformance, setGlobalMarketPerformance] = useState({});
   const [geoFilter, setGeoFilter] = useState("all");
   const [geoRegionFilter, setGeoRegionFilter] = useState("all");
   const [geoSort, setGeoSort] = useState("impact");
@@ -3464,6 +3477,30 @@ export default function Home() {
   }, []);
   useEffect(() => {
     if (!isGlobalMarketMode) return;
+    let cancelled = false;
+    const loadPerformance = async () => {
+      try {
+        const res = await fetch("/api/global-market-performance", {
+          cache: "no-store",
+          headers: { "cache-control": "no-store" },
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!cancelled && res.ok && data?.byCountry && typeof data.byCountry === "object") {
+          setGlobalMarketPerformance(data.byCountry);
+        }
+      } catch {
+        if (!cancelled) setGlobalMarketPerformance({});
+      }
+    };
+    loadPerformance();
+    const timer = setInterval(loadPerformance, 60000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [isGlobalMarketMode]);
+  useEffect(() => {
+    if (!isGlobalMarketMode) return;
     const symbols = selectedGlobalCountry?.symbols || [];
     if (!symbols.length) {
       setGlobalCountryQuotes([]);
@@ -5537,19 +5574,15 @@ export default function Home() {
                             (country) => String(country.iso2 || country.code || "").toUpperCase() === iso2
                           );
                           const active = matched?.code === selectedGlobalCountry.code;
+                          const pct = matched ? globalMarketPerformance?.[iso2] : null;
+                          const fillColor = globalMarketHeatFill(pct, isLight);
                           return (
                             <path
                               key={`country-${idx}`}
                               d={d}
-                              fill={
-                                active
-                                  ? (isLight ? "#60a5fa" : "#3b82f6")
-                                  : isLight
-                                    ? "#cbd5e1"
-                                    : "#1f2f4f"
-                              }
-                              stroke={isLight ? "#e2e8f0" : "#334155"}
-                              strokeWidth={active ? 1.2 : 0.7}
+                              fill={fillColor}
+                              stroke={active ? (isLight ? "#1d4ed8" : "#93c5fd") : isLight ? "#e2e8f0" : "#334155"}
+                              strokeWidth={active ? 2 : 0.7}
                               className={matched ? "cursor-pointer transition-colors duration-200" : ""}
                               onClick={() => {
                                 if (matched) setGlobalMarketCountry(matched.code);
@@ -5602,6 +5635,14 @@ export default function Home() {
                         {globalWorldError}
                       </div>
                     )}
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px]">
+                    <span className={`${isLight ? "text-slate-500" : "text-white/60"}`}>Heat:</span>
+                    <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-green-700" /> +2%+</span>
+                    <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-green-400" /> +0.5% to +2%</span>
+                    <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-red-400" /> -0.5% to -2%</span>
+                    <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-red-700" /> -2%+</span>
+                    <span className="inline-flex items-center gap-1"><span className={`h-2.5 w-2.5 rounded-full ${isLight ? "bg-gray-300" : "bg-slate-600"}`} /> No data</span>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-1.5">
                     {GLOBAL_MARKET_COUNTRIES.slice(0, 10).map((country) => (
