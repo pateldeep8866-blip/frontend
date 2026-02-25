@@ -559,6 +559,7 @@ const UI_TEXT = {
     sakura: "Sakura",
     azula: "Azula",
     home: "Home",
+    marketSchool: "Market School",
     portfolio: "Portfolio",
     about: "About",
     terms: "Terms of Service",
@@ -588,6 +589,7 @@ const UI_TEXT = {
     sakura: "Sakura",
     azula: "Azula",
     home: "Inicio",
+    marketSchool: "Market School",
     portfolio: "Portafolio",
     about: "Acerca de",
     terms: "Terminos de servicio",
@@ -617,6 +619,7 @@ const UI_TEXT = {
     sakura: "Sakura",
     azula: "Azula",
     home: "Accueil",
+    marketSchool: "Market School",
     portfolio: "Portefeuille",
     about: "A propos",
     terms: "Conditions d'utilisation",
@@ -646,6 +649,7 @@ const UI_TEXT = {
     sakura: "सकुरा",
     azula: "अज़ूला",
     home: "होम",
+    marketSchool: "मार्केट स्कूल",
     portfolio: "पोर्टफोलियो",
     about: "अबाउट",
     terms: "सेवा की शर्तें",
@@ -4211,6 +4215,17 @@ export default function Home() {
               }`}
             >
               {t("home")}
+            </Link>
+            <Link
+              href="/market-school"
+              onClick={closeParentDropdown}
+              className={`px-3 py-1.5 rounded-lg border text-xs ${
+                isLight
+                  ? "border-slate-300 bg-white/90 text-slate-700 hover:bg-slate-100"
+                  : "border-white/15 bg-slate-900/60 text-white/85 hover:bg-slate-800/70"
+              }`}
+            >
+              {t("marketSchool")}
             </Link>
             {authUser && (
               <Link
