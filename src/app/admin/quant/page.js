@@ -10,6 +10,12 @@ async function fetchJson(url) {
   return data;
 }
 
+function fmtPct(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return "—";
+  return `${(n * 100).toFixed(2)}%`;
+}
+
 export default function AdminQuantPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -19,23 +25,26 @@ export default function AdminQuantPage() {
   const [weights, setWeights] = useState(null);
   const [decisions, setDecisions] = useState(null);
   const [runs, setRuns] = useState(null);
+  const [strategyPerf, setStrategyPerf] = useState(null);
 
   async function loadAll() {
     setLoading(true);
     setError("");
     try {
-      const [a, b, c, d, e] = await Promise.all([
+      const [a, b, c, d, e, f] = await Promise.all([
         fetchJson("/api/admin/quant-status"),
         fetchJson("/api/trades/performance"),
         fetchJson("/api/admin/weights"),
         fetchJson("/api/admin/decisions?limit=20"),
         fetchJson("/api/admin/quant-runs"),
+        fetchJson("/api/admin/strategy-performance"),
       ]);
       setQuantStatus(a);
       setPerf(b);
       setWeights(c);
       setDecisions(d);
       setRuns(e);
+      setStrategyPerf(f);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load admin data");
     } finally {
@@ -108,6 +117,40 @@ export default function AdminQuantPage() {
                 <div>Worst conditions: <span className="font-semibold">{stats.worst_performing_conditions?.regime || "—"}</span></div>
                 <div>Progress to 200: <span className="font-semibold">{Math.min(Number(stats.total_trades_logged || 0), 200)}/200</span></div>
                 <div>Progress to 1000: <span className="font-semibold">{Math.min(Number(stats.total_trades_logged || 0), 1000)}/1000</span></div>
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-white/15 bg-slate-900/60 p-4">
+              <h2 className="text-lg font-semibold mb-3">Strategy Performance</h2>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead className="text-white/60">
+                    <tr className="border-b border-white/10 text-left">
+                      <th className="py-2 pr-2">Strategy</th>
+                      <th className="py-2 pr-2">Total Trades</th>
+                      <th className="py-2 pr-2">Win Rate</th>
+                      <th className="py-2 pr-2">Avg 5d Return</th>
+                      <th className="py-2 pr-2">Avg 21d Return</th>
+                      <th className="py-2 pr-2">Best Regime</th>
+                      <th className="py-2 pr-2">Worst Regime</th>
+                      <th className="py-2 pr-2">Active</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(strategyPerf?.rows || []).map((r) => (
+                      <tr key={r.strategy_name} className="border-b border-white/10">
+                        <td className="py-2 pr-2">{r.strategy_name}</td>
+                        <td className="py-2 pr-2">{r.total_trades}</td>
+                        <td className="py-2 pr-2">{fmtPct(r.win_rate)}</td>
+                        <td className="py-2 pr-2">{fmtPct(r.avg_return_5d)}</td>
+                        <td className="py-2 pr-2">{fmtPct(r.avg_return_21d)}</td>
+                        <td className="py-2 pr-2">{r.best_regime || "—"}</td>
+                        <td className="py-2 pr-2">{r.worst_regime || "—"}</td>
+                        <td className="py-2 pr-2">{r.active ? "YES" : "NO"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </section>
 
@@ -206,4 +249,3 @@ export default function AdminQuantPage() {
     </main>
   );
 }
-

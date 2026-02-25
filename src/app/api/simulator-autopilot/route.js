@@ -135,6 +135,17 @@ function quantScoreToAstraScore(composite) {
   return 25;
 }
 
+function getLessonForStrategy(strategy) {
+  const lessons = {
+    momentum: "Momentum investing buys relative strength — instruments that are outperforming peers tend to continue doing so.",
+    mean_reversion: "Mean reversion capitalizes on short-term overreactions. Prices that deviate from trend tend to snap back.",
+    regime_rotation: "Regime rotation shifts capital to asset classes that historically outperform in current macro conditions.",
+    pairs_trading: "Pairs trading is market neutral — it profits from relative performance between correlated instruments.",
+    earnings_momentum: "Post-earnings drift (PEAD) captures continued movement after earnings surprises.",
+  };
+  return lessons[String(strategy || "").toLowerCase()] || "Quantitative signal detected.";
+}
+
 function buildPrioritySellDecisions({ holdings, quantResult, riskLevel }) {
   const decisions = [];
   const quantScores = Array.isArray(quantResult?.all_scores) ? quantResult.all_scores : [];
@@ -824,6 +835,7 @@ export async function POST(req) {
       quantAllScores.map((row) => [String(row?.ticker || "").toUpperCase(), row])
     );
     const quantSinglePick = quantResult?.single_pick && !quantResult?.no_trade ? quantResult.single_pick : null;
+    const strategyRouter = quantResult?.strategy_router || null;
 
     const scoredCandidatesRaw = [];
     for (const c of candidates) {
@@ -1001,9 +1013,90 @@ export async function POST(req) {
       }
     }
 
+    // Strategy router signals get priority before fallback template logic.
+    if (strategyRouter && !strategyRouter.no_trade && strategyRouter.top_signal) {
+      const sig = strategyRouter.top_signal;
+      const strategyName = String(sig?.strategy || sig?.strategy_name || "").toLowerCase();
+      const price = Number(sig?.entry_price || 0);
+      const alloc = Math.max(0.05, Number(sig?.position_size_pct || 0.1));
+      const shares = price > 0 ? Math.floor((cash * alloc) / price) : 0;
+      if (shares > 0 && price > 0) {
+        decisions.unshift({
+          action: String(sig?.action || "BUY").toUpperCase(),
+          ticker: String(sig?.ticker || "").toUpperCase(),
+          assetType: "stock",
+          shares,
+          entry_price: price,
+          stop_loss: Number(sig?.stop_loss || 0),
+          take_profit: Number(sig?.take_profit || 0),
+          composite_score: Math.max(70, Math.round(Number(sig?.conviction || 0) * 100)),
+          strategy: strategyName,
+          reasoning: String(sig?.reasoning || "").trim() || "Strategy router identified a valid setup.",
+          confidence: Math.round(Number(sig?.conviction || 0) * 100),
+          risk: Number(sig?.conviction || 0) > 0.7 ? "LOW" : "MEDIUM",
+          holdDays: Number(sig?.hold_days || 0),
+          lesson: getLessonForStrategy(strategyName),
+        });
+      }
+    }
+
+    const allSignals = Array.isArray(strategyRouter?.all_signals) ? strategyRouter.all_signals : [];
+    const seenStrategies = new Set(decisions.map((d) => String(d?.strategy || "").toLowerCase()).filter(Boolean));
+    for (const sig of allSignals) {
+      if (String(sig?.action || "").toUpperCase() !== "BUY") continue;
+      const strategyName = String(sig?.strategy || sig?.strategy_name || "").toLowerCase();
+      if (seenStrategies.has(strategyName)) continue;
+      if (Number(sig?.conviction || 0) < 0.2) continue;
+      const ticker = String(sig?.ticker || "").toUpperCase();
+      if (!ticker || decisions.find((d) => String(d?.ticker || "").toUpperCase() === ticker)) continue;
+      const price = Number(sig?.entry_price || 0);
+      const shares = price > 0 ? Math.floor((cash * 0.08) / price) : 0;
+      if (shares > 0) {
+        decisions.push({
+          action: "BUY",
+          ticker,
+          assetType: "stock",
+          shares,
+          entry_price: price,
+          stop_loss: Number(sig?.stop_loss || 0),
+          take_profit: Number(sig?.take_profit || 0),
+          composite_score: Math.max(70, Math.round(Number(sig?.conviction || 0) * 100)),
+          strategy: strategyName,
+          reasoning: String(sig?.reasoning || "").trim() || "Strategy signal identified a buy setup.",
+          confidence: Math.max(45, Math.round(Number(sig?.conviction || 0) * 100)),
+          risk: "MEDIUM",
+          holdDays: Number(sig?.hold_days || 0),
+          lesson: getLessonForStrategy(strategyName),
+        });
+        seenStrategies.add(strategyName);
+      }
+      if (seenStrategies.size >= 3) break;
+    }
+
+    for (const sig of allSignals) {
+      if (String(sig?.action || "").toUpperCase() !== "SELL") continue;
+      const ticker = String(sig?.ticker || "").toUpperCase();
+      const holding = holdings.find((h) => String(h?.symbol || "").toUpperCase() === ticker);
+      if (!holding || Number(holding?.shares || 0) <= 0) continue;
+      decisions.push({
+        action: "SELL",
+        ticker,
+        assetType: String(holding?.assetType || "stock").toLowerCase(),
+        shares: Number(holding.shares || 0),
+        entry_price: Number(sig?.entry_price || holding?.currentPrice || 0),
+        strategy: String(sig?.strategy || sig?.strategy_name || "").toLowerCase(),
+        reasoning: String(sig?.reasoning || "").trim() || "Strategy signal indicates exit.",
+        confidence: Math.round(Number(sig?.conviction || 0) * 100),
+        risk: "LOW",
+        holdDays: Number(sig?.hold_days || 0),
+        lesson: "Strategy signal indicates exit",
+      });
+    }
+
     if (!decisions.length) {
       decisions = normalizeDecisions(fallbackDecisions({ cash, holdings }, { ...context, todayPick }));
     }
+
     decisions = ensureActionableDecisions(decisions, { cash, holdings, context: { ...context, todayPick }, riskPolicy })
       .map((d) => {
         const c = scoredCandidates.find((x) => x.symbol === String(d?.ticker || "").toUpperCase() && normalizeAssetType(x.assetType) === normalizeAssetType(d?.assetType));
@@ -1076,6 +1169,8 @@ export async function POST(req) {
           stop_loss: Number(quantPick.stop_loss || 0),
           take_profit: Number(quantPick.take_profit || 0),
           composite_score: quantScoreToAstraScore(Number(quantPick.composite_score || 0)),
+          strategy: String(strategyRouter?.strategy_used || "momentum").toLowerCase(),
+          holdDays: Number(strategyRouter?.top_signal?.hold_days || 20),
           reasoning: `Quantitative signal detected strength in ${String(quantPick.ticker || "").toUpperCase()}. Market regime: ${String(quantResult?.regime || "unknown")}. Entry $${price} | Stop $${Number(quantPick.stop_loss || 0)} | Target $${Number(quantPick.take_profit || 0)}`,
           confidence: Number(quantPick.confidence || 72),
           risk: Number(quantPick.composite_score || 0) > 0.15 ? "LOW" : "MEDIUM",
@@ -1143,6 +1238,9 @@ export async function POST(req) {
           weight_volatility: 0.07,
           weight_range: 0.03,
           user_risk_level: String(riskPolicy?.level || "MODERATE"),
+          strategy_name: String(decision?.strategy || "unknown"),
+          strategy_conviction: Math.max(0, Math.min(1, Number(decision?.conviction || decision?.confidence || 0) / 100)),
+          hold_days_target: Number(decision?.holdDays || 0),
           reasoning: String(decision?.reasoning || ""),
           confidence: Number(decision?.confidence || 0),
           stop_loss: Number(decision?.stop_loss || 0),
@@ -1165,6 +1263,8 @@ export async function POST(req) {
       stopLoss: Number(d?.stop_loss || 0),
       takeProfit: Number(d?.take_profit || 0),
       lesson: String(d?.lesson || "Manage position size and risk before entry."),
+      strategy: String(d?.strategy || "").toLowerCase() || null,
+      holdDays: Number(d?.holdDays || 0),
     }));
 
     return NextResponse.json(

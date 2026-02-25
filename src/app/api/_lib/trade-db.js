@@ -24,6 +24,13 @@ function normalizeSource(source) {
   return String(source || "").toLowerCase() === "astra_autopilot" ? "astra_autopilot" : "manual";
 }
 
+function ensureTradeColumns(conn) {
+  const cols = conn.prepare("PRAGMA table_info(trades)").all().map((r) => String(r.name || ""));
+  if (!cols.includes("strategy_name")) conn.exec("ALTER TABLE trades ADD COLUMN strategy_name TEXT;");
+  if (!cols.includes("strategy_conviction")) conn.exec("ALTER TABLE trades ADD COLUMN strategy_conviction REAL;");
+  if (!cols.includes("hold_days_target")) conn.exec("ALTER TABLE trades ADD COLUMN hold_days_target INTEGER;");
+}
+
 function ensureDb() {
   if (db) return db;
   mkdirSync(dirname(DB_PATH), { recursive: true });
@@ -54,6 +61,9 @@ function ensureDb() {
       weight_volatility REAL DEFAULT 0.07,
       weight_range REAL DEFAULT 0.03,
       user_risk_level TEXT,
+      strategy_name TEXT,
+      strategy_conviction REAL,
+      hold_days_target INTEGER,
       reasoning TEXT,
       confidence INTEGER,
       stop_loss REAL,
@@ -109,6 +119,8 @@ function ensureDb() {
     CREATE INDEX IF NOT EXISTS idx_trades_ticker ON trades(ticker);
     CREATE INDEX IF NOT EXISTS idx_trade_outcomes_trade_id ON trade_outcomes(trade_id);
   `);
+
+  ensureTradeColumns(db);
 
   const count = Number(db.prepare("SELECT COUNT(*) AS c FROM weight_history").get()?.c || 0);
   if (count === 0) {
@@ -196,13 +208,15 @@ export function insertTrade(raw) {
       quant_composite_score, quant_signal, quant_momentum, quant_mean_reversion,
       market_regime, vix_at_entry, dxy_at_entry, sector_performance,
       weight_momentum, weight_mean_reversion, weight_volatility, weight_range,
-      user_risk_level, reasoning, confidence, stop_loss, take_profit
+      user_risk_level, strategy_name, strategy_conviction, hold_days_target,
+      reasoning, confidence, stop_loss, take_profit
     ) VALUES (
       ?, ?, ?, ?, ?, ?, ?, ?,
       ?, ?, ?, ?,
       ?, ?, ?, ?,
       ?, ?, ?, ?,
-      ?, ?, ?, ?, ?
+      ?, ?, ?, ?,
+      ?, ?, ?, ?
     )
   `).run(
     tradeId,
@@ -226,6 +240,9 @@ export function insertTrade(raw) {
     toNum(raw?.weight_volatility, 0.07),
     toNum(raw?.weight_range, 0.03),
     raw?.user_risk_level ? String(raw.user_risk_level) : null,
+    raw?.strategy_name ? String(raw.strategy_name) : null,
+    toNum(raw?.strategy_conviction, null),
+    Math.round(toNum(raw?.hold_days_target, 0)),
     raw?.reasoning ? String(raw.reasoning) : null,
     Math.round(toNum(raw?.confidence, 0)),
     toNum(raw?.stop_loss, null),
@@ -456,4 +473,60 @@ export function getPerformanceStats() {
 export function getDbMeta() {
   ensureDb();
   return { db_path: DB_PATH };
+}
+
+
+export function getStrategyPerformance() {
+  const conn = ensureDb();
+  const rows = conn.prepare(`
+    SELECT
+      t.strategy_name,
+      COUNT(*) as total_trades,
+      AVG(CASE WHEN o.return_5d > 0 THEN 1.0 ELSE 0.0 END) as win_rate,
+      AVG(o.return_5d) as avg_return_5d,
+      AVG(o.return_21d) as avg_return_21d
+    FROM trades t
+    LEFT JOIN trade_outcomes o ON t.trade_id = o.trade_id
+    WHERE t.strategy_name IS NOT NULL
+    GROUP BY t.strategy_name
+    ORDER BY win_rate DESC
+  `).all();
+
+  const byRegime = conn.prepare(`
+    SELECT t.strategy_name, COALESCE(t.market_regime,'unknown') as regime,
+           COUNT(*) as total,
+           AVG(o.return_5d) as avg_return
+    FROM trades t
+    LEFT JOIN trade_outcomes o ON t.trade_id = o.trade_id
+    WHERE t.strategy_name IS NOT NULL
+    GROUP BY t.strategy_name, COALESCE(t.market_regime,'unknown')
+  `).all();
+
+  const activeSet = new Set(
+    conn.prepare(`
+      SELECT DISTINCT strategy_name
+      FROM trades
+      WHERE strategy_name IS NOT NULL
+        AND created_utc >= datetime('now','-7 days')
+    `).all().map((r) => String(r.strategy_name || ""))
+  );
+
+  const decorate = rows.map((r) => {
+    const name = String(r.strategy_name || "unknown");
+    const regimes = byRegime.filter((x) => String(x.strategy_name || "") === name);
+    const best = [...regimes].sort((a,b) => Number(b.avg_return || -999) - Number(a.avg_return || -999))[0] || null;
+    const worst = [...regimes].sort((a,b) => Number(a.avg_return || 999) - Number(b.avg_return || 999))[0] || null;
+    return {
+      strategy_name: name,
+      total_trades: Number(r.total_trades || 0),
+      win_rate: Number(r.win_rate || 0),
+      avg_return_5d: Number(r.avg_return_5d || 0),
+      avg_return_21d: Number(r.avg_return_21d || 0),
+      best_regime: best?.regime || null,
+      worst_regime: worst?.regime || null,
+      active: activeSet.has(name),
+    };
+  });
+
+  return decorate;
 }

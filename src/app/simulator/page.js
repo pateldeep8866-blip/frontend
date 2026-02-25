@@ -234,6 +234,16 @@ function relativeTime(ts) {
   return `${Math.floor(diff / 86400000)}d ago`;
 }
 
+function getStrategyBadge(strategy) {
+  const key = String(strategy || "").toLowerCase();
+  if (key === "momentum") return { label: "📈 MOMENTUM", light: "border-blue-300 bg-blue-50 text-blue-700", dark: "border-blue-400/35 bg-blue-500/20 text-blue-100" };
+  if (key === "mean_reversion") return { label: "📊 MEAN REV", light: "border-purple-300 bg-purple-50 text-purple-700", dark: "border-purple-400/35 bg-purple-500/20 text-purple-100" };
+  if (key === "regime_rotation") return { label: "🔄 REGIME ROT", light: "border-orange-300 bg-orange-50 text-orange-700", dark: "border-orange-400/35 bg-orange-500/20 text-orange-100" };
+  if (key === "pairs_trading") return { label: "⚖️ PAIRS", light: "border-emerald-300 bg-emerald-50 text-emerald-700", dark: "border-emerald-400/35 bg-emerald-500/20 text-emerald-100" };
+  if (key === "earnings_momentum") return { label: "📣 EARNINGS", light: "border-amber-300 bg-amber-50 text-amber-700", dark: "border-amber-400/35 bg-amber-500/20 text-amber-100" };
+  return { label: "ASTRA", light: "border-slate-300 bg-slate-50 text-slate-700", dark: "border-white/20 bg-white/10 text-white/80" };
+}
+
 export default function SimulatorPage() {
   const [theme, setTheme] = useState("dark");
   const [profile, setProfile] = useState(createDefaultProfile());
@@ -974,6 +984,9 @@ export default function SimulatorPage() {
           avgBuy: Number(h.avgBuy || 0),
           currentPrice: Number(q?.price || h.avgBuy || 0),
           percentChange: Number(q?.percentChange || 0),
+          stopLoss: Number(h?.stopLoss || 0),
+          takeProfit: Number(h?.takeProfit || 0),
+          buyDate: h?.firstBuyAt ? new Date(Number(h.firstBuyAt)).toISOString() : null,
         };
       });
       const res = await fetch("/api/simulator-autopilot", {
@@ -1016,6 +1029,8 @@ export default function SimulatorPage() {
           entryPrice: Number(decision?.entry_price || decision?.entryPrice || executed.price || 0),
           stopLoss: Number(decision?.stop_loss || decision?.stopLoss || 0),
           takeProfit: Number(decision?.take_profit || decision?.takeProfit || 0),
+          strategy: String(decision?.strategy || "").toLowerCase(),
+          holdDays: Number(decision?.holdDays || 0),
         };
         decisionLogEntries.push(logEntry);
         if (executed.action === "BUY" || executed.action === "SELL") didTrade = true;
@@ -1315,6 +1330,9 @@ export default function SimulatorPage() {
             weight_volatility: 0.07,
             weight_range: 0.03,
             user_risk_level: riskPolicy.level,
+            strategy_name: "manual",
+            strategy_conviction: 0,
+            hold_days_target: 0,
             reasoning: "Manual simulator trade",
             confidence: 0,
             stop_loss: tradeMode === "BUY" ? Number(nextProfile?.holdings?.[mapKey]?.stopLoss || null) : null,
@@ -1523,14 +1541,15 @@ export default function SimulatorPage() {
                           {d.action}
                         </span>
                         <span className="font-semibold">{d.symbol}</span>
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold border ${isLight ? getStrategyBadge(d.strategy).light : getStrategyBadge(d.strategy).dark}`}>{getStrategyBadge(d.strategy).label}</span>
                         <span className={`text-xs ${isLight ? "text-slate-500" : "text-white/60"}`}>{new Date(Number(d.ts)).toLocaleString()}</span>
                       </div>
                       <div className={`text-sm ${isLight ? "text-slate-700" : "text-white/85"}`}>
                         ASTRA {d.action} {Number(d.shares || 0).toFixed(normalizeAssetType(d.assetType) === "crypto" ? 6 : 3)} {normalizeAssetType(d.assetType) === "crypto" ? d.symbol : "shares"} at {fmtMoney(d.price)}.
                       </div>
-                      {(d.entryPrice || d.stopLoss || d.takeProfit) && (
+                      {(d.entryPrice || d.stopLoss || d.takeProfit || d.holdDays) && (
                         <div className={`mt-1 text-[11px] ${isLight ? "text-slate-600" : "text-white/70"}`}>
-                          Entry {fmtMoney(d.entryPrice)} | SL {fmtMoney(d.stopLoss)} | TP {fmtMoney(d.takeProfit)}
+                          Stop: {fmtMoney(d.stopLoss)} | Target: {fmtMoney(d.takeProfit)} | Hold: {Number(d.holdDays || 0)} days
                         </div>
                       )}
                       <div className={`mt-1 text-xs ${isLight ? "text-slate-600" : "text-white/70"}`}>
