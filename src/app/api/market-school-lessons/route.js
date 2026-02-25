@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 
 const OPENROUTER_MODEL = "mistralai/mistral-7b-instruct";
 const OPENAI_MODEL = "gpt-4.1-mini";
+const FETCH_TIMEOUT_MS = 9000;
 
 function toNum(v) {
   const n = Number(v);
@@ -28,18 +29,66 @@ function isoToday() {
   return new Date().toISOString().slice(0, 10);
 }
 
+async function fetchWithTimeout(url, init = {}, timeoutMs = FETCH_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...init, cache: "no-store", signal: controller.signal });
+    return res;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function isoYesterday() {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+function normalizeCachedMovers(input) {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((item) => ({
+      symbol: String(item?.symbol || "").trim().toUpperCase(),
+      percentChange: toNum(item?.percentChange),
+      price: toNum(item?.price),
+      date: String(item?.date || "").slice(0, 10),
+    }))
+    .filter((item) => item.symbol && item.percentChange != null)
+    .slice(0, 12);
+}
+
+function normalizeCachedHeadlines(input) {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((item) => {
+      if (typeof item === "string") {
+        return { headline: item.trim(), source: "cached", url: "" };
+      }
+      return {
+        headline: String(item?.headline || "").trim(),
+        source: String(item?.source || "cached"),
+        url: String(item?.url || ""),
+      };
+    })
+    .filter((item) => item.headline)
+    .slice(0, 8);
+}
+
 async function fetchVix() {
   try {
     const url = "https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX?range=5d&interval=1d";
-    const res = await fetch(url, { cache: "no-store" });
+    const res = await fetchWithTimeout(url);
+    if (!res.ok) return { value: null, changePct: null, source: "yahoo", ok: false };
     const data = await res.json().catch(() => ({}));
     const meta = data?.chart?.result?.[0]?.meta || {};
     const value = toNum(meta?.regularMarketPrice ?? meta?.previousClose);
     const prev = toNum(meta?.previousClose);
     const changePct = value != null && prev && prev > 0 ? ((value - prev) / prev) * 100 : null;
-    return { value, changePct };
+    return { value, changePct, source: "yahoo", ok: value != null };
   } catch {
-    return { value: null, changePct: null };
+    return { value: null, changePct: null, source: "yahoo", ok: false };
   }
 }
 
@@ -47,7 +96,8 @@ async function fetchTopMovers() {
   const symbols = ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA", "AMD", "JPM", "XOM", "SPY", "QQQ"];
   try {
     const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols.join(","))}`;
-    const res = await fetch(url, { cache: "no-store" });
+    const res = await fetchWithTimeout(url);
+    if (!res.ok) return [];
     const data = await res.json().catch(() => ({}));
     const rows = Array.isArray(data?.quoteResponse?.result)
       ? data.quoteResponse.result
@@ -58,8 +108,8 @@ async function fetchTopMovers() {
           }))
           .filter((r) => r.symbol && r.percentChange != null)
       : [];
-    const sorted = [...rows].sort((a, b) => Math.abs(b.percentChange) - Math.abs(a.percentChange));
-    return sorted.slice(0, 3);
+    const sorted = [...rows].sort((a, b) => Math.abs(b.percentChange) - Math.abs(a.percentChange)).slice(0, 3);
+    return sorted.map((row) => ({ ...row, date: isoToday() }));
   } catch {
     return [];
   }
@@ -88,7 +138,7 @@ async function fetchTopHeadlines(finnhubKey) {
   if (finnhubKey) {
     try {
       const url = `https://finnhub.io/api/v1/news?category=general&token=${finnhubKey}`;
-      const res = await fetch(url, { cache: "no-store" });
+      const res = await fetchWithTimeout(url);
       const data = await res.json().catch(() => []);
       const rows = Array.isArray(data)
         ? data
@@ -108,7 +158,8 @@ async function fetchTopHeadlines(finnhubKey) {
 
   try {
     const rssUrl = "https://news.google.com/rss/search?q=stock+market+today&hl=en-US&gl=US&ceid=US:en";
-    const rssRes = await fetch(rssUrl, { cache: "no-store" });
+    const rssRes = await fetchWithTimeout(rssUrl);
+    if (!rssRes.ok) return [];
     const xml = await rssRes.text();
     return parseRssHeadlines(xml);
   } catch {
@@ -125,7 +176,7 @@ async function fetchEconomicEvents(finnhubKey) {
     const start = new Date(today.getTime() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const end = new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const url = `https://finnhub.io/api/v1/calendar/economic?from=${start}&to=${end}&token=${finnhubKey}`;
-    const res = await fetch(url, { cache: "no-store" });
+    const res = await fetchWithTimeout(url);
     const data = await res.json().catch(() => ({}));
     const rows = Array.isArray(data?.economicCalendar)
       ? data.economicCalendar
@@ -274,19 +325,51 @@ function sanitizeLessons(rawLessons, snapshot) {
   return normalized.length ? normalized : fallbackLessons(snapshot);
 }
 
-export async function GET() {
+async function handleRequest(req) {
   try {
     const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
     const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
     const llmKey = OPENAI_API_KEY || OPENROUTER_API_KEY;
+    let cachedMovers = [];
+    let cachedHeadlines = [];
 
-    const [vix, movers, headlines, economicEvents] = await Promise.all([
+    try {
+      if (req?.method === "POST") {
+        const body = await req.json().catch(() => ({}));
+        cachedMovers = normalizeCachedMovers(body?.cachedMovers);
+        cachedHeadlines = normalizeCachedHeadlines(body?.cachedHeadlines);
+      }
+    } catch {}
+
+    const [liveVix, liveMovers, liveHeadlines, economicEvents] = await Promise.all([
       fetchVix(),
       fetchTopMovers(),
       fetchTopHeadlines(FINNHUB_API_KEY),
       fetchEconomicEvents(FINNHUB_API_KEY),
     ]);
+
+    const yesterday = isoYesterday();
+    const yesterdayCachedMovers = cachedMovers.filter((row) => row.date === yesterday);
+    const fallbackMovers = yesterdayCachedMovers.length ? yesterdayCachedMovers : cachedMovers;
+    const movers = liveMovers.length ? liveMovers : fallbackMovers.slice(0, 3);
+    const headlines = liveHeadlines.length ? liveHeadlines : cachedHeadlines.slice(0, 5);
+    const vix = liveVix?.value != null
+      ? liveVix
+      : { value: 20, changePct: 0, source: "default", ok: true, isFallback: true };
+
+    const fallbackUsed = {
+      vixDefault: liveVix?.value == null,
+      moversFromCache: !liveMovers.length && movers.length > 0,
+      headlinesFromCache: !liveHeadlines.length && headlines.length > 0,
+    };
+    const diagnostics = {
+      vixLiveAvailable: liveVix?.value != null,
+      moversLiveCount: liveMovers.length,
+      headlinesLiveCount: liveHeadlines.length,
+      cachedMoversCount: cachedMovers.length,
+      cachedHeadlinesCount: cachedHeadlines.length,
+    };
 
     const snapshot = {
       date: isoToday(),
@@ -296,7 +379,7 @@ export async function GET() {
       economicEvents: economicEvents.slice(0, 5),
     };
 
-    const marketSummary = buildMarketSummary(vix, movers, headlines);
+    const marketSummary = buildMarketSummary(vix, movers, headlines) || "Markets are mixed today with neutral volatility.";
 
     let lessons = fallbackLessons(snapshot);
     let provider = "fallback";
@@ -334,7 +417,7 @@ export async function GET() {
       }
 
       try {
-        const resp = await fetch(url, {
+        const resp = await fetchWithTimeout(url, {
           method: "POST",
           headers,
           body: JSON.stringify({
@@ -365,6 +448,8 @@ export async function GET() {
         lessons,
         context: snapshot,
         provider,
+        fallbackUsed,
+        diagnostics,
       },
       { headers: { "cache-control": "no-store, max-age=0" } }
     );
@@ -377,4 +462,12 @@ export async function GET() {
       { status: 500 }
     );
   }
+}
+
+export async function GET(req) {
+  return handleRequest(req);
+}
+
+export async function POST(req) {
+  return handleRequest(req);
 }

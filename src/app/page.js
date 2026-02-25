@@ -559,7 +559,9 @@ const UI_TEXT = {
     sakura: "Sakura",
     azula: "Azula",
     home: "Home",
+    learn: "Learn",
     marketSchool: "Market School",
+    simulator: "Simulator",
     portfolio: "Portfolio",
     about: "About",
     terms: "Terms of Service",
@@ -589,7 +591,9 @@ const UI_TEXT = {
     sakura: "Sakura",
     azula: "Azula",
     home: "Inicio",
+    learn: "Aprender",
     marketSchool: "Market School",
+    simulator: "Simulador",
     portfolio: "Portafolio",
     about: "Acerca de",
     terms: "Terminos de servicio",
@@ -619,7 +623,9 @@ const UI_TEXT = {
     sakura: "Sakura",
     azula: "Azula",
     home: "Accueil",
+    learn: "Learn",
     marketSchool: "Market School",
+    simulator: "Simulateur",
     portfolio: "Portefeuille",
     about: "A propos",
     terms: "Conditions d'utilisation",
@@ -649,7 +655,9 @@ const UI_TEXT = {
     sakura: "सकुरा",
     azula: "अज़ूला",
     home: "होम",
+    learn: "लर्न",
     marketSchool: "मार्केट स्कूल",
+    simulator: "सिम्युलेटर",
     portfolio: "पोर्टफोलियो",
     about: "अबाउट",
     terms: "सेवा की शर्तें",
@@ -1196,6 +1204,8 @@ export default function Home() {
     assetMode === "crypto" ? overviewCryptoIds : assetMode === "metals" ? overviewMetalsIds : assetMode === "fx" ? ["USD/EUR", "USD/GBP", "USD/JPY"] : overviewStockTickers;
   const [overview, setOverview] = useState([]);
   const [overviewSparklines, setOverviewSparklines] = useState({});
+  const [simulatorReturnPct, setSimulatorReturnPct] = useState(null);
+  const [simulatorAutoPilotActive, setSimulatorAutoPilotActive] = useState(false);
   const [fundamentals, setFundamentals] = useState(null);
 
   // Chart
@@ -1262,6 +1272,34 @@ export default function Home() {
   useEffect(() => {
     localStorage.setItem("search_history", JSON.stringify(searchHistory.slice(0, 8)));
   }, [searchHistory]);
+
+  useEffect(() => {
+    const loadSimulatorBadge = () => {
+      try {
+        const raw = localStorage.getItem("simulator_nav_snapshot_v1");
+        const parsed = raw ? JSON.parse(raw) : {};
+        const pct = Number(parsed?.returnPct);
+        setSimulatorReturnPct(Number.isFinite(pct) ? pct : null);
+        setSimulatorAutoPilotActive(Boolean(parsed?.autoPilotActive));
+      } catch {
+        setSimulatorReturnPct(null);
+        setSimulatorAutoPilotActive(false);
+      }
+    };
+    loadSimulatorBadge();
+    const onStorage = (event) => {
+      if (!event || event.key === "simulator_nav_snapshot_v1") loadSimulatorBadge();
+    };
+    const onSimulatorUpdate = () => loadSimulatorBadge();
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("simulator-updated", onSimulatorUpdate);
+    const timer = setInterval(loadSimulatorBadge, 5000);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("simulator-updated", onSimulatorUpdate);
+      clearInterval(timer);
+    };
+  }, []);
 
   useEffect(() => {
     localStorage.setItem("theme_mode", theme);
@@ -4227,6 +4265,17 @@ export default function Home() {
             >
               {t("marketSchool")}
             </Link>
+            <Link
+              href="/simulator"
+              onClick={closeParentDropdown}
+              className={`px-3 py-1.5 rounded-lg border text-xs ${
+                isLight
+                  ? "border-slate-300 bg-white/90 text-slate-700 hover:bg-slate-100"
+                  : "border-white/15 bg-slate-900/60 text-white/85 hover:bg-slate-800/70"
+              }`}
+            >
+              {t("simulator")}
+            </Link>
             {authUser && (
               <Link
                 href="/portfolio"
@@ -4652,6 +4701,35 @@ export default function Home() {
             >
               {t("fx")}
             </button>
+            <Link
+              href="/market-school"
+              className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${
+                isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"
+              }`}
+            >
+              {t("learn")}
+            </Link>
+            <Link
+              href="/simulator"
+              className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center gap-1 ${
+                isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"
+              }`}
+            >
+              {t("simulator")}
+              {simulatorAutoPilotActive && <span title="Auto-Pilot active">🤖</span>}
+              {Number.isFinite(simulatorReturnPct) && (
+                <span
+                  className={`rounded-full px-1.5 py-[2px] text-[10px] font-semibold ${
+                    simulatorReturnPct >= 0
+                      ? isLight ? "bg-emerald-100 text-emerald-700" : "bg-emerald-500/20 text-emerald-300"
+                      : isLight ? "bg-rose-100 text-rose-700" : "bg-rose-500/20 text-rose-300"
+                  }`}
+                >
+                  {simulatorReturnPct >= 0 ? "+" : ""}
+                  {simulatorReturnPct.toFixed(1)}%
+                </span>
+              )}
+            </Link>
             <button
               onClick={() => setAssetMode("news")}
               className={`px-3 py-1.5 text-xs font-semibold ${

@@ -134,6 +134,73 @@ function computeStreak(activityDays) {
   return streak;
 }
 
+function readHeadlineFallbackFromOtherPages() {
+  const out = [];
+  try {
+    const raw = localStorage.getItem("headline_impact_cache_v1");
+    const parsed = raw ? JSON.parse(raw) : {};
+    if (parsed && typeof parsed === "object") {
+      Object.keys(parsed).forEach((headline) => {
+        const clean = String(headline || "").trim();
+        if (clean) out.push({ headline: clean, source: "cached-headline-impact" });
+      });
+    }
+  } catch {}
+  return out.slice(0, 5);
+}
+
+function readMoversCache() {
+  try {
+    const raw = localStorage.getItem("market_school_movers_cache_v1");
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeMoversCache(movers) {
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const normalized = Array.isArray(movers)
+      ? movers
+          .map((row) => ({
+            symbol: String(row?.symbol || "").toUpperCase(),
+            percentChange: Number(row?.percentChange),
+            price: Number(row?.price),
+            date: String(row?.date || today).slice(0, 10),
+          }))
+          .filter((row) => row.symbol)
+      : [];
+    if (normalized.length) localStorage.setItem("market_school_movers_cache_v1", JSON.stringify(normalized));
+  } catch {}
+}
+
+function writeHeadlinesCache(headlines) {
+  try {
+    const normalized = Array.isArray(headlines)
+      ? headlines
+          .map((row) => ({
+            headline: String(row?.headline || "").trim(),
+            source: String(row?.source || "cached"),
+            url: String(row?.url || ""),
+          }))
+          .filter((row) => row.headline)
+      : [];
+    if (normalized.length) localStorage.setItem("market_school_headlines_cache_v1", JSON.stringify(normalized.slice(0, 8)));
+  } catch {}
+}
+
+function readHeadlinesCache() {
+  try {
+    const raw = localStorage.getItem("market_school_headlines_cache_v1");
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 function splitWithGlossary(text, termMap, onTermClick, keyPrefix) {
   const source = String(text || "");
   if (!source) return null;
@@ -203,12 +270,28 @@ export default function MarketSchoolPage() {
     else setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/market-school-lessons", { cache: "no-store" });
+      const cachedMovers = readMoversCache();
+      const cachedHeadlines = [
+        ...readHeadlinesCache(),
+        ...readHeadlineFallbackFromOtherPages(),
+      ]
+        .filter((item) => item?.headline)
+        .slice(0, 8);
+      const res = await fetch("/api/market-school-lessons", {
+        method: "POST",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cachedMovers,
+          cachedHeadlines,
+        }),
+      });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(data?.error || `Failed to load lessons (${res.status})`);
       }
-      setLessons(Array.isArray(data?.lessons) ? data.lessons : []);
+      const nextLessons = Array.isArray(data?.lessons) ? data.lessons : [];
+      setLessons(nextLessons);
       setSnapshotDate(String(data?.date || ""));
       setMarketSummary(String(data?.marketSummary || "Today's market offers practical lessons in risk and context."));
       setMarketContext({
@@ -218,8 +301,13 @@ export default function MarketSchoolPage() {
         economicEvents: Array.isArray(data?.context?.economicEvents) ? data.context.economicEvents : [],
       });
       setProvider(String(data?.provider || ""));
+      writeMoversCache(data?.context?.movers);
+      writeHeadlinesCache(data?.context?.headlines);
+      if (!nextLessons.length) {
+        setError("Unable to load today's lessons, try refreshing");
+      }
     } catch (err) {
-      setError(String(err?.message || "Failed to load market school"));
+      setError("Unable to load today's lessons, try refreshing");
     } finally {
       if (silent) setRefreshing(false);
       else setLoading(false);
@@ -391,7 +479,7 @@ export default function MarketSchoolPage() {
             Today's market is your classroom
           </p>
           <div className={`mt-4 rounded-xl border px-4 py-3 text-sm ${isLight ? "border-slate-200 bg-slate-50 text-slate-700" : "border-white/12 bg-white/[0.03] text-white/85"}`}>
-            {marketSummary || "Loading today's market context..."}
+            {loading ? "Loading today's market context..." : marketSummary || "Unable to load today's lessons, try refreshing"}
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <span className={`rounded-full border px-2 py-1 text-[11px] ${isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/20 bg-white/10 text-white/85"}`}>
