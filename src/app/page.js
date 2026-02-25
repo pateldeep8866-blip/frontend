@@ -458,6 +458,23 @@ function relationColor(kind, isLight) {
   return isLight ? "#d1d5db" : "#334155";
 }
 
+function buildSparklinePolyline(values, width = 60, height = 30, pad = 2) {
+  const nums = values.map((v) => Number(v)).filter((v) => Number.isFinite(v));
+  if (nums.length < 2) return "";
+  const min = Math.min(...nums);
+  const max = Math.max(...nums);
+  const span = max - min || 1;
+  const w = width - pad * 2;
+  const h = height - pad * 2;
+  return nums
+    .map((v, i) => {
+      const x = pad + (i / (nums.length - 1)) * w;
+      const y = pad + (1 - (v - min) / span) * h;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+}
+
 function getSessionStatus(session, now = new Date()) {
   const weekdayMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -1066,6 +1083,8 @@ export default function Home() {
   const [sectorInfo, setSectorInfo] = useState(null);
   const [compareInput, setCompareInput] = useState("AAPL,MSFT,NVDA");
   const [compareRows, setCompareRows] = useState([]);
+  const [compareError, setCompareError] = useState("");
+  const [compareInvalidTickers, setCompareInvalidTickers] = useState([]);
   const [compareLoading, setCompareLoading] = useState(false);
   const [fxFrom, setFxFrom] = useState("USD");
   const [fxTo, setFxTo] = useState("INR");
@@ -1172,6 +1191,7 @@ export default function Home() {
   const overviewTickers =
     assetMode === "crypto" ? overviewCryptoIds : assetMode === "metals" ? overviewMetalsIds : assetMode === "fx" ? ["USD/EUR", "USD/GBP", "USD/JPY"] : overviewStockTickers;
   const [overview, setOverview] = useState([]);
+  const [overviewSparklines, setOverviewSparklines] = useState({});
   const [fundamentals, setFundamentals] = useState(null);
 
   // Chart
@@ -2083,23 +2103,60 @@ export default function Home() {
   async function runComparison() {
     if (assetMode === "fx" || assetMode === "news" || assetMode === "globalmarket" || assetMode === "geopolitics") {
       setCompareRows([]);
+      setCompareInvalidTickers([]);
+      setCompareError("");
       return;
     }
-    const syms = compareInput
+    const syms = Array.from(
+      new Set(
+        compareInput
       .split(",")
       .map((s) => s.trim().toUpperCase())
       .filter(Boolean)
-      .slice(0, 5);
-    if (!syms.length) return;
+      )
+    ).slice(0, 8);
+    if (!syms.length) {
+      setCompareRows([]);
+      setCompareInvalidTickers([]);
+      setCompareError("Enter at least one valid ticker (for example: AAPL,MSFT,NVDA).");
+      return;
+    }
 
     try {
       setCompareLoading(true);
+      setCompareError("");
+      setCompareInvalidTickers([]);
+
+      if (assetMode === "stock") {
+        const res = await fetch(`/api/compare-stocks?symbols=${encodeURIComponent(syms.join(","))}`);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setCompareRows([]);
+          setCompareError(data?.error || `Comparison failed (${res.status}).`);
+          return;
+        }
+        const rows = Array.isArray(data?.rows) ? data.rows : [];
+        const validRows = rows.filter((r) => r?.valid);
+        const invalidRows = Array.isArray(data?.invalid) ? data.invalid : rows.filter((r) => !r?.valid);
+        setCompareRows(validRows);
+        setCompareInvalidTickers(invalidRows);
+        if (!validRows.length && invalidRows.length) {
+          setCompareError(`No valid tickers found. Invalid: ${invalidRows.map((x) => x.symbol).join(", ")}`);
+        } else if (invalidRows.length) {
+          setCompareError(`Some tickers were invalid: ${invalidRows.map((x) => x.symbol).join(", ")}`);
+        }
+        return;
+      }
+
       const rows = await Promise.all(
         syms.map(async (symbol) => {
           if (assetMode === "crypto") {
             const qRes = await fetch(`/api/crypto-quote?symbol=${encodeURIComponent(symbol)}`);
             const q = await qRes.json().catch(() => ({}));
             const price = Number(q?.price);
+            if (!qRes.ok || !Number.isFinite(price)) {
+              return { symbol, valid: false, error: "Invalid ticker" };
+            }
             const percentChange = Number(q?.percentChange);
             const change = Number.isFinite(Number(q?.change))
               ? Number(q?.change)
@@ -2108,6 +2165,7 @@ export default function Home() {
                 : null;
             return {
               symbol: q?.symbol || symbol,
+              valid: true,
               name: q?.name || symbol,
               price,
               change,
@@ -2124,10 +2182,15 @@ export default function Home() {
           if (assetMode === "metals") {
             const qRes = await fetch(`/api/metals-quote?symbol=${encodeURIComponent(symbol)}`);
             const q = await qRes.json().catch(() => ({}));
+            const price = Number(q?.price);
+            if (!qRes.ok || !Number.isFinite(price)) {
+              return { symbol, valid: false, error: "Invalid ticker" };
+            }
             return {
               symbol: q?.symbol || symbol,
+              valid: true,
               name: q?.name || symbol,
-              price: q?.price,
+              price,
               change: q?.change,
               percentChange: q?.percentChange,
               peRatio: null,
@@ -2147,25 +2210,41 @@ export default function Home() {
           const q = await quoteRes.json().catch(() => ({}));
           const m = await metricRes.json().catch(() => ({}));
           const p = await profileRes.json().catch(() => ({}));
+          const price = Number(q?.price);
+
+          if (!quoteRes.ok || !Number.isFinite(price)) {
+            return { symbol, valid: false, error: "Invalid ticker" };
+          }
 
           return {
             symbol,
+            valid: true,
             name: p?.name || symbol,
-            price: q?.price,
+            price,
             change: q?.change,
             percentChange: q?.percentChange,
             peRatio: m?.peRatio,
             marketCap: p?.marketCapitalization ? Number(p.marketCapitalization) * 1e6 : null,
-            volume: null,
+            volume: q?.volume,
             week52High: m?.week52High,
             week52Low: m?.week52Low,
             sector: p?.sector || p?.finnhubIndustry || "—",
           };
         })
       );
-      setCompareRows(rows);
+      const validRows = rows.filter((r) => r?.valid);
+      const invalidRows = rows.filter((r) => !r?.valid);
+      setCompareRows(validRows);
+      setCompareInvalidTickers(invalidRows);
+      if (!validRows.length && invalidRows.length) {
+        setCompareError(`No valid tickers found. Invalid: ${invalidRows.map((x) => x.symbol).join(", ")}`);
+      } else if (invalidRows.length) {
+        setCompareError(`Some tickers were invalid: ${invalidRows.map((x) => x.symbol).join(", ")}`);
+      }
     } catch {
       setCompareRows([]);
+      setCompareInvalidTickers([]);
+      setCompareError("Comparison failed. Please try again.");
     } finally {
       setCompareLoading(false);
     }
@@ -2315,6 +2394,50 @@ export default function Home() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assetMode]);
+
+  useEffect(() => {
+    if (assetMode !== "stock") {
+      setOverviewSparklines({});
+      return;
+    }
+    const symbols = Array.from(
+      new Set(
+        overview
+          .map((o) => String(o?.symbol || "").trim().toUpperCase())
+          .filter(Boolean)
+      )
+    ).slice(0, 20);
+    if (!symbols.length) return;
+
+    let cancelled = false;
+    (async () => {
+      const rows = await Promise.all(
+        symbols.map(async (symbol) => {
+          try {
+            const res = await fetch(`/api/history?symbol=${encodeURIComponent(symbol)}`);
+            const data = await res.json().catch(() => ({}));
+            const values = Array.isArray(data?.points)
+              ? data.points
+                  .slice(-7)
+                  .map((p) => Number(p?.close))
+                  .filter((v) => Number.isFinite(v))
+              : [];
+            if (values.length < 2) return [symbol, { values: [], up: null }];
+            return [symbol, { values, up: values[values.length - 1] >= values[0] }];
+          } catch {
+            return [symbol, { values: [], up: null }];
+          }
+        })
+      );
+      if (!cancelled) {
+        setOverviewSparklines((prev) => ({ ...prev, ...Object.fromEntries(rows) }));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [assetMode, overview]);
 
   useEffect(() => {
     fetchDayTraderPick();
@@ -4901,38 +5024,81 @@ export default function Home() {
                 }`}
                 style={isMetalsMode ? undefined : { animationDuration: `${Math.max(18, overview.length * 4)}s` }}
               >
-                {(isMetalsMode ? overview : overviewLoop).map((o, idx) => (
-                  <button
-                    type="button"
-                    key={`${o.symbol}-${idx}`}
-                    onClick={() => handleQuickSelect(o.symbol)}
-                    title={`Open ${o.symbol}`}
-                    className={`${isMetalsMode ? "w-full min-h-[180px] md:min-h-[200px] p-5" : isFxMode ? "w-36 p-3" : "w-28 p-3"} shrink-0 rounded-xl text-left transition-all duration-200 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-blue-500/40 ${
-                    isLight
-                      ? "bg-white/92 border border-sky-200/70 shadow-[0_10px_22px_-18px_rgba(56,189,248,0.35)]"
-                      : "bg-slate-900/70 border border-white/10 shadow-[0_6px_20px_-16px_rgba(14,165,233,0.7)]"
-                  }`}>
-                  <div className={`${isMetalsMode ? "text-3xl" : isFxMode ? "text-lg" : "text-sm"} font-semibold leading-tight`}>{isMetalsMode ? (o.name || metalNameBySymbol[o.symbol] || o.symbol) : o.symbol}</div>
-                  {isMetalsMode && (
-                    <div className={`text-base mt-1 ${isLight ? "text-slate-500" : "text-slate-400"}`}>{o.symbol}</div>
-                  )}
-                  {isFxMode && (
-                    <div className={`text-[11px] mt-1 ${isLight ? "text-slate-500" : "text-slate-400"}`}>{o.name || ""}</div>
-                  )}
-                  <div className={`${isMetalsMode ? "text-2xl mt-5" : isFxMode ? "text-sm mt-2" : "text-xs"} ${isLight ? "text-slate-700" : "text-slate-300/85"}`}>
-                    {fmt(o.price) != null ? `${isFxMode ? Number(o.price).toFixed(4) : `$${Number(o.price).toFixed(2)}`}` : "—"}
-                  </div>
-                  {!isMetalsMode && (
-                    <div
-                      className={`${isFxMode ? "text-xs" : "text-xs"} ${
-                        fmt(o.percent) == null ? (isLight ? "text-slate-500" : "text-slate-400") : o.percent >= 0 ? (isLight ? "text-emerald-600" : "text-green-300") : (isLight ? "text-rose-600" : "text-red-300")
-                      }`}
-                    >
-                      {fmt(o.percent) != null ? `${o.percent >= 0 ? "+" : ""}${Number(o.percent).toFixed(2)}%` : (isFxMode ? "Live FX" : "—")}
+                {(isMetalsMode ? overview : overviewLoop).map((o, idx) => {
+                  const sparkKey = String(o?.symbol || "").trim().toUpperCase();
+                  const sparkInfo = overviewSparklines[sparkKey] || null;
+                  const sparkValues = Array.isArray(sparkInfo?.values) ? sparkInfo.values : [];
+                  const sparkPoints = sparkValues.length >= 2 ? buildSparklinePolyline(sparkValues, 60, 30, 2) : "";
+                  const sparkStroke =
+                    sparkInfo?.up == null
+                      ? isLight
+                        ? "#64748b"
+                        : "#94a3b8"
+                      : sparkInfo.up
+                        ? "#22c55e"
+                        : "#ef4444";
+
+                  return (
+                    <button
+                      type="button"
+                      key={`${o.symbol}-${idx}`}
+                      onClick={() => handleQuickSelect(o.symbol)}
+                      title={`Open ${o.symbol}`}
+                      className={`${isMetalsMode ? "w-full min-h-[180px] md:min-h-[200px] p-5" : isFxMode ? "w-36 p-3" : "w-28 p-3"} shrink-0 rounded-xl text-left transition-all duration-200 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-blue-500/40 ${
+                      isLight
+                        ? "bg-white/92 border border-sky-200/70 shadow-[0_10px_22px_-18px_rgba(56,189,248,0.35)]"
+                        : "bg-slate-900/70 border border-white/10 shadow-[0_6px_20px_-16px_rgba(14,165,233,0.7)]"
+                    }`}>
+                    <div className={`${isMetalsMode ? "text-3xl" : isFxMode ? "text-lg" : "text-sm"} font-semibold leading-tight`}>{isMetalsMode ? (o.name || metalNameBySymbol[o.symbol] || o.symbol) : o.symbol}</div>
+                    {isMetalsMode && (
+                      <div className={`text-base mt-1 ${isLight ? "text-slate-500" : "text-slate-400"}`}>{o.symbol}</div>
+                    )}
+                    {isFxMode && (
+                      <div className={`text-[11px] mt-1 ${isLight ? "text-slate-500" : "text-slate-400"}`}>{o.name || ""}</div>
+                    )}
+                    <div className={`${isMetalsMode ? "text-2xl mt-5" : isFxMode ? "text-sm mt-2" : "text-xs"} ${isLight ? "text-slate-700" : "text-slate-300/85"}`}>
+                      {fmt(o.price) != null ? `${isFxMode ? Number(o.price).toFixed(4) : `$${Number(o.price).toFixed(2)}`}` : "—"}
                     </div>
-                  )}
-                </button>
-              ))}
+                    {!isMetalsMode && (
+                      <div
+                        className={`${isFxMode ? "text-xs" : "text-xs"} ${
+                          fmt(o.percent) == null ? (isLight ? "text-slate-500" : "text-slate-400") : o.percent >= 0 ? (isLight ? "text-emerald-600" : "text-green-300") : (isLight ? "text-rose-600" : "text-red-300")
+                        }`}
+                      >
+                        {fmt(o.percent) != null ? `${o.percent >= 0 ? "+" : ""}${Number(o.percent).toFixed(2)}%` : (isFxMode ? "Live FX" : "—")}
+                      </div>
+                    )}
+                    {assetMode === "stock" && !isMetalsMode && !isFxMode && (
+                      <div className="mt-2 h-[30px] w-[60px]">
+                        {sparkPoints ? (
+                          <svg
+                            width="60"
+                            height="30"
+                            viewBox="0 0 60 30"
+                            aria-hidden="true"
+                            className="block"
+                          >
+                            <polyline
+                              fill="none"
+                              stroke={sparkStroke}
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              points={sparkPoints}
+                            />
+                          </svg>
+                        ) : (
+                          <div
+                            className={`h-[30px] w-[60px] rounded-md animate-pulse ${
+                              isLight ? "bg-slate-200/80" : "bg-white/10"
+                            }`}
+                          />
+                        )}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
               </div>
             </div>
           </Card>
@@ -5454,11 +5620,21 @@ export default function Home() {
                 className="flex-1 px-4 py-2 rounded-xl bg-white text-black border-2 border-white/20 outline-none"
               />
             </div>
+            {compareError && (
+              <div className={`mb-3 rounded-lg border px-3 py-2 text-xs ${isLight ? "border-rose-300 bg-rose-50 text-rose-700" : "border-rose-400/30 bg-rose-500/10 text-rose-200"}`}>
+                {compareError}
+              </div>
+            )}
+            {compareInvalidTickers.length > 0 && (
+              <div className={`mb-3 rounded-lg border px-3 py-2 text-xs ${isLight ? "border-amber-300 bg-amber-50 text-amber-700" : "border-amber-400/30 bg-amber-500/10 text-amber-200"}`}>
+                Invalid tickers: {compareInvalidTickers.map((x) => x.symbol).join(", ")}
+              </div>
+            )}
 
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
-                <thead className="text-white/60">
-                  <tr className="text-left border-b border-white/10">
+                <thead className={isLight ? "text-slate-500" : "text-white/60"}>
+                  <tr className={`text-left ${isLight ? "border-b border-slate-200" : "border-b border-white/10"}`}>
                     <th className="py-2 pr-2">Ticker</th>
                     <th className="py-2 pr-2">Name</th>
                     <th className="py-2 pr-2">Price</th>
@@ -5472,15 +5648,41 @@ export default function Home() {
                   </tr>
                 </thead>
                 <tbody>
-                  {compareRows.map((r) => (
-                    <tr key={r.symbol} className="border-b border-white/5">
+                  {compareLoading &&
+                    Array.from({ length: Math.max(3, Math.min(6, compareInput.split(",").map((s) => s.trim()).filter(Boolean).length || 3)) }, (_, i) => (
+                      <tr key={`skeleton-${i}`} className={`animate-pulse ${isLight ? "border-b border-slate-100" : "border-b border-white/5"}`}>
+                        {Array.from({ length: 10 }, (_, j) => (
+                          <td key={`sk-${i}-${j}`} className="py-2 pr-2">
+                            <div className={`h-3.5 rounded ${isLight ? "bg-slate-200" : "bg-white/10"}`} />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  {!compareLoading && compareRows.map((r) => (
+                    <tr key={r.symbol} className={isLight ? "border-b border-slate-100" : "border-b border-white/5"}>
                       <td className="py-2 pr-2 font-semibold">{r.symbol}</td>
-                      <td className="py-2 pr-2 text-white/80">{r.name || "—"}</td>
+                      <td className={`py-2 pr-2 ${isLight ? "text-slate-700" : "text-white/80"}`}>{r.name || "—"}</td>
                       <td className="py-2 pr-2">{fmt(r.price) != null ? `$${Number(r.price).toFixed(2)}` : "—"}</td>
-                      <td className={`py-2 pr-2 ${Number(r.change) >= 0 ? "text-green-300" : "text-red-300"}`}>
+                      <td
+                        className={`py-2 pr-2 ${
+                          fmt(r.change) == null
+                            ? isLight ? "text-slate-500" : "text-white/60"
+                            : Number(r.change) >= 0
+                              ? isLight ? "text-emerald-600" : "text-green-300"
+                              : isLight ? "text-rose-600" : "text-red-300"
+                        }`}
+                      >
                         {fmt(r.change) != null ? `${Number(r.change) >= 0 ? "+" : ""}${Number(r.change).toFixed(2)}` : "—"}
                       </td>
-                      <td className={`py-2 pr-2 ${Number(r.percentChange) >= 0 ? "text-green-300" : "text-red-300"}`}>
+                      <td
+                        className={`py-2 pr-2 ${
+                          fmt(r.percentChange) == null
+                            ? isLight ? "text-slate-500" : "text-white/60"
+                            : Number(r.percentChange) >= 0
+                              ? isLight ? "text-emerald-600" : "text-green-300"
+                              : isLight ? "text-rose-600" : "text-red-300"
+                        }`}
+                      >
                         {fmt(r.percentChange) != null
                           ? `${Number(r.percentChange) >= 0 ? "+" : ""}${Number(r.percentChange).toFixed(2)}%`
                           : "—"}
@@ -5496,6 +5698,13 @@ export default function Home() {
                       <td className="py-2 pr-2">{r.sector || "—"}</td>
                     </tr>
                   ))}
+                  {!compareLoading && compareRows.length === 0 && (
+                    <tr>
+                      <td colSpan={10} className={`py-4 text-center ${isLight ? "text-slate-500" : "text-white/60"}`}>
+                        Enter tickers and click Compare to load results.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
