@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 
 const STARTING_CASH = 100000;
@@ -49,6 +49,13 @@ const CRYPTO_OPTIONS = [
 
 const RESEARCH_ENGINE_API_URL =
   process.env.NEXT_PUBLIC_RESEARCH_ENGINE_URL || "http://localhost:8001/api/research";
+const SIM_RISK_LEVEL_KEY = "simulator_risk_level_v1";
+const SIM_RISK_CUSTOM_KEY = "simulator_risk_custom_v1";
+const RISK_PRESETS = {
+  CONSERVATIVE: { maxPositionPct: 0.05, maxCryptoPct: 0, minCashReservePct: 0.2, allowCrypto: false, target: "8-15%" },
+  MODERATE: { maxPositionPct: 0.15, maxCryptoPct: 0.08, minCashReservePct: 0.12, allowCrypto: true, target: "15-25%" },
+  AGGRESSIVE: { maxPositionPct: 0.2, maxCryptoPct: 0.2, minCashReservePct: 0.08, allowCrypto: true, target: "25%+" },
+};
 
 function toNum(v) {
   const n = Number(v);
@@ -74,6 +81,22 @@ function normalizeAssetType(value) {
 function holdingKey(assetType, symbol) {
   const type = normalizeAssetType(assetType);
   return `${type}:${String(symbol || "").toUpperCase().trim()}`;
+}
+
+function resolveRiskPolicy(level, custom) {
+  const k = String(level || "MODERATE").toUpperCase();
+  if (k === "CUSTOM") {
+    return {
+      level: "CUSTOM",
+      maxPositionPct: Math.max(0.01, Math.min(0.3, Number(custom?.maxPositionPct || 0.12))),
+      maxCryptoPct: Math.max(0, Math.min(0.3, Number(custom?.maxCryptoPct || 0.1))),
+      minCashReservePct: Math.max(0.02, Math.min(0.4, Number(custom?.minCashReservePct || 0.1))),
+      allowCrypto: Number(custom?.maxCryptoPct || 0.1) > 0,
+      target: String(custom?.target || "Custom"),
+    };
+  }
+  const preset = RISK_PRESETS[k] || RISK_PRESETS.MODERATE;
+  return { level: k in RISK_PRESETS ? k : "MODERATE", ...preset };
 }
 
 function createDefaultProfile() {
@@ -244,6 +267,17 @@ export default function SimulatorPage() {
   const [deepResearchError, setDeepResearchError] = useState("");
   const [deepResearchData, setDeepResearchData] = useState(null);
   const [cryptoLessonNotice, setCryptoLessonNotice] = useState("");
+  const [riskLevel, setRiskLevel] = useState("MODERATE");
+  const [customRisk, setCustomRisk] = useState({ maxPositionPct: 0.12, maxCryptoPct: 0.1, minCashReservePct: 0.1, target: "Custom" });
+  const [quantStatus, setQuantStatus] = useState({
+    connected: false,
+    status: "OFFLINE",
+    regime: null,
+    pick: null,
+    universe: 0,
+    message: "⚠ QUANT_LAB: OFFLINE | ASTRA using platform signals only",
+  });
+  const autoExitLockRef = useRef(false);
 
   const isCherry = theme === "cherry";
   const isAzula = theme === "azula";
@@ -259,11 +293,31 @@ export default function SimulatorPage() {
   const cardClass = isLight
     ? "rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-[0_10px_28px_rgba(15,23,42,0.08)]"
     : "rounded-2xl border border-white/12 bg-slate-900/55 p-5";
+  const riskPolicy = useMemo(() => resolveRiskPolicy(riskLevel, customRisk), [riskLevel, customRisk]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SIM_RISK_LEVEL_KEY, String(riskLevel || "MODERATE").toUpperCase());
+    } catch {}
+  }, [riskLevel]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SIM_RISK_CUSTOM_KEY, JSON.stringify(customRisk));
+    } catch {}
+  }, [customRisk]);
 
   useEffect(() => {
     try {
       const saved = localStorage.getItem("theme_mode");
       if (saved === "dark" || saved === "light" || saved === "cherry" || saved === "azula") setTheme(saved);
+      const savedRisk = localStorage.getItem(SIM_RISK_LEVEL_KEY);
+      if (savedRisk) setRiskLevel(String(savedRisk).toUpperCase());
+      const savedCustom = localStorage.getItem(SIM_RISK_CUSTOM_KEY);
+      if (savedCustom) {
+        const parsed = JSON.parse(savedCustom);
+        if (parsed && typeof parsed === "object") setCustomRisk((prev) => ({ ...prev, ...parsed }));
+      }
     } catch {}
     const loaded = readProfile();
     try {
@@ -543,6 +597,91 @@ export default function SimulatorPage() {
     return "";
   }, [selectedTicker, selectedPrice, sharesFromInput, tradeMode, estimatedTradeValue, profile.cash, ownedForSelected, isCryptoTrade]);
 
+  useEffect(() => {
+    if (autoExitLockRef.current) return;
+    const now = Date.now();
+    const triggers = [];
+    for (const h of holdingsArray) {
+      const q = quoteFor(h.assetType, h.symbol);
+      const px = Number(q?.price);
+      if (!Number.isFinite(px) || px <= 0) continue;
+      const stop = Number(h?.stopLoss || 0);
+      const take = Number(h?.takeProfit || 0);
+      if (stop > 0 && px <= stop) {
+        triggers.push({ kind: "stop", symbol: h.symbol, assetType: h.assetType, mapKey: holdingKey(h.assetType, h.symbol), shares: Number(h.shares || 0), price: px });
+      } else if (take > 0 && px >= take && Number(h.shares || 0) > 0) {
+        triggers.push({ kind: "take", symbol: h.symbol, assetType: h.assetType, mapKey: holdingKey(h.assetType, h.symbol), shares: Number(h.shares || 0) * 0.5, price: px });
+      }
+    }
+    if (!triggers.length) return;
+    autoExitLockRef.current = true;
+    setProfile((prev) => {
+      let cash = Number(prev.cash || 0);
+      const holdings = { ...(prev.holdings || {}) };
+      const txs = [...(prev.transactions || [])];
+      const auto = { ...(prev.autoPilot || {}) };
+      const log = [...(Array.isArray(auto.decisionLog) ? auto.decisionLog : [])];
+      for (const t of triggers) {
+        const existing = holdings[t.mapKey];
+        if (!existing) continue;
+        const owned = Number(existing.shares || 0);
+        const qty = t.kind === "stop" ? owned : Math.min(owned, Number(t.shares || 0));
+        if (!Number.isFinite(qty) || qty <= 0) continue;
+        const value = qty * t.price;
+        cash += value;
+        const remain = owned - qty;
+        if (remain <= 1e-8) {
+          delete holdings[t.mapKey];
+        } else {
+          holdings[t.mapKey] = { ...existing, shares: remain, takeProfit: t.kind === "take" ? 0 : Number(existing.takeProfit || 0) };
+        }
+        const stamp = `${now}-${t.symbol}-${t.kind}-${Math.random().toString(36).slice(2, 7)}`;
+        txs.unshift({
+          id: stamp,
+          ts: now,
+          symbol: t.symbol,
+          assetType: t.assetType,
+          action: "SELL",
+          shares: qty,
+          price: t.price,
+          totalValue: value,
+          realizedPnL: (t.price - Number(existing.avgBuy || 0)) * qty,
+          marketClosed: false,
+        });
+        log.unshift({
+          id: `autoexit-${stamp}`,
+          ts: now,
+          action: "SELL",
+          symbol: t.symbol,
+          assetType: t.assetType,
+          shares: qty,
+          price: t.price,
+          totalValue: value,
+          reasoning:
+            t.kind === "stop"
+              ? `ASTRA triggered stop loss on ${t.symbol} at ${fmtMoney(t.price)}. Protected capital from further loss.`
+              : `ASTRA took partial profits on ${t.symbol} at ${fmtMoney(t.price)}. Locking in gains.`,
+          confidence: 84,
+          risk: "LOW",
+          lesson:
+            t.kind === "stop"
+              ? "Stop-loss discipline controls downside risk."
+              : "Taking partial profits reduces risk while keeping upside exposure.",
+        });
+      }
+      if (cash === Number(prev.cash || 0) && Object.keys(holdings).length === Object.keys(prev.holdings || {}).length) {
+        return prev;
+      }
+      auto.decisionLog = log.slice(0, 200);
+      auto.lastActionAt = now;
+      return { ...prev, cash, holdings, transactions: txs.slice(0, 500), autoPilot: auto };
+    });
+    const timer = setTimeout(() => {
+      autoExitLockRef.current = false;
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [holdingsArray, quoteFor]);
+
   const getSpyCloseAt = useCallback(
     (ts) => {
       if (!spyHistory.length) return null;
@@ -752,9 +891,10 @@ export default function SimulatorPage() {
       return sum + px * Number(h?.shares || 0);
     }, 0);
     const totalBefore = cash + holdingsValueBefore;
-    const minCashReserve = Math.max(0, totalBefore * 0.1);
-    const maxSinglePosition = Math.max(0, totalBefore * 0.2);
-    const maxCryptoAllocation = Math.max(0, totalBefore * 0.2);
+    const minCashReserve = Math.max(0, totalBefore * Number(riskPolicy?.minCashReservePct || 0.1));
+    const maxSinglePosition = Math.max(0, totalBefore * Number(riskPolicy?.maxPositionPct || 0.2));
+    const maxCryptoAllocation = Math.max(0, totalBefore * Number(riskPolicy?.maxCryptoPct || 0.2));
+    const maxAssetClass = Math.max(0, totalBefore * 0.5);
     const existing = holdings[key] || {
       symbol,
       assetType,
@@ -767,11 +907,19 @@ export default function SimulatorPage() {
     const currentPosVal = Number(existing.shares || 0) * price;
 
     if (action === "BUY") {
+      if (assetType === "crypto" && !riskPolicy.allowCrypto) return { profile: baseProfile, executed: null };
       const spendCap = Math.max(0, cash - minCashReserve);
       const singleCap = Math.max(0, maxSinglePosition - currentPosVal);
       const cryptoCap =
         assetType === "crypto" ? Math.max(0, maxCryptoAllocation - cryptoValueBefore) : Number.POSITIVE_INFINITY;
-      const allowedValue = Math.min(spendCap, singleCap, cryptoCap);
+      const assetClassValue = Object.values(holdings).reduce((sum, h) => {
+        if (normalizeAssetType(h?.assetType) !== assetType) return sum;
+        const hp = Number(quotes[holdingKey(h?.assetType, h?.symbol)]?.price);
+        const px = Number.isFinite(hp) && hp > 0 ? hp : Number(h?.avgBuy || 0);
+        return sum + px * Number(h?.shares || 0);
+      }, 0);
+      const assetClassCap = Math.max(0, maxAssetClass - assetClassValue);
+      const allowedValue = Math.min(spendCap, singleCap, cryptoCap, assetClassCap);
       const value = sharesRaw * price;
       const execValue = Math.min(value, allowedValue);
       const execShares = price > 0 ? execValue / price : 0;
@@ -785,6 +933,8 @@ export default function SimulatorPage() {
         cryptoId: assetType === "crypto" ? String(existing.cryptoId || trade?.cryptoId || CRYPTO_SYMBOL_TO_ID[symbol] || "") : "",
         shares: totalShares,
         avgBuy,
+        stopLoss: Number(trade?.stop_loss || trade?.stopLoss || existing?.stopLoss || (price * 0.92)),
+        takeProfit: Number(trade?.take_profit || trade?.takeProfit || existing?.takeProfit || (price * 1.12)),
         firstBuyAt: Number(existing.firstBuyAt || Date.now()),
       };
       cash -= execValue;
@@ -814,7 +964,7 @@ export default function SimulatorPage() {
       profile: baseProfile,
       executed: { action: "HOLD", symbol, assetType, shares: 0, price, totalValue: 0, realizedPnL: null },
     };
-  }, [quotes]);
+  }, [quotes, riskPolicy]);
 
   const runAutoPilotCycle = useCallback(async () => {
     if (!autoPilotEnabled || autoRunning) return;
@@ -840,10 +990,26 @@ export default function SimulatorPage() {
         cache: "no-store",
         body: JSON.stringify({
           cash: Number(profile.cash || 0),
+          totalValue: Number(portfolioTotal || 0),
           holdings: holdingsPayload,
+          riskLevel,
+          customRisk,
         }),
       });
       const data = await res.json().catch(() => ({}));
+      setQuantStatus({
+        connected: Boolean(data?.quantEngine?.connected),
+        status: String(data?.quantLabStatus || data?.quantEngine?.status || "OFFLINE"),
+        regime: data?.quantLabRegime || data?.quantEngine?.regime || null,
+        pick: data?.quantLabPick || data?.quantEngine?.pick || null,
+        universe: Number(data?.quantEngine?.universe || 0),
+        message: String(
+          data?.quantEngine?.message ||
+            (Boolean(data?.quantEngine?.connected)
+              ? "⚡ QUANT_LAB: CONNECTED"
+              : "⚠ QUANT_LAB: OFFLINE | ASTRA using platform signals only")
+        ),
+      });
       const decisions = Array.isArray(data?.decisions) ? data.decisions : [];
       const now = Date.now();
       let draft = { ...profile, autoPilot: { ...(profile.autoPilot || {}) } };
@@ -868,6 +1034,14 @@ export default function SimulatorPage() {
           confidence: Math.max(0, Math.min(100, Number(decision?.confidence || 0))),
           risk: String(decision?.risk || "MEDIUM").toUpperCase(),
           lesson: String(decision?.lesson || "Risk management is the core edge in volatile markets."),
+          compositeScore: Number(decision?.composite_score || decision?.compositeScore || 0),
+          quantSignal: String(decision?.quant_signal || decision?.quantSignal || ""),
+          quantBreakdown: decision?.quant_breakdown || null,
+          quantMomentum: Number(decision?.quant_momentum || decision?.quantMomentum || 0),
+          quantMeanReversion: Number(decision?.quant_mean_reversion || decision?.quantMeanReversion || 0),
+          entryPrice: Number(decision?.entry_price || decision?.entryPrice || executed.price || 0),
+          stopLoss: Number(decision?.stop_loss || decision?.stopLoss || 0),
+          takeProfit: Number(decision?.take_profit || decision?.takeProfit || 0),
         };
         decisionLogEntries.push(logEntry);
         if (executed.action === "BUY" || executed.action === "SELL") didTrade = true;
@@ -888,6 +1062,7 @@ export default function SimulatorPage() {
         nextDecisionAt: Number(data?.nextDecisionAt || (now + 24 * 60 * 60 * 1000)),
         watchlist: Array.isArray(data?.watchlist) ? data.watchlist : [],
         outlook: String(data?.outlook || ""),
+        quantEngine: data?.quantEngine || { connected: false, status: "OFFLINE", message: "⚠ QUANT_LAB: OFFLINE | ASTRA using platform signals only" },
         decisionLog: [...decisionLogEntries, ...(Array.isArray(draft.autoPilot?.decisionLog) ? draft.autoPilot.decisionLog : [])].slice(0, 200),
       };
       setProfile(draft);
@@ -903,7 +1078,7 @@ export default function SimulatorPage() {
     } finally {
       setAutoRunning(false);
     }
-  }, [appendModeSnapshot, applySingleTrade, autoPilotEnabled, autoRunning, profile, quotes]);
+  }, [appendModeSnapshot, applySingleTrade, autoPilotEnabled, autoRunning, profile, quotes, riskLevel, customRisk]);
 
   const enableAutoPilot = () => {
     setProfile((prev) => ({
@@ -996,8 +1171,42 @@ export default function SimulatorPage() {
 
       let nextProfile = profile;
       if (tradeMode === "BUY") {
+        if (assetType === "crypto" && !riskPolicy.allowCrypto) {
+          setTradeMessage("Crypto is disabled for the current risk profile.");
+          return;
+        }
         if (value > Number(profile.cash || 0) + 1e-8) {
           setTradeMessage("Insufficient cash for this buy.");
+          return;
+        }
+        const totalBefore = Number(profile.cash || 0) + holdingsMarketValue;
+        const maxPosValue = totalBefore * Number(riskPolicy.maxPositionPct || 0.2);
+        const samePositionValue = (Number(profile.holdings?.[mapKey]?.shares || 0) * Number(profile.holdings?.[mapKey]?.avgBuy || px));
+        if (samePositionValue + value > maxPosValue + 1e-8) {
+          setTradeMessage(`Position exceeds ${Math.round((riskPolicy.maxPositionPct || 0.2) * 100)}% max for ${riskPolicy.level} risk.`);
+          return;
+        }
+        const assetClassValue = Object.values(profile.holdings || {}).reduce((sum, h) => {
+          if (normalizeAssetType(h?.assetType) !== assetType) return sum;
+          const q = Number(quotes[holdingKey(h?.assetType, h?.symbol)]?.price);
+          const pxUse = Number.isFinite(q) && q > 0 ? q : Number(h?.avgBuy || 0);
+          return sum + pxUse * Number(h?.shares || 0);
+        }, 0);
+        if (assetClassValue + value > totalBefore * 0.5 + 1e-8) {
+          setTradeMessage("Trade exceeds 50% asset-class concentration cap.");
+          return;
+        }
+        if (assetType === "crypto") {
+          const totalCrypto = holdingsBreakdown.crypto;
+          const maxCrypto = totalBefore * Number(riskPolicy.maxCryptoPct || 0);
+          if (totalCrypto + value > maxCrypto + 1e-8) {
+            setTradeMessage(`Crypto allocation exceeds ${Math.round((riskPolicy.maxCryptoPct || 0) * 100)}% cap for ${riskPolicy.level} risk.`);
+            return;
+          }
+        }
+        const minCash = totalBefore * Number(riskPolicy.minCashReservePct || 0.1);
+        if (Number(profile.cash || 0) - value < minCash - 1e-8) {
+          setTradeMessage(`Trade breaks minimum cash reserve (${Math.round((riskPolicy.minCashReservePct || 0.1) * 100)}%).`);
           return;
         }
         const existing = profile.holdings[mapKey] || {
@@ -1013,6 +1222,9 @@ export default function SimulatorPage() {
         const avgBuy = totalShares > 0
           ? ((Number(existing.avgBuy || 0) * Number(existing.shares || 0)) + value) / totalShares
           : px;
+        const stopPct = riskPolicy.level === "CONSERVATIVE" ? 0.05 : riskPolicy.level === "AGGRESSIVE" ? 0.12 : 0.08;
+        const stopLoss = px * (1 - stopPct);
+        const takeProfit = px + (px - stopLoss) * 2;
         nextProfile = {
           ...profile,
           cash: Number(profile.cash || 0) - value,
@@ -1026,6 +1238,8 @@ export default function SimulatorPage() {
               cryptoId: assetType === "crypto" ? String(existing.cryptoId || fresh?.cryptoId || selectedCryptoId || CRYPTO_SYMBOL_TO_ID[symbol] || "") : "",
               name: existing.name || fresh?.name || symbol,
               firstBuyAt: Number(existing.firstBuyAt || now),
+              stopLoss,
+              takeProfit,
             },
           },
           transactions: [
@@ -1135,6 +1349,84 @@ export default function SimulatorPage() {
           <div className={`text-xs ${isLight ? "text-slate-500" : "text-white/60"}`}>Trading Simulator</div>
         </div>
 
+        <section className={`${cardClass} mb-6`}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className={`text-xs uppercase tracking-wide ${isLight ? "text-slate-500" : "text-white/60"}`}>Risk Profile</div>
+              <div className="mt-1 flex items-center gap-2">
+                <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
+                  riskPolicy.level === "CONSERVATIVE"
+                    ? isLight ? "border-blue-300 bg-blue-50 text-blue-700" : "border-blue-400/35 bg-blue-500/20 text-blue-200"
+                    : riskPolicy.level === "AGGRESSIVE"
+                      ? isLight ? "border-rose-300 bg-rose-50 text-rose-700" : "border-rose-400/35 bg-rose-500/20 text-rose-200"
+                      : isLight ? "border-amber-300 bg-amber-50 text-amber-700" : "border-amber-400/35 bg-amber-500/20 text-amber-200"
+                }`}>
+                  {riskPolicy.level}
+                </span>
+                <span className={`text-xs ${isLight ? "text-slate-600" : "text-white/75"}`}>Target: {riskPolicy.target}</span>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {["CONSERVATIVE", "MODERATE", "AGGRESSIVE", "CUSTOM"].map((lvl) => (
+                <button
+                  key={lvl}
+                  onClick={() => setRiskLevel(lvl)}
+                  className={`px-2.5 py-1.5 rounded-lg border text-xs ${
+                    riskLevel === lvl ? "bg-blue-600 text-white border-blue-500" : isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/15 bg-white/10 text-white/85"
+                  }`}
+                >
+                  {lvl}
+                </button>
+              ))}
+            </div>
+          </div>
+          {riskLevel === "CUSTOM" && (
+            <div className="mt-3 grid grid-cols-1 md:grid-cols-4 gap-2">
+              <label className="text-xs">
+                <span className={`${isLight ? "text-slate-600" : "text-white/70"}`}>Max Position %</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="30"
+                  value={Math.round(Number(customRisk.maxPositionPct || 0.12) * 100)}
+                  onChange={(e) => setCustomRisk((prev) => ({ ...prev, maxPositionPct: Number(e.target.value || 12) / 100 }))}
+                  className={`mt-1 w-full px-2 py-1 rounded-md border ${isLight ? "border-slate-300 bg-white text-slate-800" : "border-white/15 bg-white/10 text-white"}`}
+                />
+              </label>
+              <label className="text-xs">
+                <span className={`${isLight ? "text-slate-600" : "text-white/70"}`}>Max Crypto %</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="30"
+                  value={Math.round(Number(customRisk.maxCryptoPct || 0.1) * 100)}
+                  onChange={(e) => setCustomRisk((prev) => ({ ...prev, maxCryptoPct: Number(e.target.value || 0) / 100 }))}
+                  className={`mt-1 w-full px-2 py-1 rounded-md border ${isLight ? "border-slate-300 bg-white text-slate-800" : "border-white/15 bg-white/10 text-white"}`}
+                />
+              </label>
+              <label className="text-xs">
+                <span className={`${isLight ? "text-slate-600" : "text-white/70"}`}>Min Cash %</span>
+                <input
+                  type="number"
+                  min="2"
+                  max="40"
+                  value={Math.round(Number(customRisk.minCashReservePct || 0.1) * 100)}
+                  onChange={(e) => setCustomRisk((prev) => ({ ...prev, minCashReservePct: Number(e.target.value || 10) / 100 }))}
+                  className={`mt-1 w-full px-2 py-1 rounded-md border ${isLight ? "border-slate-300 bg-white text-slate-800" : "border-white/15 bg-white/10 text-white"}`}
+                />
+              </label>
+              <label className="text-xs">
+                <span className={`${isLight ? "text-slate-600" : "text-white/70"}`}>Target Label</span>
+                <input
+                  value={String(customRisk.target || "Custom")}
+                  onChange={(e) => setCustomRisk((prev) => ({ ...prev, target: e.target.value }))}
+                  className={`mt-1 w-full px-2 py-1 rounded-md border ${isLight ? "border-slate-300 bg-white text-slate-800" : "border-white/15 bg-white/10 text-white"}`}
+                />
+              </label>
+            </div>
+          )}
+        </section>
+
         {simTab === "manual" && (
         <section className={`${cardClass} mb-6`}>
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1169,6 +1461,7 @@ export default function SimulatorPage() {
           {autoPilotEnabled && (
             <div className={`mt-3 rounded-lg border px-3 py-2 text-xs flex flex-wrap items-center gap-2 ${isLight ? "border-blue-300 bg-blue-50 text-blue-800" : "border-cyan-400/30 bg-cyan-500/12 text-cyan-100"}`}>
               <span>ASTRA is managing your portfolio • Last action: {relativeTime(profile?.autoPilot?.lastActionAt)}</span>
+              <span className={`rounded-full border px-2 py-0.5 ${isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/20 bg-white/10 text-white/85"}`}>Risk: {riskPolicy.level}</span>
               <button
                 onClick={() => {
                   setSimTab("autopilot");
@@ -1180,6 +1473,7 @@ export default function SimulatorPage() {
                 View Latest Decision
               </button>
               {autoRunning && <span className="animate-pulse">Running now...</span>}
+              <span className={`${quantStatus.connected ? "text-emerald-500" : "text-amber-500"}`}>{quantStatus.message}</span>
             </div>
           )}
           {autoMessage && (
@@ -1202,6 +1496,21 @@ export default function SimulatorPage() {
                     {autoRunning ? "Running..." : "Run Now"}
                   </button>
                 </div>
+                <div
+                  className={`mb-3 rounded-lg border px-3 py-2 text-xs ${
+                    quantStatus.connected
+                      ? isLight
+                        ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+                        : "border-emerald-400/35 bg-emerald-500/15 text-emerald-100"
+                      : isLight
+                        ? "border-amber-300 bg-amber-50 text-amber-800"
+                        : "border-amber-400/35 bg-amber-500/15 text-amber-100"
+                  }`}
+                >
+                  {quantStatus.connected
+                    ? `⚡ QUANT_LAB: CONNECTED | Regime: ${String(quantStatus.regime || "UNKNOWN").toUpperCase()} | Pick: ${String(quantStatus.pick || "NONE")} | Universe: ${Number(quantStatus.universe || 0)} tickers analyzed`
+                    : "⚠ QUANT_LAB: OFFLINE | ASTRA using platform signals only"}
+                </div>
                 <div className="space-y-3">
                   {(profile?.autoPilot?.decisionLog || []).slice(0, 30).map((d) => (
                     <article key={d.id} className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/[0.03]"}`}>
@@ -1221,6 +1530,29 @@ export default function SimulatorPage() {
                       <div className={`text-sm ${isLight ? "text-slate-700" : "text-white/85"}`}>
                         ASTRA {d.action} {Number(d.shares || 0).toFixed(normalizeAssetType(d.assetType) === "crypto" ? 6 : 3)} {normalizeAssetType(d.assetType) === "crypto" ? d.symbol : "shares"} at {fmtMoney(d.price)}.
                       </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px]">
+                        <span className={`rounded-full border px-2 py-0.5 ${isLight ? "border-indigo-300 bg-indigo-50 text-indigo-700" : "border-indigo-400/35 bg-indigo-500/20 text-indigo-200"}`}>
+                          Composite: {Number(d.compositeScore || 0).toFixed(0)}/100
+                        </span>
+                        {d.quantSignal && (
+                          <span className={`rounded-full border px-2 py-0.5 ${isLight ? "border-cyan-300 bg-cyan-50 text-cyan-700" : "border-cyan-400/35 bg-cyan-500/20 text-cyan-200"}`}>
+                            Quant: {d.quantSignal}
+                          </span>
+                        )}
+                        {(d.entryPrice || d.stopLoss || d.takeProfit) && (
+                          <span className={`${isLight ? "text-slate-600" : "text-white/70"}`}>
+                            Entry {fmtMoney(d.entryPrice)} | SL {fmtMoney(d.stopLoss)} | TP {fmtMoney(d.takeProfit)}
+                          </span>
+                        )}
+                      </div>
+                      <div className={`mt-1 text-[11px] ${isLight ? "text-slate-700" : "text-white/80"}`}>
+                        QUANT_LAB: {String(d.quantSignal || "NEUTRAL")} | Score: {Number(d.compositeScore || 0).toFixed(0)} | Momentum: {Number(d.quantMomentum || 0).toFixed(3)} | Mean Rev: {Number(d.quantMeanReversion || 0).toFixed(3)} | Entry: {fmtMoney(d.entryPrice)} | Stop: {fmtMoney(d.stopLoss)} | Target: {fmtMoney(d.takeProfit)}
+                      </div>
+                      {d.quantBreakdown && (
+                        <div className={`mt-1 text-[11px] ${isLight ? "text-slate-600" : "text-white/70"}`}>
+                          RSI: {String(d.quantBreakdown?.rsi || "n/a")} • MACD: {String(d.quantBreakdown?.macd || "n/a")} • VWAP: {String(d.quantBreakdown?.vwap || "n/a")}
+                        </div>
+                      )}
                       <div className={`mt-1 text-xs ${isLight ? "text-slate-600" : "text-white/70"}`}>
                         {d.reasoning}
                       </div>
@@ -1248,6 +1580,11 @@ export default function SimulatorPage() {
                       {expandedDecisionId === d.id && (
                         <div className={`mt-2 rounded-md border px-2.5 py-2 text-xs ${isLight ? "border-slate-200 bg-slate-50 text-slate-700" : "border-white/10 bg-white/[0.02] text-white/75"}`}>
                           ASTRA applied position sizing, volatility-aware risk limits, and thesis validation before this action.
+                          {d.quantBreakdown && (
+                            <div className="mt-2">
+                              Quant report: RSI {String(d.quantBreakdown?.rsi || "n/a")}, MACD {String(d.quantBreakdown?.macd || "n/a")}, VWAP {String(d.quantBreakdown?.vwap || "n/a")}.
+                            </div>
+                          )}
                           <div className="mt-1">
                             ASTRA just used a concept you can learn more about →{" "}
                             <Link href="/market-school" className="underline font-semibold">Market School</Link>
@@ -1277,6 +1614,7 @@ export default function SimulatorPage() {
                   )}
                 </div>
                 <div className={`mt-3 text-xs ${isLight ? "text-slate-700" : "text-white/80"}`}>Portfolio risk score: <span className="font-semibold">{portfolioRiskScore}</span></div>
+                <div className={`mt-2 text-xs ${quantStatus.connected ? "text-emerald-500" : "text-amber-500"}`}>{quantStatus.message}</div>
                 <div className={`mt-2 text-xs ${isLight ? "text-slate-700" : "text-white/80"}`}>{profile?.autoPilot?.outlook || "ASTRA outlook will populate after first decision run."}</div>
                 <div className={`mt-2 text-xs ${isLight ? "text-slate-500" : "text-white/60"}`}>Next scheduled decision: {profile?.autoPilot?.nextDecisionAt ? new Date(Number(profile.autoPilot.nextDecisionAt)).toLocaleString() : "Not scheduled"}</div>
               </aside>
@@ -1470,6 +1808,7 @@ export default function SimulatorPage() {
                 setSelectedCryptoId("bitcoin");
                 setTradeInputMode("dollars");
               }}
+              disabled={!riskPolicy.allowCrypto}
               className={`px-3 py-1.5 text-xs ${selectedAssetType === "crypto" ? "bg-blue-600 text-white" : isLight ? "bg-white text-slate-700" : "bg-white/10 text-white/85"}`}
             >
               Crypto
