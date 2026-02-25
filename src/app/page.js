@@ -265,6 +265,13 @@ const LANGUAGE_LABEL_BY_CODE = {
   ru: "Russian",
   ur: "Urdu",
 };
+const GLOBAL_MACRO_INDICATORS = [
+  { key: "vix", label: "VIX", symbol: "^VIX" },
+  { key: "tnx", label: "10Y Yield", symbol: "^TNX" },
+  { key: "dxy", label: "DXY", symbol: "DX-Y.NYB" },
+  { key: "wti", label: "WTI Crude", symbol: "CL=F" },
+  { key: "gold", label: "Gold", symbol: "GC=F" },
+];
 
 function withLocalizedHeadlines(items, language, cache) {
   return items.map((item) => {
@@ -421,6 +428,14 @@ function buildFxSearchSummary(fxResult) {
   const rate = Number(fxResult?.rate);
   if (!Number.isFinite(amount) || !Number.isFinite(converted) || !Number.isFinite(rate)) return "";
   return `${amount.toFixed(2)} ${fxResult.from} converts to ${converted.toFixed(4)} ${fxResult.to} at a rate of ${rate.toFixed(6)}. This is your quick purchasing-power snapshot.`;
+}
+
+function formatMacroIndicatorValue(symbol, value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "—";
+  if (symbol === "^TNX") return `${(n / 10).toFixed(2)}%`;
+  if (symbol === "^VIX") return n.toFixed(2);
+  return n >= 100 ? n.toFixed(2) : n.toFixed(3);
 }
 
 function localizeAiPayloadView(view, language, cache) {
@@ -966,6 +981,8 @@ export default function Home() {
   const [globalWorldLoading, setGlobalWorldLoading] = useState(false);
   const [globalWorldError, setGlobalWorldError] = useState("");
   const [globalMarketPerformance, setGlobalMarketPerformance] = useState({});
+  const [globalMacroRows, setGlobalMacroRows] = useState([]);
+  const [globalMacroLoading, setGlobalMacroLoading] = useState(false);
   const [geoFilter, setGeoFilter] = useState("all");
   const [geoRegionFilter, setGeoRegionFilter] = useState("all");
   const [geoSort, setGeoSort] = useState("impact");
@@ -3569,6 +3586,43 @@ export default function Home() {
   }, [isGlobalMarketMode]);
   useEffect(() => {
     if (!isGlobalMarketMode) return;
+    let cancelled = false;
+    const loadMacro = async () => {
+      try {
+        setGlobalMacroLoading(true);
+        const rows = await Promise.all(
+          GLOBAL_MACRO_INDICATORS.map(async (item) => {
+            try {
+              const res = await fetch(`/api/quote?symbol=${encodeURIComponent(item.symbol)}`, {
+                cache: "no-store",
+                headers: { "cache-control": "no-store" },
+              });
+              const data = await res.json().catch(() => ({}));
+              if (!res.ok) return { ...item, value: null, percentChange: null };
+              return {
+                ...item,
+                value: Number.isFinite(Number(data?.price)) ? Number(data.price) : null,
+                percentChange: Number.isFinite(Number(data?.percentChange)) ? Number(data.percentChange) : null,
+              };
+            } catch {
+              return { ...item, value: null, percentChange: null };
+            }
+          })
+        );
+        if (!cancelled) setGlobalMacroRows(rows);
+      } finally {
+        if (!cancelled) setGlobalMacroLoading(false);
+      }
+    };
+    loadMacro();
+    const timer = setInterval(loadMacro, 60000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [isGlobalMarketMode]);
+  useEffect(() => {
+    if (!isGlobalMarketMode) return;
     const symbols = selectedGlobalCountry?.symbols || [];
     if (!symbols.length) {
       setGlobalCountryQuotes([]);
@@ -5575,6 +5629,49 @@ export default function Home() {
                 </button>
               }
             >
+              <div
+                className={`sticky top-2 z-20 mb-4 rounded-xl border px-2 py-2 backdrop-blur-md ${
+                  isLight
+                    ? "border-slate-200 bg-white/95 shadow-sm"
+                    : "border-cyan-400/20 bg-slate-950/85 shadow-[0_10px_30px_-18px_rgba(8,145,178,0.6)]"
+                }`}
+              >
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-1.5">
+                  {GLOBAL_MACRO_INDICATORS.map((indicator) => {
+                    const row = globalMacroRows.find((x) => x.key === indicator.key);
+                    const pct = Number(row?.percentChange);
+                    const up = Number.isFinite(pct) && pct > 0;
+                    const down = Number.isFinite(pct) && pct < 0;
+                    const arrow = up ? "▲" : down ? "▼" : "•";
+                    const changeText = Number.isFinite(pct) ? `${pct > 0 ? "+" : ""}${pct.toFixed(2)}%` : "—";
+                    return (
+                      <div
+                        key={`macro-${indicator.key}`}
+                        className={`rounded-lg border px-2 py-1.5 ${
+                          isLight ? "border-slate-200 bg-slate-50/80" : "border-white/10 bg-white/[0.03]"
+                        }`}
+                      >
+                        <div className={`text-[10px] uppercase tracking-wide ${isLight ? "text-slate-500" : "text-cyan-200/75"}`}>
+                          {indicator.label}
+                        </div>
+                        <div className={`text-sm font-semibold leading-tight ${isLight ? "text-slate-900" : "text-white"}`}>
+                          {formatMacroIndicatorValue(indicator.symbol, row?.value)}
+                        </div>
+                        <div
+                          className={`text-[11px] font-semibold leading-tight ${
+                            up ? "text-emerald-500" : down ? "text-rose-500" : isLight ? "text-slate-500" : "text-white/60"
+                          }`}
+                        >
+                          {arrow} {changeText}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {globalMacroLoading && (
+                  <div className={`mt-1 text-[10px] ${isLight ? "text-slate-500" : "text-white/55"}`}>Updating macro strip...</div>
+                )}
+              </div>
               <SummaryPanel label={tx("Executive Brief")} text={globalMarketExecutiveSummary} isLight={isLight} className="mb-4" />
               <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
                 <div className={`lg:col-span-3 rounded-xl border p-3 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/[0.03]"}`}>
