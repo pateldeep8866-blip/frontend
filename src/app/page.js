@@ -1051,6 +1051,9 @@ export default function Home() {
   const headlineTranslationCacheRef = useRef(new Map());
   const headlineTranslationRequestRef = useRef(0);
   const [headlineTranslationVersion, setHeadlineTranslationVersion] = useState(0);
+  const headlineInsightCacheRef = useRef(new Map());
+  const headlineInsightRequestRef = useRef(0);
+  const [headlineInsightVersion, setHeadlineInsightVersion] = useState(0);
   const quizPromptTimerRef = useRef(null);
   const initialQuizPromptedRef = useRef(false);
   const followupQuizPromptedRef = useRef(false);
@@ -1108,6 +1111,21 @@ export default function Home() {
       const l = localStorage.getItem("site_language");
       if (LANGUAGE_OPTIONS.some((x) => x.code === l)) setLanguage(l);
     } catch {}
+    try {
+      const raw = localStorage.getItem("headline_impact_cache_v1");
+      const parsed = JSON.parse(raw || "{}");
+      if (parsed && typeof parsed === "object") {
+        const now = Date.now();
+        Object.entries(parsed).forEach(([headline, item]) => {
+          const value = String(item?.value || "").trim();
+          const ts = Number(item?.ts || 0);
+          if (!value) return;
+          if (Number.isFinite(ts) && now - ts <= 1000 * 60 * 60 * 24 * 7) {
+            headlineInsightCacheRef.current.set(headline, value);
+          }
+        });
+      }
+    } catch {}
   }, []);
 
   useEffect(() => {
@@ -1121,6 +1139,54 @@ export default function Home() {
   useEffect(() => {
     localStorage.setItem("site_language", language);
   }, [language]);
+
+  useEffect(() => {
+    try {
+      const out = {};
+      headlineInsightCacheRef.current.forEach((value, key) => {
+        out[key] = { value, ts: Date.now() };
+      });
+      localStorage.setItem("headline_impact_cache_v1", JSON.stringify(out));
+    } catch {}
+  }, [headlineInsightVersion]);
+
+  useEffect(() => {
+    const headlines = [
+      ...marketNews.map((item) => String(item?.headline || "").trim()).filter(Boolean),
+      ...news.map((item) => String(item?.headline || "").trim()).filter(Boolean),
+    ];
+    const unique = Array.from(new Set(headlines)).slice(0, 80);
+    if (!unique.length) return;
+    const cache = headlineInsightCacheRef.current;
+    const missing = unique.filter((headline) => !cache.has(headline));
+    if (!missing.length) return;
+
+    const requestId = ++headlineInsightRequestRef.current;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch("/api/headline-impact", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ headlines: missing }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !Array.isArray(data?.explanations)) return;
+        missing.forEach((headline, index) => {
+          const value = String(data.explanations[index] || "").trim();
+          if (value) cache.set(headline, value);
+        });
+        if (!cancelled && requestId === headlineInsightRequestRef.current) {
+          setHeadlineInsightVersion((v) => v + 1);
+        }
+      } catch {}
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [marketNews, news]);
 
   useEffect(() => {
     if (!LANGUAGE_LABEL_BY_CODE[language]) return;
@@ -1198,8 +1264,8 @@ export default function Home() {
       "Clear",
     ];
     const summaryTexts = [
-      ...marketHeadlines.map((headline) => buildHeadlineLaymanSummary(headline, assetMode)),
-      ...companyHeadlines.map((headline) => buildHeadlineLaymanSummary(headline, assetMode)),
+      ...marketHeadlines.map((headline) => headlineInsightCacheRef.current.get(headline) || buildHeadlineLaymanSummary(headline, assetMode)),
+      ...companyHeadlines.map((headline) => headlineInsightCacheRef.current.get(headline) || buildHeadlineLaymanSummary(headline, assetMode)),
       buildNewsDigest(marketHeadlines, assetMode),
       buildNewsDigest(companyHeadlines, assetMode),
       buildDailyPickLaymanSummary(dailyViewCurrent),
@@ -1245,7 +1311,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [language, marketNews, news, assetMode, dailyObj, dayTraderObj, analysisObj, usingTicker, result, company, fxResult]);
+  }, [language, marketNews, news, assetMode, dailyObj, dayTraderObj, analysisObj, usingTicker, result, company, fxResult, headlineInsightVersion]);
 
   const localizedMarketNews = useMemo(
     () => withLocalizedHeadlines(marketNews, language, headlineTranslationCacheRef.current),
@@ -1258,24 +1324,26 @@ export default function Home() {
   const localizedMarketNewsWithSummary = useMemo(
     () =>
       localizedMarketNews.map((item) => {
-        const summaryRaw = buildHeadlineLaymanSummary(item.headlineOriginal || item.headlineDisplay, assetMode);
+        const headline = item.headlineOriginal || item.headlineDisplay;
+        const summaryRaw = headlineInsightCacheRef.current.get(headline) || buildHeadlineLaymanSummary(headline, assetMode);
         return {
           ...item,
           laymanSummary: resolveLocalizedText(summaryRaw, language, headlineTranslationCacheRef.current),
         };
       }),
-    [localizedMarketNews, assetMode, language, headlineTranslationVersion]
+    [localizedMarketNews, assetMode, language, headlineTranslationVersion, headlineInsightVersion]
   );
   const localizedNewsWithSummary = useMemo(
     () =>
       localizedNews.map((item) => {
-        const summaryRaw = buildHeadlineLaymanSummary(item.headlineOriginal || item.headlineDisplay, assetMode);
+        const headline = item.headlineOriginal || item.headlineDisplay;
+        const summaryRaw = headlineInsightCacheRef.current.get(headline) || buildHeadlineLaymanSummary(headline, assetMode);
         return {
           ...item,
           laymanSummary: resolveLocalizedText(summaryRaw, language, headlineTranslationCacheRef.current),
         };
       }),
-    [localizedNews, assetMode, language, headlineTranslationVersion]
+    [localizedNews, assetMode, language, headlineTranslationVersion, headlineInsightVersion]
   );
   const marketNewsDigestRaw = useMemo(
     () => buildNewsDigest(localizedMarketNews.map((item) => item.headlineOriginal || item.headlineDisplay), assetMode),
