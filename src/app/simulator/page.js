@@ -23,6 +23,9 @@ const SIM_TABS = [
   { key: "autopilot", label: "Auto-Pilot" },
 ];
 
+const RESEARCH_ENGINE_API_URL =
+  process.env.NEXT_PUBLIC_RESEARCH_ENGINE_URL || "http://localhost:8001/api/research";
+
 function toNum(v) {
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
@@ -200,6 +203,11 @@ export default function SimulatorPage() {
   const [leaderboardFilter, setLeaderboardFilter] = useState("all");
   const [lastOvernightDelta, setLastOvernightDelta] = useState(null);
   const [nowTick, setNowTick] = useState(Date.now());
+  const [deepResearchOpen, setDeepResearchOpen] = useState(false);
+  const [deepResearchTicker, setDeepResearchTicker] = useState("");
+  const [deepResearchLoading, setDeepResearchLoading] = useState(false);
+  const [deepResearchError, setDeepResearchError] = useState("");
+  const [deepResearchData, setDeepResearchData] = useState(null);
 
   const isCherry = theme === "cherry";
   const isAzula = theme === "azula";
@@ -763,6 +771,33 @@ export default function SimulatorPage() {
   }, [autoPilotEnabled, autoRunning, nyse.open, profile?.autoPilot?.lastRunAt, profile?.autoPilot?.nextDecisionAt, runAutoPilotCycle]);
 
   const executeTrade = async () => {
+  const runDeepResearch = async (symbol, type = "full") => {
+    const target = String(symbol || "").toUpperCase().trim();
+    if (!target) return;
+    setDeepResearchOpen(true);
+    setDeepResearchTicker(target);
+    setDeepResearchLoading(true);
+    setDeepResearchError("");
+    setDeepResearchData(null);
+
+    try {
+      const res = await fetch(RESEARCH_ENGINE_API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticker: target, type: type === "quick" ? "quick" : "full" }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(String(data?.error || `Deep research failed (${res.status})`));
+      }
+      setDeepResearchData(data);
+    } catch (err) {
+      setDeepResearchError(err instanceof Error ? err.message : "Unable to run deep research right now.");
+    } finally {
+      setDeepResearchLoading(false);
+    }
+  };
+
     setTradeMessage("");
     setAstraOpinion("");
     if (autoPilotEnabled) {
@@ -1133,6 +1168,7 @@ export default function SimulatorPage() {
                     <th className="py-2 pr-2">Current</th>
                     <th className="py-2 pr-2">Total Value</th>
                     <th className="py-2 pr-2">Gain/Loss</th>
+                    <th className="py-2 pr-2">Deep Research</th>
                     <th className="py-2 pr-2">Sell</th>
                   </tr>
                 </thead>
@@ -1154,6 +1190,14 @@ export default function SimulatorPage() {
                         <td className="py-2 pr-2">{fmtMoney(total)}</td>
                         <td className={`py-2 pr-2 ${pnl >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
                           {fmtMoney(pnl)} ({fmtPct(pnlPct)})
+                        </td>
+                        <td className="py-2 pr-2">
+                          <button
+                            onClick={() => runDeepResearch(h.symbol, "full")}
+                            className={isLight ? "px-2 py-1 rounded-md text-[11px] border border-indigo-300 bg-indigo-50 text-indigo-700" : "px-2 py-1 rounded-md text-[11px] border border-indigo-400/35 bg-indigo-500/20 text-indigo-200"}
+                          >
+                            {deepResearchLoading && deepResearchTicker === h.symbol ? "Researching..." : "Deep Research"}
+                          </button>
                         </td>
                         <td className="py-2 pr-2">
                           <button
@@ -1404,6 +1448,86 @@ export default function SimulatorPage() {
           <div className={`mt-2 text-xs ${isLight ? "text-slate-600" : "text-white/70"}`}>Your current rank: #{selfRank}</div>
         </section>
       </div>
+
+
+      {deepResearchOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/55"
+            onClick={() => setDeepResearchOpen(false)}
+            aria-label="Close deep research"
+          />
+          <div className={isLight ? "relative w-full max-w-4xl max-h-[86vh] overflow-y-auto rounded-2xl border border-slate-300 bg-white text-slate-900 p-5 shadow-2xl" : "relative w-full max-w-4xl max-h-[86vh] overflow-y-auto rounded-2xl border border-white/15 bg-slate-900 text-white p-5 shadow-2xl"}>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className={isLight ? "text-lg font-semibold text-slate-900" : "text-lg font-semibold text-white"}>ASTRA Deep Research</div>
+                <div className={isLight ? "text-xs text-slate-500" : "text-xs text-white/60"}>{deepResearchTicker || "—"}</div>
+              </div>
+              <button
+                onClick={() => setDeepResearchOpen(false)}
+                className={isLight ? "h-8 w-8 rounded-full border border-slate-300 bg-slate-100 text-slate-700" : "h-8 w-8 rounded-full border border-white/15 bg-white/10 text-white/80"}
+                aria-label="Close"
+              >
+                x
+              </button>
+            </div>
+
+            {deepResearchLoading ? (
+              <div className={isLight ? "mt-4 text-sm text-slate-700" : "mt-4 text-sm text-white/85"}>ASTRA is researching {deepResearchTicker}...</div>
+            ) : deepResearchError ? (
+              <div className={isLight ? "mt-4 rounded-lg border border-rose-300 bg-rose-50 text-rose-700 px-3 py-2 text-sm" : "mt-4 rounded-lg border border-rose-400/35 bg-rose-500/15 text-rose-200 px-3 py-2 text-sm"}>
+                {deepResearchError}
+              </div>
+            ) : deepResearchData ? (
+              <div className="mt-4 space-y-4">
+                <div className={isLight ? "rounded-xl border border-slate-200 bg-slate-50 p-3" : "rounded-xl border border-white/12 bg-white/[0.03] p-3"}>
+                  <div className="text-xs uppercase tracking-wide mb-2 text-cyan-500 font-semibold">Summary</div>
+                  <p className="text-sm">{String(deepResearchData.summary || "No summary available.")}</p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className={isLight ? "rounded-xl border border-slate-200 bg-slate-50 p-3" : "rounded-xl border border-white/12 bg-white/[0.03] p-3"}>
+                    <div className="text-xs uppercase tracking-wide mb-2 text-emerald-500 font-semibold">Bull Case</div>
+                    <ul className="list-disc pl-5 space-y-1 text-sm">
+                      {Array.isArray(deepResearchData.bull_case) && deepResearchData.bull_case.length
+                        ? deepResearchData.bull_case.map((x, i) => <li key={`bull-${i}`}>{String(x)}</li>)
+                        : <li>No bull case items available.</li>}
+                    </ul>
+                  </div>
+                  <div className={isLight ? "rounded-xl border border-slate-200 bg-slate-50 p-3" : "rounded-xl border border-white/12 bg-white/[0.03] p-3"}>
+                    <div className="text-xs uppercase tracking-wide mb-2 text-rose-500 font-semibold">Bear Case</div>
+                    <ul className="list-disc pl-5 space-y-1 text-sm">
+                      {Array.isArray(deepResearchData.bear_case) && deepResearchData.bear_case.length
+                        ? deepResearchData.bear_case.map((x, i) => <li key={`bear-${i}`}>{String(x)}</li>)
+                        : <li>No bear case items available.</li>}
+                    </ul>
+                  </div>
+                </div>
+                <div className={isLight ? "rounded-xl border border-slate-200 bg-slate-50 p-3" : "rounded-xl border border-white/12 bg-white/[0.03] p-3"}>
+                  <div className="text-xs uppercase tracking-wide mb-2 text-blue-500 font-semibold">Sources</div>
+                  <div className="space-y-1 text-sm">
+                    {Array.isArray(deepResearchData.sources) && deepResearchData.sources.length ? (
+                      deepResearchData.sources.map((src, i) => (
+                        <a
+                          key={`src-${i}`}
+                          href={String(src?.url || "#")}
+                          target="_blank"
+                          rel="noreferrer"
+                          className={isLight ? "block underline text-blue-700" : "block underline text-blue-300"}
+                        >
+                          {String(src?.name || src?.url || "Source")}
+                        </a>
+                      ))
+                    ) : (
+                      <div>No source links available.</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )}
 
       {showEnableAutoModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
