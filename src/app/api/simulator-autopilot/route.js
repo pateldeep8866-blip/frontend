@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { insertTrade } from "../_lib/trade-db";
 
 export const dynamic = "force-dynamic";
 
@@ -907,6 +908,46 @@ export async function POST(req) {
           ? "Market tone is defensive. ASTRA is prioritizing capital preservation and trimming weaker risk exposures."
           : "Market direction is mixed. ASTRA is staying selective and preserving optionality with a higher cash buffer.";
 
+    let loggedTrades = 0;
+    for (const decision of decisions) {
+      const action = String(decision?.action || "").toUpperCase();
+      const shares = Number(decision?.shares || 0);
+      const ticker = String(decision?.ticker || "").toUpperCase();
+      if (!ticker) continue;
+      if (!["BUY", "SELL", "HOLD"].includes(action)) continue;
+      if ((action === "BUY" || action === "SELL") && shares <= 0) continue;
+      try {
+        insertTrade({
+          source: "astra_autopilot",
+          ticker,
+          action,
+          shares,
+          entry_price: Number(decision?.entry_price || 0),
+          total_value: Number(decision?.entry_price || 0) * shares,
+          quant_composite_score: Number(decision?.composite_score ?? 0),
+          quant_signal: String(decision?.quant_signal || "NEUTRAL"),
+          quant_momentum: Number(decision?.quant_momentum || 0),
+          quant_mean_reversion: Number(decision?.quant_mean_reversion || 0),
+          market_regime: marketRegime,
+          vix_at_entry: Number(macro?.vix ?? 0),
+          dxy_at_entry: Number(macro?.dxy ?? 0),
+          sector_performance: sectors,
+          weight_momentum: 0.55,
+          weight_mean_reversion: 0.35,
+          weight_volatility: 0.07,
+          weight_range: 0.03,
+          user_risk_level: String(riskPolicy?.level || "MODERATE"),
+          reasoning: String(decision?.reasoning || ""),
+          confidence: Number(decision?.confidence || 0),
+          stop_loss: Number(decision?.stop_loss || 0),
+          take_profit: Number(decision?.take_profit || 0),
+        });
+        loggedTrades += 1;
+      } catch (error) {
+        console.warn("[simulator-autopilot] trade log insert failed", ticker, String(error?.message || error));
+      }
+    }
+
     return NextResponse.json(
       {
         decisions,
@@ -929,6 +970,7 @@ export async function POST(req) {
         riskPolicy,
         watchlist,
         outlook,
+        loggedTrades,
         nextDecisionAt: nextMarketOpenTs(),
       },
       { headers: { "cache-control": "no-store, max-age=0" } }

@@ -277,6 +277,9 @@ export default function SimulatorPage() {
     universe: 0,
     message: "⚠ QUANT_LAB: OFFLINE | ASTRA using platform signals only",
   });
+  const [learningStats, setLearningStats] = useState(null);
+  const [learningLoading, setLearningLoading] = useState(false);
+  const [learningError, setLearningError] = useState("");
   const autoExitLockRef = useRef(false);
 
   const isCherry = theme === "cherry";
@@ -294,6 +297,30 @@ export default function SimulatorPage() {
     ? "rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-[0_10px_28px_rgba(15,23,42,0.08)]"
     : "rounded-2xl border border-white/12 bg-slate-900/55 p-5";
   const riskPolicy = useMemo(() => resolveRiskPolicy(riskLevel, customRisk), [riskLevel, customRisk]);
+
+  const refreshLearningStats = useCallback(async () => {
+    setLearningLoading(true);
+    setLearningError("");
+    try {
+      const res = await fetch("/api/trades/performance", { cache: "no-store" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        throw new Error(String(data?.error || `Failed to load stats (${res.status})`));
+      }
+      setLearningStats(data?.stats || null);
+    } catch (err) {
+      setLearningError(err instanceof Error ? err.message : "Unable to load learning stats.");
+    } finally {
+      setLearningLoading(false);
+    }
+  }, []);
+
+  const runOutcomeEvaluation = useCallback(async () => {
+    try {
+      await fetch("/api/trades/evaluate", { method: "POST" });
+    } catch {}
+    refreshLearningStats();
+  }, [refreshLearningStats]);
 
   useEffect(() => {
     try {
@@ -330,6 +357,12 @@ export default function SimulatorPage() {
     } catch {}
     setProfile(loaded);
   }, []);
+
+  useEffect(() => {
+    refreshLearningStats();
+    const id = window.setInterval(() => refreshLearningStats(), 60000);
+    return () => window.clearInterval(id);
+  }, [refreshLearningStats]);
 
   const holdingsArray = useMemo(
     () =>
@@ -1066,6 +1099,7 @@ export default function SimulatorPage() {
         decisionLog: [...decisionLogEntries, ...(Array.isArray(draft.autoPilot?.decisionLog) ? draft.autoPilot.decisionLog : [])].slice(0, 200),
       };
       setProfile(draft);
+      refreshLearningStats();
       if (decisionLogEntries.length) {
         const first = decisionLogEntries[0];
         const units = normalizeAssetType(first.assetType) === "crypto" ? first.symbol : "shares";
@@ -1078,7 +1112,7 @@ export default function SimulatorPage() {
     } finally {
       setAutoRunning(false);
     }
-  }, [appendModeSnapshot, applySingleTrade, autoPilotEnabled, autoRunning, profile, quotes, riskLevel, customRisk]);
+  }, [appendModeSnapshot, applySingleTrade, autoPilotEnabled, autoRunning, profile, quotes, riskLevel, customRisk, refreshLearningStats]);
 
   const enableAutoPilot = () => {
     setProfile((prev) => ({
@@ -1310,6 +1344,48 @@ export default function SimulatorPage() {
           assetType === "stock" && !nyse.open ? " — Market Closed: using last close price." : ""
         }`
       );
+      try {
+        const [vixRes, dxyRes] = await Promise.all([
+          fetch("/api/quote?symbol=%5EVIX", { cache: "no-store" }),
+          fetch("/api/quote?symbol=DX-Y.NYB", { cache: "no-store" }),
+        ]);
+        const [vixData, dxyData] = await Promise.all([
+          vixRes.json().catch(() => ({})),
+          dxyRes.json().catch(() => ({})),
+        ]);
+        await fetch("/api/trades/log", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            source: "manual",
+            ticker: symbol,
+            action: tradeMode,
+            shares,
+            entry_price: px,
+            total_value: value,
+            quant_composite_score: null,
+            quant_signal: null,
+            quant_momentum: null,
+            quant_mean_reversion: null,
+            market_regime: quantStatus?.regime || null,
+            vix_at_entry: Number(vixData?.price ?? NaN),
+            dxy_at_entry: Number(dxyData?.price ?? NaN),
+            sector_performance: [],
+            weight_momentum: 0.55,
+            weight_mean_reversion: 0.35,
+            weight_volatility: 0.07,
+            weight_range: 0.03,
+            user_risk_level: riskPolicy.level,
+            reasoning: "Manual simulator trade",
+            confidence: 0,
+            stop_loss: tradeMode === "BUY" ? Number(nextProfile?.holdings?.[mapKey]?.stopLoss || null) : null,
+            take_profit: tradeMode === "BUY" ? Number(nextProfile?.holdings?.[mapKey]?.takeProfit || null) : null,
+          }),
+        });
+      } catch (error) {
+        console.warn("[simulator] manual trade log failed", String(error?.message || error));
+      }
+      refreshLearningStats();
       if (assetType === "crypto") {
         const hadCryptoTrade = profile.transactions.some((tx) => normalizeAssetType(tx?.assetType) === "crypto");
         if (!hadCryptoTrade && tradeMode === "BUY") {
@@ -1992,6 +2068,90 @@ export default function SimulatorPage() {
             <span className={`${isLight ? "text-slate-600" : "text-white/70"}`}>ASTRA Auto-Pilot: <span className="text-blue-500 font-semibold">blue</span></span>
             <span className={`${isLight ? "text-slate-600" : "text-white/70"}`}>S&P 500 benchmark: <span className="text-slate-400 font-semibold">grey</span></span>
           </div>
+        </section>
+
+        <section className={`${cardClass} mb-6`}>
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <h2 className={`text-xl font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>QUANT_LAB Learning Stats</h2>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={runOutcomeEvaluation}
+                className={`px-2.5 py-1 rounded-md text-xs border ${isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/15 bg-white/10 text-white/85"}`}
+              >
+                Evaluate Outcomes
+              </button>
+              <button
+                onClick={refreshLearningStats}
+                className={`px-2.5 py-1 rounded-md text-xs border ${isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/15 bg-white/10 text-white/85"}`}
+              >
+                Refresh
+              </button>
+            </div>
+          </div>
+          {learningLoading && (
+            <div className={`text-sm ${isLight ? "text-slate-500" : "text-white/60"} animate-pulse`}>Loading learning stats...</div>
+          )}
+          {learningError && (
+            <div className={`text-xs ${isLight ? "text-rose-600" : "text-rose-300"}`}>{learningError}</div>
+          )}
+          {!learningLoading && learningStats && (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
+                <div className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/[0.03]"}`}>
+                  <div className={isLight ? "text-slate-500 text-xs" : "text-white/60 text-xs"}>Total trades logged</div>
+                  <div className="text-lg font-semibold">{Number(learningStats.total_trades_logged || 0)}</div>
+                </div>
+                <div className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/[0.03]"}`}>
+                  <div className={isLight ? "text-slate-500 text-xs" : "text-white/60 text-xs"}>Data collection started</div>
+                  <div className="text-sm font-semibold">{learningStats.data_collection_started ? new Date(learningStats.data_collection_started).toLocaleString() : "—"}</div>
+                </div>
+                <div className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/[0.03]"}`}>
+                  <div className={isLight ? "text-slate-500 text-xs" : "text-white/60 text-xs"}>Win rate</div>
+                  <div className="text-lg font-semibold">{fmtPct(Number(learningStats.win_rate || 0) * 100)} ({Number(learningStats.evaluated_trades || 0)} trades)</div>
+                </div>
+                <div className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/[0.03]"}`}>
+                  <div className={isLight ? "text-slate-500 text-xs" : "text-white/60 text-xs"}>Win rate risk-on</div>
+                  <div className="text-lg font-semibold">{learningStats.win_rate_risk_on == null ? "—" : fmtPct(Number(learningStats.win_rate_risk_on) * 100)}</div>
+                </div>
+                <div className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/[0.03]"}`}>
+                  <div className={isLight ? "text-slate-500 text-xs" : "text-white/60 text-xs"}>Win rate risk-off</div>
+                  <div className="text-lg font-semibold">{learningStats.win_rate_risk_off == null ? "—" : fmtPct(Number(learningStats.win_rate_risk_off) * 100)}</div>
+                </div>
+                <div className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/[0.03]"}`}>
+                  <div className={isLight ? "text-slate-500 text-xs" : "text-white/60 text-xs"}>Average 5d return</div>
+                  <div className="text-lg font-semibold">{fmtPct(Number(learningStats.average_5d_return || 0) * 100)}</div>
+                </div>
+              </div>
+              <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                <div className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/[0.03]"}`}>
+                  <div className={isLight ? "text-slate-500 text-xs" : "text-white/60 text-xs"}>Best regime</div>
+                  <div className="font-semibold">{learningStats.best_performing_conditions?.regime || "—"}</div>
+                </div>
+                <div className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/[0.03]"}`}>
+                  <div className={isLight ? "text-slate-500 text-xs" : "text-white/60 text-xs"}>Current weights version</div>
+                  <div className="font-semibold">{learningStats.current_weight_version || "v1"}</div>
+                  <div className={`text-xs mt-1 ${isLight ? "text-slate-500" : "text-white/60"}`}>
+                    Last weight update: {learningStats.last_weight_update ? new Date(learningStats.last_weight_update).toLocaleString() : "—"}
+                  </div>
+                </div>
+              </div>
+              <div className={`mt-3 text-xs ${isLight ? "text-slate-600" : "text-white/70"}`}>
+                Next learning run: {learningStats.next_learning_run ? new Date(learningStats.next_learning_run).toLocaleString() : "—"}
+              </div>
+              <div className="mt-2">
+                <div className="flex justify-between text-xs mb-1">
+                  <span className={isLight ? "text-slate-600" : "text-white/70"}>Progress</span>
+                  <span className={isLight ? "text-slate-700" : "text-white/85"}>{Number(learningStats?.progress?.current || 0)}/200 trades needed for first ML training run</span>
+                </div>
+                <div className={`h-2 rounded-full overflow-hidden ${isLight ? "bg-slate-200" : "bg-white/10"}`}>
+                  <div
+                    className="h-full bg-blue-500"
+                    style={{ width: `${Math.max(0, Math.min(100, Number(learningStats?.progress?.pct || 0)))}%` }}
+                  />
+                </div>
+              </div>
+            </>
+          )}
         </section>
 
         <section className={`${cardClass} mb-6`}>
