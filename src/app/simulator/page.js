@@ -117,6 +117,9 @@ function createDefaultProfile() {
       decisionLog: [],
       watchlist: [],
       outlook: "",
+      agentState: null,
+      executionPlan: [],
+      runSummary: "",
     },
   };
 }
@@ -155,6 +158,9 @@ function readProfile() {
             decisionLog: Array.isArray(parsed.autoPilot.decisionLog) ? parsed.autoPilot.decisionLog : [],
             watchlist: Array.isArray(parsed.autoPilot.watchlist) ? parsed.autoPilot.watchlist : [],
             outlook: String(parsed.autoPilot.outlook || ""),
+            agentState: parsed.autoPilot.agentState && typeof parsed.autoPilot.agentState === "object" ? parsed.autoPilot.agentState : null,
+            executionPlan: Array.isArray(parsed.autoPilot.executionPlan) ? parsed.autoPilot.executionPlan : [],
+            runSummary: String(parsed.autoPilot.runSummary || ""),
           }
         : {
             enabled: false,
@@ -164,6 +170,9 @@ function readProfile() {
             decisionLog: [],
             watchlist: [],
             outlook: "",
+            agentState: null,
+            executionPlan: [],
+            runSummary: "",
           },
     };
   } catch {
@@ -1051,6 +1060,9 @@ export default function SimulatorPage() {
         nextDecisionAt: Number(data?.nextDecisionAt || (now + 24 * 60 * 60 * 1000)),
         watchlist: Array.isArray(data?.watchlist) ? data.watchlist : [],
         outlook: String(data?.outlook || ""),
+        runSummary: String(data?.runSummary || ""),
+        agentState: data?.agentState && typeof data.agentState === "object" ? data.agentState : null,
+        executionPlan: Array.isArray(data?.executionPlan) ? data.executionPlan : [],
         decisionLog: [...decisionLogEntries, ...(Array.isArray(draft.autoPilot?.decisionLog) ? draft.autoPilot.decisionLog : [])].slice(0, 200),
       };
       setProfile(draft);
@@ -1528,6 +1540,39 @@ export default function SimulatorPage() {
                   </button>
                 </div>
                 <div className="space-y-3">
+                  <div className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-slate-50" : "border-white/10 bg-white/[0.03]"}`}>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className={`text-xs uppercase tracking-wide ${isLight ? "text-slate-500" : "text-white/60"}`}>Agent Control Center</div>
+                      <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/20 bg-white/10 text-white/80"}`}>
+                        {String(profile?.autoPilot?.agentState?.cycleStatus || "monitoring").toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                      <div className={`${isLight ? "text-slate-700" : "text-white/80"}`}>Regime: <span className="font-semibold">{profile?.autoPilot?.agentState?.regime || "unknown"}</span></div>
+                      <div className={`${isLight ? "text-slate-700" : "text-white/80"}`}>Provider: <span className="font-semibold">{profile?.autoPilot?.agentState?.provider || "fallback"}</span></div>
+                      <div className={`${isLight ? "text-slate-700" : "text-white/80"}`}>Scanned: <span className="font-semibold">{Number(profile?.autoPilot?.agentState?.scannedInstruments || 0)}</span></div>
+                      <div className={`${isLight ? "text-slate-700" : "text-white/80"}`}>Confidence: <span className="font-semibold">{Number(profile?.autoPilot?.agentState?.confidence || 0)}%</span></div>
+                      <div className={`${isLight ? "text-slate-700" : "text-white/80"}`}>Buys: <span className="font-semibold">{Number(profile?.autoPilot?.agentState?.buyCount || 0)}</span></div>
+                      <div className={`${isLight ? "text-slate-700" : "text-white/80"}`}>Sells: <span className="font-semibold">{Number(profile?.autoPilot?.agentState?.sellCount || 0)}</span></div>
+                      <div className={`${isLight ? "text-slate-700" : "text-white/80"}`}>Holds: <span className="font-semibold">{Number(profile?.autoPilot?.agentState?.holdCount || 0)}</span></div>
+                      <div className={`${isLight ? "text-slate-700" : "text-white/80"}`}>High Risk: <span className="font-semibold">{Number(profile?.autoPilot?.agentState?.highRiskCount || 0)}</span></div>
+                    </div>
+                    <div className={`mt-2 text-xs ${isLight ? "text-slate-700" : "text-white/80"}`}>{profile?.autoPilot?.runSummary || "ASTRA will generate a mission summary after the next run."}</div>
+                    <div className="mt-2">
+                      <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-500" : "text-white/60"}`}>Execution Plan</div>
+                      <div className="mt-1 space-y-1">
+                        {(profile?.autoPilot?.executionPlan || []).slice(0, 4).map((step, idx) => (
+                          <div key={`${step?.task || "task"}-${idx}`} className={`rounded-md border px-2 py-1.5 text-xs ${isLight ? "border-slate-200 bg-white text-slate-700" : "border-white/10 bg-white/5 text-white/80"}`}>
+                            <div className="font-semibold">Step {Number(step?.step || idx + 1)} · {step?.task || "Monitor market"}</div>
+                            <div className={`${isLight ? "text-slate-600" : "text-white/70"}`}>{step?.reason || "No reason provided."}</div>
+                          </div>
+                        ))}
+                        {(profile?.autoPilot?.executionPlan || []).length === 0 && (
+                          <div className={`text-xs ${isLight ? "text-slate-500" : "text-white/60"}`}>Execution plan will appear after the next run.</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                   {(profile?.autoPilot?.decisionLog || []).slice(0, 30).map((d) => (
                     <article key={d.id} className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/[0.03]"}`}>
                       <div className="flex flex-wrap items-center gap-2 mb-1">

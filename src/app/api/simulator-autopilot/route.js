@@ -1209,6 +1209,44 @@ export async function POST(req) {
           ? "Market tone is defensive. ASTRA is prioritizing capital preservation and trimming weaker risk exposures."
           : "Market direction is mixed. ASTRA is staying selective and preserving optionality with a higher cash buffer.";
 
+    const buyCount = decisions.filter((d) => String(d?.action || "").toUpperCase() === "BUY").length;
+    const sellCount = decisions.filter((d) => String(d?.action || "").toUpperCase() === "SELL").length;
+    const holdCount = decisions.filter((d) => String(d?.action || "").toUpperCase() === "HOLD").length;
+    const avgConfidence = decisions.length
+      ? Math.round(decisions.reduce((sum, d) => sum + Number(d?.confidence || 0), 0) / decisions.length)
+      : 0;
+    const highRiskCount = decisions.filter((d) => String(d?.risk || "").toUpperCase() === "HIGH").length;
+
+    const executionPlan = decisions.slice(0, 8).map((d, idx) => ({
+      step: idx + 1,
+      task: `${String(d?.action || "HOLD").toUpperCase()} ${String(d?.ticker || "").toUpperCase()}`,
+      strategy: String(d?.strategy || "agent_core").toLowerCase(),
+      confidence: Math.max(0, Math.min(100, Number(d?.confidence || 0))),
+      status: String(d?.action || "HOLD").toUpperCase() === "HOLD" ? "monitor" : "queued",
+      reason: sanitizePublicReasoning(d?.reasoning, d?.entry_price, d?.stop_loss, d?.take_profit),
+    }));
+
+    const agentState = {
+      mode: "autopilot",
+      cycleStatus: buyCount + sellCount > 0 ? "actionable" : "monitoring",
+      provider,
+      regime: marketRegime,
+      confidence: avgConfidence,
+      riskLevel: String(riskPolicy?.level || "MODERATE").toUpperCase(),
+      scannedInstruments: Number(scoredCandidates.length || 0),
+      candidateUniverse: Number(candidates.length || 0),
+      buyCount,
+      sellCount,
+      holdCount,
+      highRiskCount,
+      cashReserveTargetPct: Number(riskPolicy?.minCashReservePct || 0),
+      generatedAt: new Date().toISOString(),
+    };
+
+    const runSummary = buyCount + sellCount > 0
+      ? `Generated ${buyCount} buy and ${sellCount} sell actions with ${avgConfidence}% average confidence in ${marketRegime} regime.`
+      : `No trade actions triggered. Monitoring regime ${marketRegime} with ${avgConfidence}% confidence.`;
+
     let loggedTrades = 0;
     for (const decision of decisions) {
       const action = String(decision?.action || "").toUpperCase();
@@ -1275,6 +1313,9 @@ export async function POST(req) {
         riskPolicy,
         watchlist,
         outlook,
+        runSummary,
+        agentState,
+        executionPlan,
         loggedTrades,
         nextDecisionAt: nextMarketOpenTs(),
       },
