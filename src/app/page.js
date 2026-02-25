@@ -3632,6 +3632,32 @@ export default function Home() {
     },
     [selectedCountryRelations]
   );
+  const selectedCountryRelationStats = useMemo(
+    () => ({
+      allies: selectedCountryRelations.alliesPartners.length,
+      trade: selectedCountryRelations.tradePartners.length,
+      tensions: selectedCountryRelations.tensionsSanctions.length,
+      conflicts: selectedCountryRelations.activeConflicts.length,
+    }),
+    [selectedCountryRelations]
+  );
+  const selectedCountryMarketPulse = useMemo(() => {
+    const valid = globalCountryQuotes
+      .map((row) => ({ ...row, pct: Number(row?.percentChange) }))
+      .filter((row) => Number.isFinite(row.pct));
+    if (!valid.length) {
+      return { average: null, strongest: null, weakest: null };
+    }
+    const average = valid.reduce((sum, row) => sum + row.pct, 0) / valid.length;
+    const strongest = [...valid].sort((a, b) => b.pct - a.pct)[0];
+    const weakest = [...valid].sort((a, b) => a.pct - b.pct)[0];
+    return { average, strongest, weakest };
+  }, [globalCountryQuotes]);
+  const selectedCountryAvgPct =
+    typeof selectedCountryMarketPulse.average === "number" &&
+    Number.isFinite(selectedCountryMarketPulse.average)
+      ? selectedCountryMarketPulse.average
+      : null;
   const globalProjection = useMemo(
     () => geoMercator().scale(130).translate([GLOBAL_MAP_WIDTH / 2, GLOBAL_MAP_HEIGHT / 1.5]),
     []
@@ -6057,6 +6083,52 @@ export default function Home() {
                     </select>
                   </div>
 
+                  <div className={`mb-3 rounded-lg border p-2.5 ${isLight ? "border-slate-200 bg-slate-50/80" : "border-white/10 bg-white/[0.03]"}`}>
+                    <div className={`mb-2 text-[11px] font-semibold uppercase tracking-wide ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>
+                      Country Intelligence Snapshot
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 mb-2">
+                      <div className={`rounded-md border px-2 py-1.5 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/[0.04]"}`}>
+                        <div className={`text-[10px] ${isLight ? "text-slate-500" : "text-white/60"}`}>Allies + Trade</div>
+                        <div className={`text-sm font-semibold ${isLight ? "text-emerald-700" : "text-emerald-300"}`}>
+                          {selectedCountryRelationStats.allies + selectedCountryRelationStats.trade}
+                        </div>
+                      </div>
+                      <div className={`rounded-md border px-2 py-1.5 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/[0.04]"}`}>
+                        <div className={`text-[10px] ${isLight ? "text-slate-500" : "text-white/60"}`}>Tension + Conflict</div>
+                        <div className={`text-sm font-semibold ${isLight ? "text-rose-700" : "text-rose-300"}`}>
+                          {selectedCountryRelationStats.tensions + selectedCountryRelationStats.conflicts}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 gap-1.5">
+                      <div className={`text-[11px] ${isLight ? "text-slate-600" : "text-white/72"}`}>
+                        Market pulse:{" "}
+                        <span className={`${selectedCountryAvgPct != null && selectedCountryAvgPct >= 0 ? "text-emerald-500" : selectedCountryAvgPct != null ? "text-rose-500" : isLight ? "text-slate-600" : "text-white/75"} font-semibold`}>
+                          {selectedCountryAvgPct != null
+                            ? `${selectedCountryAvgPct > 0 ? "+" : ""}${selectedCountryAvgPct.toFixed(2)}% avg`
+                            : "No live proxy move"}
+                        </span>
+                      </div>
+                      {selectedCountryMarketPulse.strongest && (
+                        <div className={`text-[11px] ${isLight ? "text-slate-600" : "text-white/70"}`}>
+                          Strongest: {selectedCountryMarketPulse.strongest.symbol}{" "}
+                          <span className="text-emerald-500">
+                            +{Number(selectedCountryMarketPulse.strongest.pct).toFixed(2)}%
+                          </span>
+                        </div>
+                      )}
+                      {selectedCountryMarketPulse.weakest && (
+                        <div className={`text-[11px] ${isLight ? "text-slate-600" : "text-white/70"}`}>
+                          Weakest: {selectedCountryMarketPulse.weakest.symbol}{" "}
+                          <span className="text-rose-500">
+                            {Number(selectedCountryMarketPulse.weakest.pct).toFixed(2)}%
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                   <div className="space-y-2 mb-3">
                     {globalCountryQuotesLoading && (
                       <div className={`text-xs ${isLight ? "text-slate-500" : "text-white/60"}`}>Loading market proxies...</div>
@@ -6169,6 +6241,9 @@ export default function Home() {
                       >
                         <div className={`text-xs font-medium leading-relaxed ${isLight ? "text-blue-700" : "text-blue-300"}`}>{item.headlineDisplay}</div>
                         <div className={`mt-1 text-[11px] ${isLight ? "text-slate-600" : "text-white/68"}`}>{item.laymanSummary}</div>
+                        <div className={`mt-1 text-[10px] ${isLight ? "text-slate-500" : "text-white/55"}`}>
+                          {[item.source || safeDomainFromUrl(item.url), geopoliticsAgeLabel(item.datetime)].filter(Boolean).join(" • ") || "Global feed"}
+                        </div>
                       </a>
                     ))}
                     {globalCountryNews.length === 0 && (
