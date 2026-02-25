@@ -45,6 +45,46 @@ async function fetchStooqDailyCandles(symbol, from, to) {
   return { t, o, h, l, c, v };
 }
 
+async function fetchYahooDailyCandles(symbol, from, to) {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=5y&interval=1d`;
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) return { t: [], o: [], h: [], l: [], c: [], v: [] };
+  const data = await res.json().catch(() => ({}));
+  const result = data?.chart?.result?.[0] || {};
+  const ts = Array.isArray(result?.timestamp) ? result.timestamp : [];
+  const quote = result?.indicators?.quote?.[0] || {};
+  const opens = Array.isArray(quote?.open) ? quote.open : [];
+  const highs = Array.isArray(quote?.high) ? quote.high : [];
+  const lows = Array.isArray(quote?.low) ? quote.low : [];
+  const closes = Array.isArray(quote?.close) ? quote.close : [];
+  const volumes = Array.isArray(quote?.volume) ? quote.volume : [];
+
+  const t = [];
+  const o = [];
+  const h = [];
+  const l = [];
+  const c = [];
+  const v = [];
+  const n = Math.min(ts.length, opens.length, highs.length, lows.length, closes.length, volumes.length);
+  for (let i = 0; i < n; i += 1) {
+    const tVal = Number(ts[i]);
+    const oVal = Number(opens[i]);
+    const hVal = Number(highs[i]);
+    const lVal = Number(lows[i]);
+    const cVal = Number(closes[i]);
+    const vVal = Number(volumes[i]);
+    if (![tVal, oVal, hVal, lVal, cVal].every(Number.isFinite)) continue;
+    if (tVal < from || tVal > to) continue;
+    t.push(tVal);
+    o.push(oVal);
+    h.push(hVal);
+    l.push(lVal);
+    c.push(cVal);
+    v.push(Number.isFinite(vVal) ? vVal : 0);
+  }
+  return { t, o, h, l, c, v };
+}
+
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
@@ -100,6 +140,10 @@ export async function GET(req) {
       }
       source = "stooq";
       data = await fetchStooqDailyCandles(symbol, from, to);
+      if (!Array.isArray(data?.c) || data.c.length < 65) {
+        source = "yahoo";
+        data = await fetchYahooDailyCandles(symbol, from, to);
+      }
     }
 
     const rowCount = Array.isArray(data.c) ? data.c.length : 0;

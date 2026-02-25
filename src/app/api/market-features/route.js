@@ -5,9 +5,30 @@ import { join } from "node:path";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const CACHE_TTL_MS = 60 * 60 * 1000;
-const localCache = new Map();
 const QUANT_CACHE_ROOT = "/Users/juanramirez/NOVA/NOVA_LAB/QUANT_LAB/data/cache";
+const localCache = new Map();
+
+const TIER_1_CORE = [
+  "SPY", "QQQ", "IWM", "DIA",
+  "XLK", "XLF", "XLE", "XLV",
+  "XLI", "XLY", "XLP", "GLD", "TLT",
+];
+
+const TIER_2_GROWTH = [
+  "AAPL", "MSFT", "NVDA", "AMZN",
+  "GOOGL", "META", "TSLA", "AMD",
+  "AVGO", "ORCL", "CRM", "ADBE",
+  "JPM", "BAC", "GS", "MS",
+  "JNJ", "UNH", "LLY", "ABBV",
+  "XOM", "CVX", "WMT", "COST",
+];
+
+const TIER_3_THEMATIC = [
+  "SOXX", "ARKK", "IBB", "EEM", "EFA",
+  "VNQ", "HYG", "USO", "SLV", "GDXJ",
+];
+
+const FULL_UNIVERSE = [...TIER_1_CORE, ...TIER_2_GROWTH, ...TIER_3_THEMATIC];
 
 function toNum(v) {
   const n = Number(v);
@@ -22,18 +43,12 @@ function normalizeTickers(input) {
         .map((x) => String(x || "").trim().toUpperCase())
         .filter((x) => /^[A-Z0-9.^=-]{1,15}$/.test(x))
     )
-  ).slice(0, 200);
-}
-
-function isoDateFromUnixSec(unixSec) {
-  const d = new Date(Number(unixSec) * 1000);
-  return Number.isFinite(d.getTime()) ? d.toISOString().slice(0, 10) : null;
+  ).slice(0, 300);
 }
 
 function detectProvider() {
   const raw = String(process.env.QUANTLAB_DATA_PROVIDER || "").trim().toLowerCase();
-  if (raw) return raw;
-  return "finnhub";
+  return raw || "finnhub";
 }
 
 async function fetchJson(url, init = {}) {
@@ -48,6 +63,8 @@ function computeFeatureSetFromRows(rows) {
   }
 
   const close = rows.map((r) => Number(r.close));
+  const high = rows.map((r) => Number(r.high));
+  const low = rows.map((r) => Number(r.low));
   const volume = rows.map((r) => Number(r.volume));
 
   if (close.some((n) => !Number.isFinite(n)) || volume.some((n) => !Number.isFinite(n))) {
@@ -73,7 +90,7 @@ function computeFeatureSetFromRows(rows) {
     const slice = arr.slice(-window);
     if (slice.length < window || slice.some((x) => !Number.isFinite(x))) return null;
     const mean = slice.reduce((s, x) => s + x, 0) / slice.length;
-    const variance = slice.reduce((s, x) => s + (x - mean) ** 2, 0) / slice.length; // ddof=0
+    const variance = slice.reduce((s, x) => s + (x - mean) ** 2, 0) / slice.length;
     return Math.sqrt(variance);
   }
 
@@ -86,6 +103,10 @@ function computeFeatureSetFromRows(rows) {
   const vol5 = rollingStdLast(logReturns, 5);
   const vol20 = rollingStdLast(logReturns, 20);
   const avgVol20 = rollingMeanLast(volume, 20);
+
+  const high20 = Math.max(...high.slice(-20));
+  const low20 = Math.min(...low.slice(-20));
+  const priceRange = Number((high20 - low20) / close[close.length - 1]);
 
   if (
     !Number.isFinite(ret5) ||
@@ -107,6 +128,7 @@ function computeFeatureSetFromRows(rows) {
       vol_5d: vol5,
       vol_20d: vol20,
       avg_volume_20d: avgVol20,
+      price_range: priceRange,
     },
   };
 }
@@ -121,30 +143,20 @@ function toQuantCacheCsv(rows) {
 }
 
 async function writeQuantCacheFile({ ticker, rows, provider, requestedStart, requestedEnd }) {
-  const start = requestedStart || isoDateFromUnixSec(rows[0]?.t);
-  const end = requestedEnd || isoDateFromUnixSec(rows[rows.length - 1]?.t);
-  if (!start || !end) return { ok: false, error: "invalid cache dates" };
-
-  const file = `${ticker}__1d__${start}__${end}.csv`;
+  const file = `${ticker}__1d__${requestedStart}__${requestedEnd}.csv`;
   const providerDir = join(QUANT_CACHE_ROOT, provider);
   await mkdir(providerDir, { recursive: true });
 
   const csvPath = join(providerDir, file);
   const metaPath = `${csvPath}.meta.json`;
 
-  const csv = toQuantCacheCsv(rows);
-  await writeFile(csvPath, csv, "utf-8");
+  await writeFile(csvPath, toQuantCacheCsv(rows), "utf-8");
 
   const meta = {
     provider_name: provider,
     provider_version: "frontend-cache-injected",
     retrieval_timestamp: new Date().toISOString(),
-    request_params: {
-      symbol: ticker,
-      start,
-      end,
-      interval: "1d",
-    },
+    request_params: { symbol: ticker, start: requestedStart, end: requestedEnd, interval: "1d" },
     row_count: rows.length,
     first_timestamp: new Date(Number(rows[0].t) * 1000).toISOString(),
     last_timestamp: new Date(Number(rows[rows.length - 1].t) * 1000).toISOString(),
@@ -152,11 +164,10 @@ async function writeQuantCacheFile({ ticker, rows, provider, requestedStart, req
     source: "arthastra_market_features",
   };
   await writeFile(metaPath, `${JSON.stringify(meta, null, 2)}\n`, "utf-8");
-
-  return { ok: true, path: csvPath, start, end };
+  return csvPath;
 }
 
-async function buildTicker(origin, ticker, provider, range) {
+async function fetchTickerOHLCV(origin, ticker, provider, range, includeOhlcv) {
   const out = {
     ticker,
     price: null,
@@ -167,95 +178,138 @@ async function buildTicker(origin, ticker, provider, range) {
     vol_5d: null,
     vol_20d: null,
     avg_volume_20d: null,
+    price_range: null,
+    week52High: null,
+    week52Low: null,
     ohlcv_rows: 0,
     valid: false,
     error: null,
     quant_cache_file: null,
   };
 
+  const quote = await fetchJson(`${origin}/api/quote?symbol=${encodeURIComponent(ticker)}`);
+  const loadCandles = () =>
+    fetchJson(`${origin}/api/candles?symbol=${encodeURIComponent(ticker)}&resolution=D&from=${range.fromSec}&to=${range.toSec}`);
+
+  let candles = await loadCandles();
+  let t = Array.isArray(candles.data?.t) ? candles.data.t : [];
+  let o = Array.isArray(candles.data?.o) ? candles.data.o : [];
+  let h = Array.isArray(candles.data?.h) ? candles.data.h : [];
+  let l = Array.isArray(candles.data?.l) ? candles.data.l : [];
+  let c = Array.isArray(candles.data?.c) ? candles.data.c : [];
+  let v = Array.isArray(candles.data?.v) ? candles.data.v : [];
+
+  let n = Math.min(t.length, o.length, h.length, l.length, c.length, v.length);
+  if ((!candles.response.ok || n === 0) && !String(candles.data?.error || "").toLowerCase().includes("missing")) {
+    await new Promise((r) => setTimeout(r, 350));
+    candles = await loadCandles();
+    t = Array.isArray(candles.data?.t) ? candles.data.t : [];
+    o = Array.isArray(candles.data?.o) ? candles.data.o : [];
+    h = Array.isArray(candles.data?.h) ? candles.data.h : [];
+    l = Array.isArray(candles.data?.l) ? candles.data.l : [];
+    c = Array.isArray(candles.data?.c) ? candles.data.c : [];
+    v = Array.isArray(candles.data?.v) ? candles.data.v : [];
+    n = Math.min(t.length, o.length, h.length, l.length, c.length, v.length);
+  }
+
+  if (!candles.response.ok || n === 0) {
+    out.error = "insufficient history";
+    return out;
+  }
+
+  const rows = [];
+  for (let i = 0; i < n; i += 1) {
+    const row = {
+      t: toNum(t[i]),
+      open: toNum(o[i]),
+      high: toNum(h[i]),
+      low: toNum(l[i]),
+      close: toNum(c[i]),
+      volume: toNum(v[i]),
+    };
+    if ([row.t, row.open, row.high, row.low, row.close, row.volume].some((x) => x == null)) continue;
+    rows.push(row);
+  }
+
+  out.ohlcv_rows = rows.length;
+  if (rows.length < 65) {
+    out.error = "min 65 rows required";
+    return out;
+  }
+
+  const featureResult = computeFeatureSetFromRows(rows);
+  if (!featureResult.ok) {
+    out.error = featureResult.error;
+    return out;
+  }
+
   try {
-    const [candles, quote] = await Promise.all([
-      fetchJson(
-        `${origin}/api/candles?symbol=${encodeURIComponent(ticker)}&resolution=D&from=${range.fromSec}&to=${range.toSec}`
-      ),
-      fetchJson(`${origin}/api/quote?symbol=${encodeURIComponent(ticker)}`),
-    ]);
-
-    const t = Array.isArray(candles.data?.t) ? candles.data.t : [];
-    const o = Array.isArray(candles.data?.o) ? candles.data.o : [];
-    const h = Array.isArray(candles.data?.h) ? candles.data.h : [];
-    const l = Array.isArray(candles.data?.l) ? candles.data.l : [];
-    const c = Array.isArray(candles.data?.c) ? candles.data.c : [];
-    const v = Array.isArray(candles.data?.v) ? candles.data.v : [];
-
-    const n = Math.min(t.length, o.length, h.length, l.length, c.length, v.length);
-    if (!candles.response.ok || n === 0) {
-      out.error = "insufficient history";
-      return out;
-    }
-
-    const rows = [];
-    for (let i = 0; i < n; i += 1) {
-      const row = {
-        t: toNum(t[i]),
-        open: toNum(o[i]),
-        high: toNum(h[i]),
-        low: toNum(l[i]),
-        close: toNum(c[i]),
-        volume: toNum(v[i]),
-      };
-      if (
-        row.t == null ||
-        row.open == null ||
-        row.high == null ||
-        row.low == null ||
-        row.close == null ||
-        row.volume == null
-      ) {
-        continue;
-      }
-      rows.push(row);
-    }
-
-    if (rows.length < 65) {
-      out.error = "min 65 rows required";
-      out.ohlcv_rows = rows.length;
-      return out;
-    }
-
-    const featureResult = computeFeatureSetFromRows(rows);
-    if (!featureResult.ok) {
-      out.error = featureResult.error;
-      return out;
-    }
-
-    const cacheWrite = await writeQuantCacheFile({
+    out.quant_cache_file = await writeQuantCacheFile({
       ticker,
       rows,
       provider,
       requestedStart: range.startIso,
       requestedEnd: range.endIso,
     });
-    if (cacheWrite.ok) {
-      out.quant_cache_file = cacheWrite.path;
-    }
-
-    out.price = toNum(quote.data?.price) ?? toNum(rows[rows.length - 1]?.close);
-    out.volume = toNum(quote.data?.volume) ?? toNum(rows[rows.length - 1]?.volume);
-    out.ret_5d = featureResult.features.ret_5d;
-    out.ret_20d = featureResult.features.ret_20d;
-    out.ret_60d = featureResult.features.ret_60d;
-    out.vol_5d = featureResult.features.vol_5d;
-    out.vol_20d = featureResult.features.vol_20d;
-    out.avg_volume_20d = featureResult.features.avg_volume_20d;
-    out.ohlcv_rows = rows.length;
-    out.valid = true;
-    out.error = null;
-    return out;
-  } catch (error) {
-    out.error = String(error?.message || error);
-    return out;
+  } catch (e) {
+    out.error = `cache write failed: ${String(e?.message || e)}`;
   }
+
+  out.price = toNum(quote.data?.price) ?? toNum(rows[rows.length - 1]?.close);
+  out.volume = toNum(quote.data?.volume) ?? toNum(rows[rows.length - 1]?.volume);
+  out.week52High = toNum(quote.data?.week52High);
+  out.week52Low = toNum(quote.data?.week52Low);
+  out.ret_5d = featureResult.features.ret_5d;
+  out.ret_20d = featureResult.features.ret_20d;
+  out.ret_60d = featureResult.features.ret_60d;
+  out.vol_5d = featureResult.features.vol_5d;
+  out.vol_20d = featureResult.features.vol_20d;
+  out.avg_volume_20d = featureResult.features.avg_volume_20d;
+  out.price_range = featureResult.features.price_range;
+  out.valid = true;
+  out.error = null;
+
+  if (includeOhlcv) {
+    out.ohlcv = rows.map((r) => ({
+      t: r.t,
+      date: new Date(Number(r.t) * 1000).toISOString().slice(0, 10),
+      open: r.open,
+      high: r.high,
+      low: r.low,
+      close: r.close,
+      volume: r.volume,
+    }));
+  }
+
+  return out;
+}
+
+async function fetchInBatches(origin, tickers, provider, range, includeOhlcv = false, batchSize = 6, delayMs = 900) {
+  const results = {};
+
+  for (let i = 0; i < tickers.length; i += batchSize) {
+    const batch = tickers.slice(i, i + batchSize);
+    const batchResults = await Promise.all(
+      batch.map((ticker) =>
+        fetchTickerOHLCV(origin, ticker, provider, range, includeOhlcv).catch((err) => ({
+          ticker,
+          valid: false,
+          error: String(err?.message || err),
+          ohlcv_rows: 0,
+        }))
+      )
+    );
+
+    batchResults.forEach((r) => {
+      results[r.ticker] = r;
+    });
+
+    if (i + batchSize < tickers.length) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+
+  return results;
 }
 
 async function fetchMacro(origin) {
@@ -272,8 +326,7 @@ async function fetchMacro(origin) {
       try {
         const { response, data } = await fetchJson(`${origin}/api/quote?symbol=${encodeURIComponent(symbol)}`);
         if (!response.ok) return [key, null];
-        const px = toNum(data?.price);
-        return [key, px];
+        return [key, toNum(data?.price)];
       } catch {
         return [key, null];
       }
@@ -283,30 +336,26 @@ async function fetchMacro(origin) {
   return Object.fromEntries(entries);
 }
 
+function pickTier(tickers) {
+  const set = new Set(tickers);
+  const hasTier2 = TIER_2_GROWTH.some((t) => set.has(t));
+  const hasTier3 = TIER_3_THEMATIC.some((t) => set.has(t));
+  if (hasTier2 || hasTier3) return "full";
+  return "core";
+}
+
 export async function POST(req) {
   try {
     const body = await req.json().catch(() => ({}));
-    const tickers = normalizeTickers(body?.tickers);
+    const includeOhlcv = Boolean(body?.include_ohlcv);
+    const requestTickers = normalizeTickers(body?.tickers);
+
+    let activeTier = requestTickers.length ? pickTier(requestTickers) : "full";
+    let tickers = requestTickers.length ? requestTickers : FULL_UNIVERSE;
+
     const provider = detectProvider();
-
-    if (!tickers.length) {
-      return NextResponse.json({ error: "tickers[] is required" }, { status: 400 });
-    }
-
-    const cacheKey = `${provider}::${tickers.join(",")}`;
-    const hit = localCache.get(cacheKey);
-    if (hit && Date.now() - hit.ts < CACHE_TTL_MS) {
-      return NextResponse.json(
-        {
-          ...hit.payload,
-          cache_timestamp: new Date(hit.ts).toISOString(),
-          cache_hit: true,
-        },
-        { headers: { "cache-control": "public, max-age=3600" } }
-      );
-    }
-
     const origin = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin;
+
     const endDate = new Date();
     const startDate = new Date(endDate);
     startDate.setUTCFullYear(startDate.getUTCFullYear() - 3);
@@ -315,35 +364,54 @@ export async function POST(req) {
     const fromSec = Math.floor(new Date(`${startIso}T00:00:00Z`).getTime() / 1000);
     const toSec = Math.floor(new Date(`${endIso}T23:59:59Z`).getTime() / 1000);
     const range = { startIso, endIso, fromSec, toSec };
-    const [macro, rows] = await Promise.all([
-      fetchMacro(origin),
-      Promise.all(tickers.map((ticker) => buildTicker(origin, ticker, provider, range))),
-    ]);
 
-    const failed = rows.filter((r) => !r.valid).map((r) => ({ ticker: r.ticker, error: r.error }));
-    if (failed.length) {
-      console.warn("[market-features] failed tickers", failed);
+    const nowHour = new Date().toISOString().slice(0, 13);
+    const cacheKey = `features_${activeTier}_${nowHour}_${includeOhlcv ? "ohlcv" : "lite"}`;
+    const cacheTtlMs = activeTier === "full" ? 60 * 60 * 1000 : 30 * 60 * 1000;
+
+    const hit = localCache.get(cacheKey);
+    if (hit && Date.now() - hit.ts < cacheTtlMs) {
+      return NextResponse.json({ ...hit.payload, cache_hit: true, cache_timestamp: new Date(hit.ts).toISOString() });
     }
 
-    const byTicker = {};
-    for (const row of rows) {
-      byTicker[row.ticker] = row;
+    let tickerData = {};
+    try {
+      tickerData = await fetchInBatches(origin, tickers, provider, range, includeOhlcv, 6, 900);
+    } catch (err) {
+      console.warn("Full universe failed, using core:", err?.message || err);
+      activeTier = "core";
+      tickers = TIER_1_CORE;
+      tickerData = await fetchInBatches(origin, tickers, provider, range, includeOhlcv, 5, 500);
     }
 
-    const nowIso = new Date().toISOString();
+    const macro = await fetchMacro(origin);
+
+    const failedTickers = [];
+    let validCount = 0;
+    for (const [ticker, row] of Object.entries(tickerData)) {
+      if (row?.valid) validCount += 1;
+      else failedTickers.push(ticker);
+    }
+
     const payload = {
-      generated_utc: nowIso,
-      asof: nowIso.slice(0, 10),
-      tickers: byTicker,
+      generated_utc: new Date().toISOString(),
+      asof: endIso,
+      tickers: tickerData,
       macro,
+      universe_tier: activeTier,
+      tier_1_count: TIER_1_CORE.length,
+      tier_2_count: TIER_2_GROWTH.length,
+      tier_3_count: TIER_3_THEMATIC.length,
+      total_tickers: tickers.length,
+      valid_count: validCount,
+      failed_tickers: failedTickers,
       quantlab_provider: provider,
-      cache_timestamp: nowIso,
       cache_hit: false,
+      cache_timestamp: new Date().toISOString(),
     };
 
     localCache.set(cacheKey, { ts: Date.now(), payload });
-
-    return NextResponse.json(payload, { headers: { "cache-control": "public, max-age=3600" } });
+    return NextResponse.json(payload);
   } catch (error) {
     return NextResponse.json(
       { error: "Failed to compute market features", details: String(error?.message || error) },

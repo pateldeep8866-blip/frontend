@@ -17,9 +17,26 @@ const CRYPTO_SYMBOL_TO_ID = {
   LINK: "chainlink",
   MATIC: "matic-network",
 };
-const CANDIDATE_STOCKS = ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA", "AMD", "JPM", "BAC", "GS", "JNJ", "UNH", "XOM", "CVX", "SPY", "QQQ"];
+const FULL_CANDIDATE_UNIVERSE = [
+  "SPY", "QQQ", "IWM", "DIA",
+  "XLK", "XLF", "XLE", "XLV",
+  "XLI", "XLY", "XLP", "GLD", "TLT",
+  "AAPL", "MSFT", "NVDA", "AMZN",
+  "GOOGL", "META", "TSLA", "AMD",
+  "AVGO", "ORCL", "CRM", "ADBE",
+  "JPM", "BAC", "GS", "MS",
+  "JNJ", "UNH", "LLY", "ABBV",
+  "XOM", "CVX", "WMT", "COST",
+  "SOXX", "ARKK", "IBB", "EEM", "EFA",
+  "VNQ", "HYG", "USO", "SLV", "GDXJ",
+];
 const CANDIDATE_CRYPTOS = ["BTC", "ETH", "SOL", "XRP"];
 const QUANT_INDICATORS = ["rsi", "macd", "bollinger", "vwap", "ema_cross", "volume_profile"];
+const ALLOCATION_RULES = {
+  conservative: { maxCrypto: 0, minStocks: 0.7, maxSinglePosition: 0.05, cashReserve: 0.3 },
+  moderate: { maxCrypto: 0.2, minStocks: 0.5, maxSinglePosition: 0.15, cashReserve: 0.2 },
+  aggressive: { maxCrypto: 0.4, minStocks: 0.3, maxSinglePosition: 0.2, cashReserve: 0.1 },
+};
 
 function toNum(v) {
   const n = Number(v);
@@ -87,6 +104,139 @@ function cleanJson(raw) {
   const text = String(raw || "").trim();
   if (!text.startsWith("```")) return text;
   return text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+}
+
+function sanitizePublicReasoning(reasoning, entryPrice, stopLoss, takeProfit) {
+  const raw = String(reasoning || "").trim();
+  if (!raw) {
+    return `ASTRA identified a tradable setup with defined risk parameters. Entry at $${Number(entryPrice || 0).toFixed(2)}, stop near $${Number(stopLoss || 0).toFixed(2)}, target near $${Number(takeProfit || 0).toFixed(2)}.`;
+  }
+  let text = raw
+    .replace(/quant[_\s-]*lab/gi, "ASTRA")
+    .replace(/composite score[^.]*\.?/gi, "")
+    .replace(/momentum score[^.]*\.?/gi, "")
+    .replace(/mean[_\s-]*reversion[^.]*\.?/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!text) {
+    text = "ASTRA identified a tradable setup with defined risk parameters.";
+  }
+  return text;
+}
+
+function quantScoreToAstraScore(composite) {
+  const c = Number(composite || 0);
+  if (c > 0.15) return 85;
+  if (c > 0.08) return 75;
+  if (c > 0.04) return 65;
+  if (c > 0.0) return 55;
+  if (c > -0.04) return 45;
+  if (c > -0.08) return 35;
+  return 25;
+}
+
+function buildPrioritySellDecisions({ holdings, quantResult, riskLevel }) {
+  const decisions = [];
+  const quantScores = Array.isArray(quantResult?.all_scores) ? quantResult.all_scores : [];
+  const scoreByTicker = new Map(quantScores.map((s) => [String(s?.ticker || "").toUpperCase(), s]));
+  const maxHoldDays = { conservative: 5, moderate: 15, aggressive: 30 }[String(riskLevel || "").toLowerCase()] || 15;
+
+  for (const holding of holdings) {
+    const ticker = String(holding?.symbol || "").toUpperCase();
+    const shares = Number(holding?.shares || 0);
+    const currentPrice = Number(holding?.currentPrice || 0);
+    const avgBuy = Number(holding?.avgBuy || 0);
+    if (!ticker || shares <= 0 || currentPrice <= 0) continue;
+
+    const gainPct = avgBuy > 0 ? ((currentPrice - avgBuy) / avgBuy) * 100 : 0;
+
+    // SELL TYPE 1 — Stop Loss
+    if (holding?.stopLoss && currentPrice <= Number(holding.stopLoss)) {
+      decisions.push({
+        action: "SELL",
+        ticker,
+        shares,
+        entry_price: currentPrice,
+        reason: "stop_loss",
+        reasoning: `🛑 STOP LOSS: Sold ${shares} shares of ${ticker} at $${currentPrice.toFixed(2)}. Entry was $${avgBuy.toFixed(2)}. Loss: ${gainPct.toFixed(2)}%. Capital protected.`,
+        confidence: 95,
+        risk: "LOW",
+        lesson: "Stop losses are essential for capital preservation.",
+      });
+      continue;
+    }
+
+    // SELL TYPE 2 — Take Profit
+    if (holding?.takeProfit && currentPrice >= Number(holding.takeProfit)) {
+      const sellShares = Math.max(1, Math.floor(shares * 0.5));
+      decisions.push({
+        action: "SELL",
+        ticker,
+        shares: sellShares,
+        entry_price: currentPrice,
+        reason: "take_profit",
+        reasoning: `✅ TAKE PROFIT: Sold ${sellShares} shares of ${ticker} at $${currentPrice.toFixed(2)}. Entry was $${avgBuy.toFixed(2)}. Gain: +${gainPct.toFixed(2)}%. Profits locked in.`,
+        confidence: 90,
+        risk: "LOW",
+        lesson: "Taking partial profits locks gains while keeping upside exposure.",
+      });
+      continue;
+    }
+
+    // SELL TYPE 3 — Signal reversal
+    const qs = scoreByTicker.get(ticker);
+    if (qs) {
+      const astraScore = quantScoreToAstraScore(Number(qs?.composite_score || 0));
+      if (astraScore < 35) {
+        decisions.push({
+          action: "SELL",
+          ticker,
+          shares,
+          entry_price: currentPrice,
+          reason: "signal_reversal",
+          reasoning: `📉 SIGNAL EXIT: Sold ${shares} shares of ${ticker} at $${currentPrice.toFixed(2)}. Quantitative signal reversed. Position closed.`,
+          confidence: 80,
+          risk: "LOW",
+          lesson: "Exit when the original signal no longer supports the position.",
+        });
+        continue;
+      }
+      if (astraScore >= 35 && astraScore < 45) {
+        const sellShares = Math.max(1, Math.floor(shares * 0.5));
+        decisions.push({
+          action: "SELL",
+          ticker,
+          shares: sellShares,
+          entry_price: currentPrice,
+          reason: "signal_weakening",
+          reasoning: `📉 SIGNAL EXIT: Sold ${sellShares} shares of ${ticker} at $${currentPrice.toFixed(2)}. Quantitative signal weakened. Position reduced.`,
+          confidence: 65,
+          risk: "MEDIUM",
+          lesson: "Scale down when conviction weakens.",
+        });
+        continue;
+      }
+    }
+
+    // SELL TYPE 4 — Time stop
+    const buyDate = holding?.buyDate ? new Date(holding.buyDate).getTime() : null;
+    const daysHeld = buyDate ? Math.floor((Date.now() - buyDate) / (1000 * 60 * 60 * 24)) : 0;
+    if (daysHeld > maxHoldDays && gainPct < 0) {
+      decisions.push({
+        action: "SELL",
+        ticker,
+        shares,
+        entry_price: currentPrice,
+        reason: "time_stop",
+        reasoning: `⏰ TIME STOP: Sold ${shares} shares of ${ticker} after ${daysHeld} days. Freeing capital.`,
+        confidence: 70,
+        risk: "MEDIUM",
+        lesson: "Time stops prevent capital from staying trapped in stale positions.",
+      });
+    }
+  }
+
+  return decisions;
 }
 
 async function fetchQuoteBatch(symbols) {
@@ -614,7 +764,7 @@ export async function POST(req) {
       .map((h) => String(h?.cryptoId || CRYPTO_SYMBOL_TO_ID[String(h?.symbol || "").toUpperCase()] || "").trim().toLowerCase())
       .filter(Boolean);
 
-    const candidateStocks = CANDIDATE_STOCKS;
+    const candidateStocks = FULL_CANDIDATE_UNIVERSE;
     const candidateCryptos = riskPolicy.allowCrypto ? CANDIDATE_CRYPTOS : [];
 
     const [holdingsQuotes, holdingsCryptoQuotes, candidateStockQuotes, candidateCryptoQuotes, macro, movers, cryptoMovers, holdingsNews, sectors] = await Promise.all([
@@ -644,6 +794,9 @@ export async function POST(req) {
         avgBuy: toNum(h?.avgBuy),
         currentPrice: toNum(q?.price) ?? toNum(h?.currentPrice),
         percentChange: toNum(q?.percentChange) ?? toNum(h?.percentChange),
+        stopLoss: toNum(h?.stopLoss ?? h?.stop_loss),
+        takeProfit: toNum(h?.takeProfit ?? h?.take_profit),
+        buyDate: h?.buyDate || h?.created_utc || null,
       };
     });
 
@@ -653,12 +806,7 @@ export async function POST(req) {
     ];
     const newsBySymbol = await fetchCandidateNews(candidates);
 
-    const UNIVERSE = [
-      "SPY", "QQQ", "IWM", "DIA",
-      "XLK", "XLF", "XLE", "XLV", "XLI", "XLY", "XLP",
-      "GLD", "TLT", "AAPL", "MSFT", "NVDA", "AMZN",
-      "GOOGL", "META", "TSLA", "AMD",
-    ];
+    const UNIVERSE = [...FULL_CANDIDATE_UNIVERSE];
 
     const marketFeatures = await fetchMarketFeatures(UNIVERSE);
 
@@ -671,8 +819,6 @@ export async function POST(req) {
       });
     }
 
-    const quantLabStatus = quantResult ? (quantResult.status === "offline" ? "OFFLINE" : "CONNECTED") : "OFFLINE";
-    const quantConnected = quantLabStatus === "CONNECTED";
     const quantAllScores = Array.isArray(quantResult?.all_scores) ? quantResult.all_scores : [];
     const quantScoresByTicker = new Map(
       quantAllScores.map((row) => [String(row?.ticker || "").toUpperCase(), row])
@@ -888,6 +1034,66 @@ export async function POST(req) {
       })
       .slice(0, 8);
 
+    const totalHoldingsValue = holdings.reduce((sum, h) => sum + Number(h?.currentPrice || 0) * Number(h?.shares || 0), 0);
+    const totalValue = Math.max(1, cash + totalHoldingsValue);
+    const availableCash = cash;
+
+    // SELL priority order (before buys): stop loss, take profit, signal reversal, time stop.
+    const prioritySells = buildPrioritySellDecisions({
+      holdings,
+      quantResult,
+      riskLevel: riskPolicy.level,
+    });
+    const sellReasonsOrder = { stop_loss: 1, take_profit: 2, signal_reversal: 3, signal_weakening: 3, time_stop: 4 };
+    prioritySells.sort((a, b) => (sellReasonsOrder[a.reason] || 99) - (sellReasonsOrder[b.reason] || 99));
+
+    // Bug fix 3: asset allocation by risk level.
+    const riskKey = String(riskPolicy.level || "MODERATE").toLowerCase();
+    const rules = ALLOCATION_RULES[riskKey] || ALLOCATION_RULES.moderate;
+    const currentCryptoValue = holdings
+      .filter((h) => h.assetType === "crypto")
+      .reduce((sum, h) => sum + Number(h.currentPrice || 0) * Number(h.shares || 0), 0);
+    const cryptoPct = currentCryptoValue / totalValue;
+    if (cryptoPct >= rules.maxCrypto) {
+      decisions = decisions.filter((d) => normalizeAssetType(d?.assetType) !== "crypto");
+    }
+
+    // Bug fix 2: force QUANT pick to BUY when valid and cash available.
+    const quantPick = quantResult?.single_pick;
+    const noTrade = quantResult?.no_trade;
+    const hasCash = availableCash > totalValue * 0.15;
+    if (quantPick && !noTrade && hasCash) {
+      const price = Number(quantPick?.entry_price || 0);
+      const allocation = availableCash * 0.15;
+      const shares = price > 0 ? Math.floor(allocation / price) : 0;
+      if (shares > 0) {
+        const forcedBuy = {
+          action: "BUY",
+          ticker: String(quantPick.ticker || "").toUpperCase(),
+          shares,
+          assetType: "stock",
+          entry_price: price,
+          stop_loss: Number(quantPick.stop_loss || 0),
+          take_profit: Number(quantPick.take_profit || 0),
+          composite_score: quantScoreToAstraScore(Number(quantPick.composite_score || 0)),
+          reasoning: `Quantitative signal detected strength in ${String(quantPick.ticker || "").toUpperCase()}. Market regime: ${String(quantResult?.regime || "unknown")}. Entry $${price} | Stop $${Number(quantPick.stop_loss || 0)} | Target $${Number(quantPick.take_profit || 0)}`,
+          confidence: Number(quantPick.confidence || 72),
+          risk: Number(quantPick.composite_score || 0) > 0.15 ? "LOW" : "MEDIUM",
+          lesson: `Signal identified through cross-sectional momentum analysis across ${Number(quantResult?.universe_size || 0)} instruments in ${String(quantResult?.regime || "unknown")} market regime.`,
+          quant_signal: "BUY",
+        };
+
+        const existing = decisions.findIndex((d) => String(d?.ticker || "").toUpperCase() === forcedBuy.ticker);
+        if (existing >= 0) decisions[existing] = forcedBuy;
+        else decisions.unshift(forcedBuy);
+        console.log("Forced BUY:", forcedBuy.ticker, "shares:", shares, "composite:", Number(quantPick.composite_score || 0));
+      }
+    }
+
+    // Process all sells before buys.
+    const buyOrHold = decisions.filter((d) => String(d?.action || "").toUpperCase() !== "SELL");
+    decisions = [...prioritySells, ...buyOrHold];
+
     const heldStockSymbols = holdings.filter((h) => h.assetType === "stock").map((h) => h.symbol);
     const heldCryptoSymbols = holdings.filter((h) => h.assetType === "crypto").map((h) => h.symbol);
     const watchlist = [
@@ -948,25 +1154,24 @@ export async function POST(req) {
       }
     }
 
+    const publicDecisions = decisions.map((d) => ({
+      action: String(d?.action || "HOLD").toUpperCase(),
+      ticker: String(d?.ticker || "").toUpperCase(),
+      shares: Number(d?.shares || 0),
+      price: Number(d?.entry_price || 0),
+      reasoning: sanitizePublicReasoning(d?.reasoning, d?.entry_price, d?.stop_loss, d?.take_profit),
+      confidence: Math.max(0, Math.min(100, Number(d?.confidence || 0))),
+      risk: String(d?.risk || "MEDIUM").toUpperCase(),
+      stopLoss: Number(d?.stop_loss || 0),
+      takeProfit: Number(d?.take_profit || 0),
+      lesson: String(d?.lesson || "Manage position size and risk before entry."),
+    }));
+
     return NextResponse.json(
       {
-        decisions,
+        decisions: publicDecisions,
         context: { ...context, cryptoMovers },
         provider,
-        quantEngine: {
-          connected: quantConnected,
-          status: quantLabStatus,
-          regime: quantResult?.regime || null,
-          pick: quantResult?.single_pick?.ticker || null,
-          universe: Number(quantResult?.universe_size || 0),
-          message: quantConnected
-            ? "⚡ QUANT_LAB: CONNECTED"
-            : "⚠ QUANT_LAB: OFFLINE | ASTRA using platform signals only",
-        },
-        quantLabStatus: quantLabStatus,
-        quantLabRegime: quantResult?.regime || null,
-        quantLabPick: quantResult?.single_pick?.ticker || null,
-        scoredCandidates: topCandidates,
         riskPolicy,
         watchlist,
         outlook,

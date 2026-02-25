@@ -247,6 +247,27 @@ export function getTradeHistory(limit = 500) {
   `).all(lim);
 }
 
+export function getWeightHistory(limit = 200) {
+  const conn = ensureDb();
+  const lim = Math.max(1, Math.min(5000, Number(limit) || 200));
+  return conn.prepare(`
+    SELECT *
+    FROM weight_history
+    ORDER BY created_utc DESC
+    LIMIT ?
+  `).all(lim);
+}
+
+export function getLatestWeight() {
+  const conn = ensureDb();
+  return conn.prepare(`
+    SELECT *
+    FROM weight_history
+    ORDER BY created_utc DESC
+    LIMIT 1
+  `).get() || null;
+}
+
 export async function evaluatePendingTradeOutcomes() {
   const conn = ensureDb();
   const cutoffMs = Date.now() - 24 * 60 * 60 * 1000;
