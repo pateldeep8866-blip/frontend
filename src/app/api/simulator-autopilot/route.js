@@ -4,10 +4,26 @@ export const dynamic = "force-dynamic";
 
 const OPENROUTER_MODEL = "mistralai/mistral-7b-instruct";
 const OPENAI_MODEL = "gpt-4.1-mini";
+const CRYPTO_SYMBOL_TO_ID = {
+  BTC: "bitcoin",
+  ETH: "ethereum",
+  SOL: "solana",
+  BNB: "binancecoin",
+  XRP: "ripple",
+  ADA: "cardano",
+  AVAX: "avalanche-2",
+  DOGE: "dogecoin",
+  LINK: "chainlink",
+  MATIC: "matic-network",
+};
 
 function toNum(v) {
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
+}
+
+function normalizeAssetType(value) {
+  return String(value || "").toLowerCase() === "crypto" ? "crypto" : "stock";
 }
 
 function safeJsonParse(text) {
@@ -39,6 +55,53 @@ async function fetchQuoteBatch(symbols) {
           name: String(r?.longName || r?.shortName || r?.symbol || "").trim(),
         }))
       : [];
+  } catch {
+    return [];
+  }
+}
+
+async function fetchCryptoBatch(symbolsOrIds) {
+  const items = Array.isArray(symbolsOrIds) ? symbolsOrIds : [];
+  const ids = Array.from(
+    new Set(
+      items
+        .map((x) => {
+          const raw = String(x || "").toUpperCase().trim();
+          if (!raw) return "";
+          if (raw.includes("-")) return raw.toLowerCase();
+          return CRYPTO_SYMBOL_TO_ID[raw] || raw.toLowerCase();
+        })
+        .filter(Boolean)
+    )
+  );
+  if (!ids.length) return [];
+  try {
+    const params = new URLSearchParams({
+      ids: ids.join(","),
+      vs_currencies: "usd",
+      include_24hr_change: "true",
+      include_24hr_vol: "true",
+      include_market_cap: "true",
+    });
+    const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?${params.toString()}`, { cache: "no-store" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data || typeof data !== "object") return [];
+    return ids
+      .map((id) => {
+        const row = data?.[id];
+        return row
+          ? {
+              id,
+              symbol:
+                Object.entries(CRYPTO_SYMBOL_TO_ID).find(([, cgId]) => cgId === id)?.[0] || id.toUpperCase(),
+              price: toNum(row?.usd),
+              percentChange: toNum(row?.usd_24h_change),
+              volume: toNum(row?.usd_24h_vol),
+              marketCap: toNum(row?.usd_market_cap),
+            }
+          : null;
+      })
+      .filter(Boolean);
   } catch {
     return [];
   }
@@ -78,6 +141,15 @@ async function fetchMovers() {
     }
   } catch {}
   return [];
+}
+
+async function fetchCryptoMovers() {
+  const symbols = ["BTC", "ETH", "SOL", "BNB", "XRP", "ADA", "AVAX", "DOGE", "LINK", "MATIC"];
+  const rows = await fetchCryptoBatch(symbols);
+  return rows
+    .map((r) => ({ symbol: r.symbol, id: r.id, percentChange: r.percentChange, price: r.price }))
+    .sort((a, b) => Math.abs(Number(b.percentChange || 0)) - Math.abs(Number(a.percentChange || 0)))
+    .slice(0, 5);
 }
 
 async function fetchHoldingsNews(symbols) {
@@ -125,10 +197,12 @@ function fallbackDecisions(payload, context) {
         decisions.push({
           action: "SELL",
           ticker: h.symbol,
+          assetType: normalizeAssetType(h?.assetType),
+          cryptoId: String(h?.cryptoId || ""),
           shares: Math.max(0, Math.floor(Number(h.shares || 0) * 0.2)),
           reasoning: "Recent downside momentum with weak relative strength increases drawdown risk. Reducing exposure protects capital while preserving optionality.",
           confidence: 72,
-          risk: "MEDIUM",
+          risk: normalizeAssetType(h?.assetType) === "crypto" ? "HIGH" : "MEDIUM",
           lesson: "This demonstrates risk trimming when trend and momentum deteriorate.",
         });
       }
@@ -139,11 +213,19 @@ function fallbackDecisions(payload, context) {
     decisions.push({
       action: "BUY",
       ticker: String(candidate?.symbol || "AAPL").toUpperCase(),
-      shares: 10,
-      reasoning: "A high-liquidity leader with positive momentum and broad market participation offers cleaner execution and manageable risk.",
-      confidence: 68,
-      risk: "MEDIUM",
-      lesson: "This demonstrates momentum confirmation before adding new exposure.",
+      assetType: normalizeAssetType(candidate?.assetType),
+      cryptoId: String(candidate?.cryptoId || ""),
+      shares: normalizeAssetType(candidate?.assetType) === "crypto" ? 0.01 : 10,
+      reasoning:
+        normalizeAssetType(candidate?.assetType) === "crypto"
+          ? "Crypto momentum is constructive but volatility remains elevated. Adding only a small, controlled position maintains upside exposure while preserving capital."
+          : "A high-liquidity leader with positive momentum and broad market participation offers cleaner execution and manageable risk.",
+      confidence: normalizeAssetType(candidate?.assetType) === "crypto" ? 65 : 68,
+      risk: normalizeAssetType(candidate?.assetType) === "crypto" ? "HIGH" : "MEDIUM",
+      lesson:
+        normalizeAssetType(candidate?.assetType) === "crypto"
+          ? "This demonstrates cautious crypto sizing under a strict risk budget."
+          : "This demonstrates momentum confirmation before adding new exposure.",
     });
   }
 
@@ -168,13 +250,18 @@ function normalizeDecisions(raw) {
     .map((d) => {
       const action = String(d?.action || "HOLD").toUpperCase();
       const ticker = String(d?.ticker || "").toUpperCase().trim();
+      const assetType = normalizeAssetType(d?.assetType);
+      const cryptoId = assetType === "crypto" ? String(d?.cryptoId || CRYPTO_SYMBOL_TO_ID[ticker] || "") : "";
       const shares = Math.max(0, Number(d?.shares || 0));
       const confidence = Math.max(0, Math.min(100, Math.round(Number(d?.confidence || 0))));
       const riskRaw = String(d?.risk || "MEDIUM").toUpperCase();
-      const risk = ["LOW", "MEDIUM", "HIGH"].includes(riskRaw) ? riskRaw : "MEDIUM";
+      const riskDefault = assetType === "crypto" ? "HIGH" : "MEDIUM";
+      const risk = ["LOW", "MEDIUM", "HIGH"].includes(riskRaw) ? riskRaw : riskDefault;
       return {
         action: ["BUY", "SELL", "HOLD"].includes(action) ? action : "HOLD",
         ticker,
+        assetType,
+        cryptoId,
         shares,
         reasoning: String(d?.reasoning || "").trim() || "No additional reasoning provided.",
         confidence,
@@ -214,22 +301,36 @@ export async function POST(req) {
     const body = await req.json().catch(() => ({}));
     const cash = toNum(body?.cash) ?? 0;
     const holdingsInput = Array.isArray(body?.holdings) ? body.holdings : [];
-    const holdingsSymbols = holdingsInput.map((h) => String(h?.symbol || "").toUpperCase()).filter(Boolean);
+    const holdingsSymbols = holdingsInput
+      .filter((h) => normalizeAssetType(h?.assetType) === "stock")
+      .map((h) => String(h?.symbol || "").toUpperCase())
+      .filter(Boolean);
+    const holdingsCryptoIds = holdingsInput
+      .filter((h) => normalizeAssetType(h?.assetType) === "crypto")
+      .map((h) => String(h?.cryptoId || CRYPTO_SYMBOL_TO_ID[String(h?.symbol || "").toUpperCase()] || "").trim().toLowerCase())
+      .filter(Boolean);
 
-    const [holdingsQuotes, macro, movers, holdingsNews, sectors] = await Promise.all([
+    const [holdingsQuotes, holdingsCryptoQuotes, macro, movers, cryptoMovers, holdingsNews, sectors] = await Promise.all([
       fetchQuoteBatch(holdingsSymbols),
+      fetchCryptoBatch(holdingsCryptoIds),
       fetchMacro(),
       fetchMovers(),
+      fetchCryptoMovers(),
       fetchHoldingsNews(holdingsSymbols),
       fetchSectorPerformance(),
     ]);
 
     const bySymbol = new Map(holdingsQuotes.map((q) => [q.symbol, q]));
+    const byCryptoId = new Map(holdingsCryptoQuotes.map((q) => [q.id, q]));
     const holdings = holdingsInput.map((h) => {
       const symbol = String(h?.symbol || "").toUpperCase();
-      const q = bySymbol.get(symbol);
+      const assetType = normalizeAssetType(h?.assetType);
+      const cryptoId = String(h?.cryptoId || CRYPTO_SYMBOL_TO_ID[symbol] || "").trim().toLowerCase();
+      const q = assetType === "crypto" ? byCryptoId.get(cryptoId) : bySymbol.get(symbol);
       return {
         symbol,
+        assetType,
+        cryptoId: assetType === "crypto" ? cryptoId : "",
         shares: Number(h?.shares || 0),
         avgBuy: toNum(h?.avgBuy),
         currentPrice: toNum(q?.price) ?? toNum(h?.currentPrice),
@@ -257,6 +358,7 @@ export async function POST(req) {
       tenYear: macro.tenYear,
       marketTrend: macro.marketTrend,
       movers,
+      cryptoMovers,
       holdingsNews: holdingsNews.slice(0, 12),
       sectors,
       todayPick,
@@ -278,10 +380,12 @@ export async function POST(req) {
         "Based on this data, decide what trades to make today.",
         "You can BUY, SELL, or HOLD any position.",
         "Never invest more than 20% in a single stock.",
+        "Total crypto allocation must stay at or below 20% of portfolio value.",
+        "Treat crypto positions as HIGH risk by default, size smaller, and explain volatility context.",
         "Always keep at least 10% in cash as reserve.",
         "Prioritize capital preservation over aggressive gains.",
         "Return a JSON array of decisions:",
-        "[{ action: BUY/SELL/HOLD, ticker: string, shares: number, reasoning: string, confidence: number 0-100, risk: LOW/MEDIUM/HIGH, lesson: string }]",
+        "[{ action: BUY/SELL/HOLD, ticker: string, assetType: stock|crypto, cryptoId?: string, shares: number, reasoning: string, confidence: number 0-100, risk: LOW/MEDIUM/HIGH, lesson: string }]",
         "Return raw JSON only. No markdown.",
       ].join("\n\n");
 
@@ -327,10 +431,18 @@ export async function POST(req) {
       decisions = normalizeDecisions(fallbackDecisions({ cash, holdings }, { ...context, todayPick }));
     }
 
-    const watchlist = movers
-      .filter((m) => !holdingsSymbols.includes(String(m?.symbol || "").toUpperCase()))
-      .slice(0, 3)
-      .map((m) => ({ symbol: m.symbol, percentChange: m.percentChange, why: "Momentum and liquidity profile currently stand out." }));
+    const heldStockSymbols = holdings.filter((h) => h.assetType === "stock").map((h) => h.symbol);
+    const heldCryptoSymbols = holdings.filter((h) => h.assetType === "crypto").map((h) => h.symbol);
+    const watchlist = [
+      ...movers
+        .filter((m) => !heldStockSymbols.includes(String(m?.symbol || "").toUpperCase()))
+        .slice(0, 2)
+        .map((m) => ({ symbol: m.symbol, assetType: "stock", percentChange: m.percentChange, why: "Momentum and liquidity profile currently stand out." })),
+      ...cryptoMovers
+        .filter((m) => !heldCryptoSymbols.includes(String(m?.symbol || "").toUpperCase()))
+        .slice(0, 2)
+        .map((m) => ({ symbol: m.symbol, assetType: "crypto", percentChange: m.percentChange, why: "Crypto momentum is elevated, but volatility risk is high." })),
+    ].slice(0, 3);
 
     const outlook =
       macro.marketTrend === "UP"
@@ -342,7 +454,7 @@ export async function POST(req) {
     return NextResponse.json(
       {
         decisions,
-        context,
+        context: { ...context, cryptoMovers },
         provider,
         watchlist,
         outlook,

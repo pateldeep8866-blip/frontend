@@ -22,6 +22,30 @@ const SIM_TABS = [
   { key: "manual", label: "Manual Trading" },
   { key: "autopilot", label: "Auto-Pilot" },
 ];
+const CRYPTO_SYMBOL_TO_ID = {
+  BTC: "bitcoin",
+  ETH: "ethereum",
+  SOL: "solana",
+  BNB: "binancecoin",
+  XRP: "ripple",
+  ADA: "cardano",
+  AVAX: "avalanche-2",
+  DOGE: "dogecoin",
+  LINK: "chainlink",
+  MATIC: "matic-network",
+};
+const CRYPTO_OPTIONS = [
+  { symbol: "BTC", name: "Bitcoin", id: "bitcoin" },
+  { symbol: "ETH", name: "Ethereum", id: "ethereum" },
+  { symbol: "SOL", name: "Solana", id: "solana" },
+  { symbol: "BNB", name: "Binance Coin", id: "binancecoin" },
+  { symbol: "XRP", name: "Ripple", id: "ripple" },
+  { symbol: "ADA", name: "Cardano", id: "cardano" },
+  { symbol: "AVAX", name: "Avalanche", id: "avalanche-2" },
+  { symbol: "DOGE", name: "Dogecoin", id: "dogecoin" },
+  { symbol: "LINK", name: "Chainlink", id: "chainlink" },
+  { symbol: "MATIC", name: "Polygon", id: "matic-network" },
+];
 
 const RESEARCH_ENGINE_API_URL =
   process.env.NEXT_PUBLIC_RESEARCH_ENGINE_URL || "http://localhost:8001/api/research";
@@ -41,6 +65,15 @@ function fmtPct(v) {
   const n = Number(v);
   if (!Number.isFinite(n)) return "—";
   return `${n >= 0 ? "+" : ""}${n.toFixed(2)}%`;
+}
+
+function normalizeAssetType(value) {
+  return String(value || "").toLowerCase() === "crypto" ? "crypto" : "stock";
+}
+
+function holdingKey(assetType, symbol) {
+  const type = normalizeAssetType(assetType);
+  return `${type}:${String(symbol || "").toUpperCase().trim()}`;
 }
 
 function createDefaultProfile() {
@@ -187,7 +220,9 @@ export default function SimulatorPage() {
   const [autoMessage, setAutoMessage] = useState("");
   const [expandedDecisionId, setExpandedDecisionId] = useState("");
   const [quotes, setQuotes] = useState({});
+  const [selectedAssetType, setSelectedAssetType] = useState("stock");
   const [selectedTicker, setSelectedTicker] = useState("AAPL");
+  const [selectedCryptoId, setSelectedCryptoId] = useState("");
   const [selectedCompany, setSelectedCompany] = useState("");
   const [selectedQuote, setSelectedQuote] = useState(null);
   const [miniPoints, setMiniPoints] = useState([]);
@@ -208,6 +243,7 @@ export default function SimulatorPage() {
   const [deepResearchLoading, setDeepResearchLoading] = useState(false);
   const [deepResearchError, setDeepResearchError] = useState("");
   const [deepResearchData, setDeepResearchData] = useState(null);
+  const [cryptoLessonNotice, setCryptoLessonNotice] = useState("");
 
   const isCherry = theme === "cherry";
   const isAzula = theme === "azula";
@@ -243,29 +279,54 @@ export default function SimulatorPage() {
 
   const holdingsArray = useMemo(
     () =>
-      Object.values(profile.holdings || {}).map((h) => ({
-        ...h,
-        shares: Number(h?.shares || 0),
-        avgBuy: Number(h?.avgBuy || 0),
-      })),
+      Object.values(profile.holdings || {}).map((h) => {
+        const symbol = String(h?.symbol || "").toUpperCase();
+        const assetType = normalizeAssetType(h?.assetType);
+        return {
+          ...h,
+          symbol,
+          assetType,
+          cryptoId: assetType === "crypto" ? String(h?.cryptoId || CRYPTO_SYMBOL_TO_ID[symbol] || "").trim() : "",
+          shares: Number(h?.shares || 0),
+          avgBuy: Number(h?.avgBuy || 0),
+        };
+      }),
     [profile.holdings]
   );
 
-  const holdingSymbols = useMemo(
-    () => holdingsArray.map((h) => String(h.symbol || "").toUpperCase()).filter(Boolean),
+  const holdingTargets = useMemo(
+    () =>
+      holdingsArray
+        .map((h) => ({
+          symbol: h.symbol,
+          assetType: h.assetType,
+          cryptoId: h.cryptoId || CRYPTO_SYMBOL_TO_ID[h.symbol] || "",
+        }))
+        .filter((h) => h.symbol),
     [holdingsArray]
   );
 
-  const holdingsMarketValue = useMemo(
-    () =>
-      holdingsArray.reduce((sum, h) => {
-        const live = Number(quotes[h.symbol]?.price);
-        const fallback = Number(h?.avgBuy || 0);
-        const px = Number.isFinite(live) && live > 0 ? live : fallback;
-        return sum + px * h.shares;
-      }, 0),
-    [holdingsArray, quotes]
+  const quoteFor = useCallback(
+    (assetType, symbol) => quotes[holdingKey(assetType, symbol)] || null,
+    [quotes]
   );
+
+  const holdingsBreakdown = useMemo(() => {
+    let stocks = 0;
+    let crypto = 0;
+    for (const h of holdingsArray) {
+      const q = quoteFor(h.assetType, h.symbol);
+      const live = Number(q?.price);
+      const fallback = Number(h?.avgBuy || 0);
+      const px = Number.isFinite(live) && live > 0 ? live : fallback;
+      const value = px * h.shares;
+      if (h.assetType === "crypto") crypto += value;
+      else stocks += value;
+    }
+    return { stocks, crypto };
+  }, [holdingsArray, quoteFor]);
+
+  const holdingsMarketValue = holdingsBreakdown.stocks + holdingsBreakdown.crypto;
 
   const portfolioTotal = Number(profile.cash || 0) + holdingsMarketValue;
   const totalReturnDollar = portfolioTotal - Number(profile.startingCash || STARTING_CASH);
@@ -297,25 +358,56 @@ export default function SimulatorPage() {
     } catch {}
   }, [profile, totalReturnPct, portfolioTotal]);
 
-  const refreshQuoteFor = useCallback(async (symbol) => {
+  const refreshQuoteFor = useCallback(async (symbol, assetType = "stock", cryptoId = "") => {
     const sym = String(symbol || "").trim().toUpperCase();
     if (!sym) return null;
+    const type = normalizeAssetType(assetType);
     try {
-      const [qRes, pRes] = await Promise.all([
-        fetch(`/api/quote?symbol=${encodeURIComponent(sym)}`, { cache: "no-store" }),
-        fetch(`/api/profile?symbol=${encodeURIComponent(sym)}`, { cache: "no-store" }),
-      ]);
-      const q = await qRes.json().catch(() => ({}));
-      const p = await pRes.json().catch(() => ({}));
-      const price = toNum(q?.price);
-      const row = {
-        symbol: sym,
-        name: String(p?.name || p?.ticker || sym),
-        price: price ?? null,
-        percentChange: toNum(q?.percentChange),
-        change: toNum(q?.change),
-      };
-      setQuotes((prev) => ({ ...prev, [sym]: row }));
+      let row = null;
+      if (type === "crypto") {
+        const id = String(cryptoId || CRYPTO_SYMBOL_TO_ID[sym] || "").trim();
+        const qRes = await fetch(
+          `/api/crypto-quote?${id ? `id=${encodeURIComponent(id)}` : `symbol=${encodeURIComponent(sym)}`}`,
+          { cache: "no-store" }
+        );
+        const q = await qRes.json().catch(() => ({}));
+        const price = toNum(q?.price);
+        row = {
+          symbol: sym,
+          assetType: "crypto",
+          cryptoId: String(q?.id || id || "").trim(),
+          name: String(q?.name || sym),
+          price: price ?? null,
+          percentChange: toNum(q?.percentChange),
+          change: toNum(q?.change),
+          high: toNum(q?.high),
+          low: toNum(q?.low),
+          volume: toNum(q?.volume),
+          marketCap: toNum(q?.marketCap),
+        };
+      } else {
+        const [qRes, pRes] = await Promise.all([
+          fetch(`/api/quote?symbol=${encodeURIComponent(sym)}`, { cache: "no-store" }),
+          fetch(`/api/profile?symbol=${encodeURIComponent(sym)}`, { cache: "no-store" }),
+        ]);
+        const q = await qRes.json().catch(() => ({}));
+        const p = await pRes.json().catch(() => ({}));
+        const price = toNum(q?.price);
+        row = {
+          symbol: sym,
+          assetType: "stock",
+          cryptoId: "",
+          name: String(p?.name || p?.ticker || sym),
+          price: price ?? null,
+          percentChange: toNum(q?.percentChange),
+          change: toNum(q?.change),
+          high: toNum(q?.high),
+          low: toNum(q?.low),
+          volume: toNum(q?.volume),
+          marketCap: toNum(q?.marketCap),
+        };
+      }
+      setQuotes((prev) => ({ ...prev, [holdingKey(type, sym)]: row }));
       return row;
     } catch {
       return null;
@@ -323,27 +415,47 @@ export default function SimulatorPage() {
   }, []);
 
   useEffect(() => {
-    const symbols = Array.from(new Set([...holdingSymbols, selectedTicker.toUpperCase()])).filter(Boolean);
-    if (!symbols.length) return;
+    const targets = [...holdingTargets];
+    const selectedSym = selectedTicker.toUpperCase();
+    if (selectedSym) {
+      targets.push({
+        symbol: selectedSym,
+        assetType: selectedAssetType,
+        cryptoId: selectedCryptoId || CRYPTO_SYMBOL_TO_ID[selectedSym] || "",
+      });
+    }
+    const unique = [];
+    const seen = new Set();
+    for (const t of targets) {
+      const key = holdingKey(t.assetType, t.symbol);
+      if (!t.symbol || seen.has(key)) continue;
+      seen.add(key);
+      unique.push(t);
+    }
+    if (!unique.length) return;
     let cancelled = false;
 
     const run = async () => {
-      const rows = await Promise.all(symbols.map((sym) => refreshQuoteFor(sym)));
+      const rows = await Promise.all(unique.map((t) => refreshQuoteFor(t.symbol, t.assetType, t.cryptoId)));
       if (cancelled) return;
-      const selected = rows.find((r) => r?.symbol === selectedTicker.toUpperCase()) || null;
+      const selected = rows.find(
+        (r) => r?.symbol === selectedTicker.toUpperCase() && normalizeAssetType(r?.assetType) === normalizeAssetType(selectedAssetType)
+      ) || null;
       if (selected) {
         setSelectedQuote(selected);
         setSelectedCompany(selected.name || "");
+        if (selected.assetType === "crypto" && selected.cryptoId) setSelectedCryptoId(selected.cryptoId);
       }
     };
 
     run();
-    const timer = setInterval(run, 60000);
+    const hasCrypto = unique.some((t) => normalizeAssetType(t.assetType) === "crypto") || selectedAssetType === "crypto";
+    const timer = setInterval(run, hasCrypto ? 30000 : 60000);
     return () => {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [holdingSymbols, refreshQuoteFor, selectedTicker]);
+  }, [holdingTargets, refreshQuoteFor, selectedTicker, selectedAssetType, selectedCryptoId]);
 
   useEffect(() => {
     const timer = setInterval(() => setNowTick(Date.now()), 60000);
@@ -358,7 +470,12 @@ export default function SimulatorPage() {
         return;
       }
       try {
-        const res = await fetch(`/api/candles?symbol=${encodeURIComponent(sym)}&resolution=5&days=1`, { cache: "no-store" });
+        const isCrypto = selectedAssetType === "crypto";
+        const cryptoId = String(selectedCryptoId || CRYPTO_SYMBOL_TO_ID[sym] || "").trim();
+        const url = isCrypto
+          ? `/api/crypto-candles?id=${encodeURIComponent(cryptoId)}&days=1`
+          : `/api/candles?symbol=${encodeURIComponent(sym)}&resolution=5&days=1`;
+        const res = await fetch(url, { cache: "no-store" });
         const data = await res.json().catch(() => ({}));
         const points = Array.isArray(data?.c)
           ? data.c.map((x, i) => ({ value: Number(x), ts: Number(data?.t?.[i] || Date.now()) * 1000 })).filter((p) => Number.isFinite(p.value))
@@ -369,7 +486,7 @@ export default function SimulatorPage() {
       }
     };
     fetchMini();
-  }, [selectedTicker]);
+  }, [selectedTicker, selectedAssetType, selectedCryptoId]);
 
   useEffect(() => {
     const fetchSpy = async () => {
@@ -404,6 +521,8 @@ export default function SimulatorPage() {
   const nyse = useMemo(() => getNyseStatus(new Date(nowTick)), [nowTick]);
   const autoPilotEnabled = Boolean(profile?.autoPilot?.enabled);
   const latestDecision = profile?.autoPilot?.decisionLog?.[0] || null;
+  const selectedHoldingMapKey = holdingKey(selectedAssetType, selectedTicker);
+  const isCryptoTrade = selectedAssetType === "crypto";
 
   const selectedPrice = toNum(selectedQuote?.price);
   const sharesFromInput = useMemo(() => {
@@ -412,17 +531,17 @@ export default function SimulatorPage() {
     return Math.max(0, Number(dollarInput || 0) / selectedPrice);
   }, [tradeInputMode, shareInput, dollarInput, selectedPrice]);
   const estimatedTradeValue = Number.isFinite(selectedPrice) ? selectedPrice * sharesFromInput : 0;
-  const ownedForSelected = Number(profile.holdings?.[selectedTicker.toUpperCase()]?.shares || 0);
+  const ownedForSelected = Number(profile.holdings?.[selectedHoldingMapKey]?.shares || 0);
   const cashAfterTrade = tradeMode === "BUY" ? Number(profile.cash || 0) - estimatedTradeValue : Number(profile.cash || 0) + estimatedTradeValue;
 
   const tradeError = useMemo(() => {
-    if (!selectedTicker.trim()) return "Enter a ticker symbol.";
-    if (!Number.isFinite(selectedPrice) || selectedPrice <= 0) return "Live price unavailable for this ticker.";
+    if (!selectedTicker.trim()) return isCryptoTrade ? "Enter a crypto symbol." : "Enter a ticker symbol.";
+    if (!Number.isFinite(selectedPrice) || selectedPrice <= 0) return "Live price unavailable for this asset.";
     if (!Number.isFinite(sharesFromInput) || sharesFromInput <= 0) return "Enter a valid trade size.";
     if (tradeMode === "BUY" && estimatedTradeValue > Number(profile.cash || 0) + 1e-8) return "Insufficient cash for this buy.";
     if (tradeMode === "SELL" && sharesFromInput > ownedForSelected + 1e-8) return "Cannot sell more shares than owned.";
     return "";
-  }, [selectedTicker, selectedPrice, sharesFromInput, tradeMode, estimatedTradeValue, profile.cash, ownedForSelected]);
+  }, [selectedTicker, selectedPrice, sharesFromInput, tradeMode, estimatedTradeValue, profile.cash, ownedForSelected, isCryptoTrade]);
 
   const getSpyCloseAt = useCallback(
     (ts) => {
@@ -485,7 +604,7 @@ export default function SimulatorPage() {
     const total = holdingsMarketValue;
     if (!total || holdingsArray.length === 0) return "Conservative";
     const weights = holdingsArray.map((h) => {
-      const px = Number(quotes[h.symbol]?.price);
+      const px = Number(quoteFor(h.assetType, h.symbol)?.price);
       const value = (Number.isFinite(px) ? px : h.avgBuy) * h.shares;
       return value / total;
     });
@@ -493,7 +612,7 @@ export default function SimulatorPage() {
     if (maxWeight >= 0.55 || holdingsArray.length <= 2) return "Aggressive";
     if (maxWeight >= 0.3 || holdingsArray.length <= 4) return "Moderate";
     return "Conservative";
-  }, [holdingsArray, quotes, holdingsMarketValue]);
+  }, [holdingsArray, quoteFor, holdingsMarketValue]);
 
   const portfolioReturnFor = useCallback(
     (days) => {
@@ -537,6 +656,21 @@ export default function SimulatorPage() {
     ];
   }, [profile.transactions.length, holdingsArray, totalReturnPct, spyReturnFor, portfolioReturnFor]);
 
+  const isCryptoTrader = useMemo(() => {
+    if (!holdingsArray.length) return false;
+    const ranked = holdingsArray
+      .map((h) => {
+        const q = quoteFor(h.assetType, h.symbol);
+        const px = Number(q?.price);
+        const current = Number.isFinite(px) && px > 0 ? px : Number(h.avgBuy || 0);
+        const cost = Number(h.avgBuy || 0) * Number(h.shares || 0);
+        const pnlPct = cost > 0 ? ((current * Number(h.shares || 0) - cost) / cost) * 100 : -9999;
+        return { assetType: h.assetType, pnlPct };
+      })
+      .sort((a, b) => b.pnlPct - a.pnlPct);
+    return normalizeAssetType(ranked[0]?.assetType) === "crypto";
+  }, [holdingsArray, quoteFor]);
+
   const leaderboardRows = useMemo(() => {
     const currentReturnAll = totalReturnPct;
     const currentReturnMonth = portfolioReturnFor(30);
@@ -571,10 +705,11 @@ export default function SimulatorPage() {
     return sorted.find((row) => row.user === "You")?.rank || 1;
   }, [leaderboardRows, leaderboardFilter, portfolioReturnFor, totalReturnPct]);
 
-  const runAstraOpinion = useCallback(async (symbol) => {
+  const runAstraOpinion = useCallback(async (symbol, assetType = "stock") => {
     try {
+      const market = normalizeAssetType(assetType) === "crypto" ? "crypto" : "stock";
       const q = encodeURIComponent(`One sentence only: what's the key risk/reward for ${symbol} today?`);
-      const res = await fetch(`/api/ai?mode=chat&market=stock&symbol=${encodeURIComponent(symbol)}&question=${q}`, { cache: "no-store" });
+      const res = await fetch(`/api/ai?mode=chat&market=${market}&symbol=${encodeURIComponent(symbol)}&question=${q}`, { cache: "no-store" });
       const data = await res.json().catch(() => ({}));
       const raw = String(data?.answer || data?.raw || "").trim();
       if (!raw) return "No immediate red flag, but keep risk controls tight.";
@@ -596,39 +731,66 @@ export default function SimulatorPage() {
 
   const applySingleTrade = useCallback((baseProfile, trade) => {
     const symbol = String(trade?.ticker || "").toUpperCase().trim();
+    const assetType = normalizeAssetType(trade?.assetType);
     const action = String(trade?.action || "HOLD").toUpperCase();
-    const live = Number(quotes[symbol]?.price);
+    const key = holdingKey(assetType, symbol);
+    const live = Number(quotes[key]?.price);
     const price = Number.isFinite(live) && live > 0 ? live : Number(trade?.price || 0);
     const sharesRaw = Math.max(0, Number(trade?.shares || 0));
     if (!symbol || !Number.isFinite(price) || price <= 0) return { profile: baseProfile, executed: null };
     const holdings = { ...(baseProfile.holdings || {}) };
     let cash = Number(baseProfile.cash || 0);
     const holdingsValueBefore = Object.values(holdings).reduce((sum, h) => {
-      const hp = Number(quotes[h.symbol]?.price);
+      const hp = Number(quotes[holdingKey(h?.assetType, h?.symbol)]?.price);
+      const px = Number.isFinite(hp) && hp > 0 ? hp : Number(h?.avgBuy || 0);
+      return sum + px * Number(h?.shares || 0);
+    }, 0);
+    const cryptoValueBefore = Object.values(holdings).reduce((sum, h) => {
+      if (normalizeAssetType(h?.assetType) !== "crypto") return sum;
+      const hp = Number(quotes[holdingKey(h?.assetType, h?.symbol)]?.price);
       const px = Number.isFinite(hp) && hp > 0 ? hp : Number(h?.avgBuy || 0);
       return sum + px * Number(h?.shares || 0);
     }, 0);
     const totalBefore = cash + holdingsValueBefore;
     const minCashReserve = Math.max(0, totalBefore * 0.1);
     const maxSinglePosition = Math.max(0, totalBefore * 0.2);
-    const existing = holdings[symbol] || { symbol, name: symbol, shares: 0, avgBuy: price, firstBuyAt: Date.now() };
+    const maxCryptoAllocation = Math.max(0, totalBefore * 0.2);
+    const existing = holdings[key] || {
+      symbol,
+      assetType,
+      cryptoId: assetType === "crypto" ? String(trade?.cryptoId || CRYPTO_SYMBOL_TO_ID[symbol] || "") : "",
+      name: symbol,
+      shares: 0,
+      avgBuy: price,
+      firstBuyAt: Date.now(),
+    };
     const currentPosVal = Number(existing.shares || 0) * price;
 
     if (action === "BUY") {
       const spendCap = Math.max(0, cash - minCashReserve);
       const singleCap = Math.max(0, maxSinglePosition - currentPosVal);
-      const allowedValue = Math.min(spendCap, singleCap);
+      const cryptoCap =
+        assetType === "crypto" ? Math.max(0, maxCryptoAllocation - cryptoValueBefore) : Number.POSITIVE_INFINITY;
+      const allowedValue = Math.min(spendCap, singleCap, cryptoCap);
       const value = sharesRaw * price;
       const execValue = Math.min(value, allowedValue);
       const execShares = price > 0 ? execValue / price : 0;
       if (execShares <= 0) return { profile: baseProfile, executed: null };
       const totalShares = Number(existing.shares || 0) + execShares;
       const avgBuy = ((Number(existing.avgBuy || 0) * Number(existing.shares || 0)) + execValue) / totalShares;
-      holdings[symbol] = { ...existing, symbol, shares: totalShares, avgBuy, firstBuyAt: Number(existing.firstBuyAt || Date.now()) };
+      holdings[key] = {
+        ...existing,
+        symbol,
+        assetType,
+        cryptoId: assetType === "crypto" ? String(existing.cryptoId || trade?.cryptoId || CRYPTO_SYMBOL_TO_ID[symbol] || "") : "",
+        shares: totalShares,
+        avgBuy,
+        firstBuyAt: Number(existing.firstBuyAt || Date.now()),
+      };
       cash -= execValue;
       return {
         profile: { ...baseProfile, cash, holdings },
-        executed: { action: "BUY", symbol, shares: execShares, price, totalValue: execValue, realizedPnL: null },
+        executed: { action: "BUY", symbol, assetType, shares: execShares, price, totalValue: execValue, realizedPnL: null },
       };
     }
 
@@ -639,18 +801,18 @@ export default function SimulatorPage() {
       const execValue = execShares * price;
       const realizedPnL = (price - Number(existing.avgBuy || 0)) * execShares;
       const remain = owned - execShares;
-      if (remain <= 1e-8) delete holdings[symbol];
-      else holdings[symbol] = { ...existing, shares: remain };
+      if (remain <= 1e-8) delete holdings[key];
+      else holdings[key] = { ...existing, shares: remain };
       cash += execValue;
       return {
         profile: { ...baseProfile, cash, holdings },
-        executed: { action: "SELL", symbol, shares: execShares, price, totalValue: execValue, realizedPnL },
+        executed: { action: "SELL", symbol, assetType, shares: execShares, price, totalValue: execValue, realizedPnL },
       };
     }
 
     return {
       profile: baseProfile,
-      executed: { action: "HOLD", symbol, shares: 0, price, totalValue: 0, realizedPnL: null },
+      executed: { action: "HOLD", symbol, assetType, shares: 0, price, totalValue: 0, realizedPnL: null },
     };
   }, [quotes]);
 
@@ -659,13 +821,19 @@ export default function SimulatorPage() {
     setAutoRunning(true);
     setAutoMessage("");
     try {
-      const holdingsPayload = Object.values(profile.holdings || {}).map((h) => ({
-        symbol: h.symbol,
-        shares: Number(h.shares || 0),
-        avgBuy: Number(h.avgBuy || 0),
-        currentPrice: Number(quotes[h.symbol]?.price || h.avgBuy || 0),
-        percentChange: Number(quotes[h.symbol]?.percentChange || 0),
-      }));
+      const holdingsPayload = Object.values(profile.holdings || {}).map((h) => {
+        const key = holdingKey(h?.assetType, h?.symbol);
+        const q = quotes[key] || {};
+        return {
+          symbol: h.symbol,
+          assetType: normalizeAssetType(h?.assetType),
+          cryptoId: String(h?.cryptoId || ""),
+          shares: Number(h.shares || 0),
+          avgBuy: Number(h.avgBuy || 0),
+          currentPrice: Number(q?.price || h.avgBuy || 0),
+          percentChange: Number(q?.percentChange || 0),
+        };
+      });
       const res = await fetch("/api/simulator-autopilot", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -691,6 +859,7 @@ export default function SimulatorPage() {
           ts: now,
           action: executed.action,
           symbol: executed.symbol,
+          assetType: executed.assetType || normalizeAssetType(decision?.assetType),
           shares: executed.shares,
           price: executed.price,
           totalValue: executed.totalValue,
@@ -705,7 +874,7 @@ export default function SimulatorPage() {
       }
 
       const holdingsValue = Object.values(draft.holdings || {}).reduce((sum, h) => {
-        const px = Number(quotes[h.symbol]?.price);
+        const px = Number(quotes[holdingKey(h?.assetType, h?.symbol)]?.price);
         const usePx = Number.isFinite(px) && px > 0 ? px : Number(h.avgBuy || 0);
         return sum + usePx * Number(h.shares || 0);
       }, 0);
@@ -724,7 +893,8 @@ export default function SimulatorPage() {
       setProfile(draft);
       if (decisionLogEntries.length) {
         const first = decisionLogEntries[0];
-        setAutoMessage(`ASTRA ${first.action} ${first.symbol} (${first.shares.toFixed(3)} shares).`);
+        const units = normalizeAssetType(first.assetType) === "crypto" ? first.symbol : "shares";
+        setAutoMessage(`ASTRA ${first.action} ${first.symbol} (${first.shares.toFixed(normalizeAssetType(first.assetType) === "crypto" ? 6 : 3)} ${units}).`);
       } else if (!didTrade) {
         setAutoMessage("ASTRA reviewed the market and held positions.");
       }
@@ -770,7 +940,6 @@ export default function SimulatorPage() {
     if (shouldRun) runAutoPilotCycle();
   }, [autoPilotEnabled, autoRunning, nyse.open, profile?.autoPilot?.lastRunAt, profile?.autoPilot?.nextDecisionAt, runAutoPilotCycle]);
 
-  const executeTrade = async () => {
   const runDeepResearch = async (symbol, type = "full") => {
     const target = String(symbol || "").toUpperCase().trim();
     if (!target) return;
@@ -798,8 +967,10 @@ export default function SimulatorPage() {
     }
   };
 
+  const executeTrade = async () => {
     setTradeMessage("");
     setAstraOpinion("");
+    setCryptoLessonNotice("");
     if (autoPilotEnabled) {
       setTradeMessage("Manual trading is disabled while ASTRA Auto-Pilot is active.");
       return;
@@ -809,9 +980,11 @@ export default function SimulatorPage() {
       return;
     }
     const symbol = selectedTicker.trim().toUpperCase();
+    const assetType = normalizeAssetType(selectedAssetType);
+    const mapKey = holdingKey(assetType, symbol);
     setSubmittingTrade(true);
     try {
-      const fresh = await refreshQuoteFor(symbol);
+      const fresh = await refreshQuoteFor(symbol, assetType, selectedCryptoId);
       const px = Number(fresh?.price ?? selectedPrice);
       if (!Number.isFinite(px) || px <= 0) {
         setTradeMessage("Unable to execute trade: live price unavailable.");
@@ -827,8 +1000,10 @@ export default function SimulatorPage() {
           setTradeMessage("Insufficient cash for this buy.");
           return;
         }
-        const existing = profile.holdings[symbol] || {
+        const existing = profile.holdings[mapKey] || {
           symbol,
+          assetType,
+          cryptoId: assetType === "crypto" ? String(fresh?.cryptoId || selectedCryptoId || CRYPTO_SYMBOL_TO_ID[symbol] || "") : "",
           name: fresh?.name || selectedCompany || symbol,
           shares: 0,
           avgBuy: 0,
@@ -843,32 +1018,36 @@ export default function SimulatorPage() {
           cash: Number(profile.cash || 0) - value,
           holdings: {
             ...profile.holdings,
-            [symbol]: {
+            [mapKey]: {
               ...existing,
               shares: totalShares,
               avgBuy,
+              assetType,
+              cryptoId: assetType === "crypto" ? String(existing.cryptoId || fresh?.cryptoId || selectedCryptoId || CRYPTO_SYMBOL_TO_ID[symbol] || "") : "",
               name: existing.name || fresh?.name || symbol,
               firstBuyAt: Number(existing.firstBuyAt || now),
             },
           },
           transactions: [
             {
-              id: `${now}-${symbol}-BUY`,
+              id: `${now}-${assetType}-${symbol}-BUY`,
               ts: now,
               symbol,
+              assetType,
+              cryptoId: assetType === "crypto" ? String(fresh?.cryptoId || selectedCryptoId || CRYPTO_SYMBOL_TO_ID[symbol] || "") : "",
               company: fresh?.name || selectedCompany || symbol,
               action: "BUY",
               shares,
               price: px,
               totalValue: value,
               realizedPnL: null,
-              marketClosed: !nyse.open,
+              marketClosed: assetType === "stock" ? !nyse.open : false,
             },
             ...profile.transactions,
           ],
         };
       } else {
-        const existing = profile.holdings[symbol];
+        const existing = profile.holdings[mapKey];
         if (!existing || Number(existing.shares || 0) < shares - 1e-8) {
           setTradeMessage("Cannot sell more shares than owned.");
           return;
@@ -876,24 +1055,26 @@ export default function SimulatorPage() {
         const realizedPnL = (px - Number(existing.avgBuy || 0)) * shares;
         const remain = Number(existing.shares || 0) - shares;
         const nextHoldings = { ...profile.holdings };
-        if (remain <= 1e-8) delete nextHoldings[symbol];
-        else nextHoldings[symbol] = { ...existing, shares: remain };
+        if (remain <= 1e-8) delete nextHoldings[mapKey];
+        else nextHoldings[mapKey] = { ...existing, shares: remain };
         nextProfile = {
           ...profile,
           cash: Number(profile.cash || 0) + value,
           holdings: nextHoldings,
           transactions: [
             {
-              id: `${now}-${symbol}-SELL`,
+              id: `${now}-${assetType}-${symbol}-SELL`,
               ts: now,
               symbol,
+              assetType,
+              cryptoId: assetType === "crypto" ? String(existing.cryptoId || selectedCryptoId || CRYPTO_SYMBOL_TO_ID[symbol] || "") : "",
               company: existing.name || symbol,
               action: "SELL",
               shares,
               price: px,
               totalValue: value,
               realizedPnL,
-              marketClosed: !nyse.open,
+              marketClosed: assetType === "stock" ? !nyse.open : false,
             },
             ...profile.transactions,
           ],
@@ -901,7 +1082,7 @@ export default function SimulatorPage() {
       }
 
       const recomputedHoldingsValue = Object.values(nextProfile.holdings).reduce((sum, h) => {
-        const live = Number((h && quotes[h.symbol]?.price) || (h && fresh?.symbol === h.symbol ? fresh.price : null));
+        const live = Number((h && quotes[holdingKey(h.assetType, h.symbol)]?.price) || (h && fresh?.symbol === h.symbol ? fresh.price : null));
         const fallback = Number(h?.avgBuy || 0);
         const usePx = Number.isFinite(live) && live > 0 ? live : fallback;
         return sum + usePx * Number(h?.shares || 0);
@@ -911,9 +1092,19 @@ export default function SimulatorPage() {
 
       setProfile(nextProfile);
       setTradeMessage(
-        `${tradeMode} ${shares.toFixed(4)} ${symbol} @ ${fmtMoney(px)} (${fmtMoney(value)} total)${nyse.open ? "" : " — Market Closed: using last close price."}`
+        `${tradeMode} ${shares.toFixed(assetType === "crypto" ? 6 : 4)} ${symbol} @ ${fmtMoney(px)} (${fmtMoney(value)} total)${
+          assetType === "stock" && !nyse.open ? " — Market Closed: using last close price." : ""
+        }`
       );
-      const line = await runAstraOpinion(symbol);
+      if (assetType === "crypto") {
+        const hadCryptoTrade = profile.transactions.some((tx) => normalizeAssetType(tx?.assetType) === "crypto");
+        if (!hadCryptoTrade && tradeMode === "BUY") {
+          setCryptoLessonNotice(
+            "Market School: What is blockchain and why does it matter? • Why is crypto so volatile? • How to size a crypto position responsibly."
+          );
+        }
+      }
+      const line = await runAstraOpinion(symbol, assetType);
       setAstraOpinion(line);
     } finally {
       setSubmittingTrade(false);
@@ -1028,7 +1219,7 @@ export default function SimulatorPage() {
                         <span className={`text-xs ${isLight ? "text-slate-500" : "text-white/60"}`}>{new Date(Number(d.ts)).toLocaleString()}</span>
                       </div>
                       <div className={`text-sm ${isLight ? "text-slate-700" : "text-white/85"}`}>
-                        ASTRA {d.action} {Number(d.shares || 0).toFixed(3)} shares at {fmtMoney(d.price)}.
+                        ASTRA {d.action} {Number(d.shares || 0).toFixed(normalizeAssetType(d.assetType) === "crypto" ? 6 : 3)} {normalizeAssetType(d.assetType) === "crypto" ? d.symbol : "shares"} at {fmtMoney(d.price)}.
                       </div>
                       <div className={`mt-1 text-xs ${isLight ? "text-slate-600" : "text-white/70"}`}>
                         {d.reasoning}
@@ -1110,7 +1301,7 @@ export default function SimulatorPage() {
               Reset Portfolio
             </button>
           </div>
-          <div className="mt-4 grid grid-cols-2 md:grid-cols-6 gap-3">
+          <div className="mt-4 grid grid-cols-2 md:grid-cols-8 gap-3">
             <div className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/[0.03]"}`}>
               <div className={`text-[11px] ${isLight ? "text-slate-500" : "text-white/60"}`}>Total Value</div>
               <div className="text-lg font-semibold">{fmtMoney(portfolioTotal)}</div>
@@ -1134,15 +1325,29 @@ export default function SimulatorPage() {
             <div className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/[0.03]"}`}>
               <div className={`text-[11px] ${isLight ? "text-slate-500" : "text-white/60"}`}>Rank Badge</div>
               <div className="text-lg font-semibold">{rankBadge(selfRank)} #{selfRank}</div>
+              {isCryptoTrader && <div className="text-[11px] mt-1 text-violet-500 font-semibold">Crypto Trader</div>}
             </div>
             <div className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/[0.03]"}`}>
               <div className={`text-[11px] ${isLight ? "text-slate-500" : "text-white/60"}`}>ASTRA Risk Score</div>
               <div className="text-lg font-semibold">{portfolioRiskScore}</div>
             </div>
+            <div className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/[0.03]"}`}>
+              <div className={`text-[11px] ${isLight ? "text-slate-500" : "text-white/60"}`}>Stocks Value</div>
+              <div className="text-lg font-semibold">{fmtMoney(holdingsBreakdown.stocks)}</div>
+            </div>
+            <div className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/[0.03]"}`}>
+              <div className={`text-[11px] ${isLight ? "text-slate-500" : "text-white/60"}`}>Crypto Value</div>
+              <div className="text-lg font-semibold">{fmtMoney(holdingsBreakdown.crypto)}</div>
+            </div>
           </div>
-          {!nyse.open && (
+          {!nyse.open && selectedAssetType === "stock" && (
             <div className={`mt-3 rounded-lg border px-3 py-2 text-xs ${isLight ? "border-amber-300 bg-amber-50 text-amber-700" : "border-amber-400/35 bg-amber-500/15 text-amber-200"}`}>
               Market Closed - trades execute at open (using latest close estimate in simulator).
+            </div>
+          )}
+          {selectedAssetType === "crypto" && (
+            <div className={`mt-3 rounded-lg border px-3 py-2 text-xs ${isLight ? "border-cyan-300 bg-cyan-50 text-cyan-700" : "border-cyan-400/35 bg-cyan-500/15 text-cyan-200"}`}>
+              Crypto markets never close. Quotes refresh every 30 seconds.
             </div>
           )}
           {lastOvernightDelta != null && (
@@ -1162,6 +1367,7 @@ export default function SimulatorPage() {
                 <thead className={isLight ? "text-slate-500" : "text-white/60"}>
                   <tr className={isLight ? "border-b border-slate-200 text-left" : "border-b border-white/10 text-left"}>
                     <th className="py-2 pr-2">Ticker</th>
+                    <th className="py-2 pr-2">Type</th>
                     <th className="py-2 pr-2">Company</th>
                     <th className="py-2 pr-2">Shares</th>
                     <th className="py-2 pr-2">Avg Buy</th>
@@ -1174,17 +1380,34 @@ export default function SimulatorPage() {
                 </thead>
                 <tbody>
                   {holdingsArray.map((h) => {
-                    const q = quotes[h.symbol];
+                    const q = quoteFor(h.assetType, h.symbol);
                     const px = Number.isFinite(Number(q?.price)) ? Number(q.price) : Number(h.avgBuy || 0);
                     const total = px * h.shares;
                     const cost = Number(h.avgBuy || 0) * h.shares;
                     const pnl = total - cost;
                     const pnlPct = cost > 0 ? (pnl / cost) * 100 : 0;
                     return (
-                      <tr key={h.symbol} className={isLight ? "border-b border-slate-100" : "border-b border-white/5"}>
+                      <tr key={holdingKey(h.assetType, h.symbol)} className={isLight ? "border-b border-slate-100" : "border-b border-white/5"}>
                         <td className="py-2 pr-2 font-semibold">{h.symbol}</td>
+                        <td className="py-2 pr-2">
+                          <span
+                            className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                              h.assetType === "crypto"
+                                ? isLight
+                                  ? "border-violet-300 bg-violet-50 text-violet-700"
+                                  : "border-violet-400/35 bg-violet-500/20 text-violet-200"
+                                : isLight
+                                  ? "border-blue-300 bg-blue-50 text-blue-700"
+                                  : "border-blue-400/35 bg-blue-500/20 text-blue-200"
+                            }`}
+                          >
+                            {h.assetType === "crypto" ? "CRYPTO" : "STOCK"}
+                          </span>
+                        </td>
                         <td className={`py-2 pr-2 ${isLight ? "text-slate-700" : "text-white/80"}`}>{h.name || h.symbol}</td>
-                        <td className="py-2 pr-2">{h.shares.toFixed(4)}</td>
+                        <td className="py-2 pr-2">
+                          {h.assetType === "crypto" ? `${h.shares.toFixed(6)} ${h.symbol}` : h.shares.toFixed(4)}
+                        </td>
                         <td className="py-2 pr-2">{fmtMoney(h.avgBuy)}</td>
                         <td className="py-2 pr-2">{fmtMoney(px)}</td>
                         <td className="py-2 pr-2">{fmtMoney(total)}</td>
@@ -1203,9 +1426,11 @@ export default function SimulatorPage() {
                           <button
                             onClick={() => {
                               setTradeMode("SELL");
+                              setSelectedAssetType(h.assetType === "crypto" ? "crypto" : "stock");
                               setSelectedTicker(h.symbol);
+                              setSelectedCryptoId(String(h.cryptoId || CRYPTO_SYMBOL_TO_ID[h.symbol] || ""));
                               setShareInput(String(Math.min(1, h.shares)));
-                              setTradeInputMode("shares");
+                              setTradeInputMode(h.assetType === "crypto" ? "dollars" : "shares");
                             }}
                             className={`px-2 py-1 rounded-md text-[11px] border ${
                               isLight ? "border-rose-300 bg-rose-50 text-rose-700" : "border-rose-400/35 bg-rose-500/20 text-rose-200"
@@ -1226,19 +1451,64 @@ export default function SimulatorPage() {
 
         <section className={`${cardClass} mb-6`}>
           <h2 className={`text-xl font-semibold mb-3 ${isLight ? "text-slate-900" : "text-white"}`}>Trade</h2>
+          <div className="mb-3 inline-flex rounded-lg overflow-hidden border border-white/15">
+            <button
+              onClick={() => {
+                setSelectedAssetType("stock");
+                setSelectedTicker("AAPL");
+                setSelectedCryptoId("");
+                setTradeInputMode("shares");
+              }}
+              className={`px-3 py-1.5 text-xs ${selectedAssetType === "stock" ? "bg-blue-600 text-white" : isLight ? "bg-white text-slate-700" : "bg-white/10 text-white/85"}`}
+            >
+              Stocks
+            </button>
+            <button
+              onClick={() => {
+                setSelectedAssetType("crypto");
+                setSelectedTicker("BTC");
+                setSelectedCryptoId("bitcoin");
+                setTradeInputMode("dollars");
+              }}
+              className={`px-3 py-1.5 text-xs ${selectedAssetType === "crypto" ? "bg-blue-600 text-white" : isLight ? "bg-white text-slate-700" : "bg-white/10 text-white/85"}`}
+            >
+              Crypto
+            </button>
+          </div>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="lg:col-span-2">
               <div className="flex flex-wrap gap-2 mb-3">
                 <input
                   value={selectedTicker}
                   onChange={(e) => setSelectedTicker(e.target.value.toUpperCase())}
-                  placeholder="Ticker (AAPL)"
+                  placeholder={selectedAssetType === "crypto" ? "Crypto (BTC, ETH, SOL...)" : "Ticker (AAPL)"}
                   className={`px-3 py-2 rounded-lg border text-sm outline-none ${
                     isLight ? "border-slate-300 bg-white text-slate-800" : "border-white/15 bg-white/10 text-white"
                   }`}
                 />
+                {selectedAssetType === "crypto" && (
+                  <select
+                    value={selectedCryptoId}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      setSelectedCryptoId(id);
+                      const match = CRYPTO_OPTIONS.find((c) => c.id === id);
+                      if (match) setSelectedTicker(match.symbol);
+                    }}
+                    className={`px-3 py-2 rounded-lg border text-xs ${
+                      isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/15 bg-white/10 text-white/85"
+                    }`}
+                  >
+                    <option value="">Popular crypto</option>
+                    {CRYPTO_OPTIONS.map((opt) => (
+                      <option key={opt.id} value={opt.id}>
+                        {opt.symbol} - {opt.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 <button
-                  onClick={() => refreshQuoteFor(selectedTicker)}
+                  onClick={() => refreshQuoteFor(selectedTicker, selectedAssetType, selectedCryptoId)}
                   className={`px-3 py-2 rounded-lg border text-xs ${isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/15 bg-white/10 text-white/85"}`}
                 >
                   Refresh Price
@@ -1262,6 +1532,14 @@ export default function SimulatorPage() {
                   <div>{fmtMoney(selectedPrice)}</div>
                   <div className={`${Number(selectedQuote?.percentChange) >= 0 ? "text-emerald-500" : "text-rose-500"}`}>{fmtPct(selectedQuote?.percentChange)}</div>
                 </div>
+                {selectedAssetType === "crypto" && (
+                  <div className={`mb-2 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs ${isLight ? "text-slate-600" : "text-white/75"}`}>
+                    <div>24h High: <span className="font-semibold">{fmtMoney(selectedQuote?.high)}</span></div>
+                    <div>24h Low: <span className="font-semibold">{fmtMoney(selectedQuote?.low)}</span></div>
+                    <div>24h Vol: <span className="font-semibold">{fmtMoney(selectedQuote?.volume)}</span></div>
+                    <div>Mkt Cap: <span className="font-semibold">{fmtMoney(selectedQuote?.marketCap)}</span></div>
+                  </div>
+                )}
                 <div className={`h-[72px] rounded-md border p-1 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-slate-900/50"}`}>
                   {miniPoints.length >= 2 ? (
                     <svg viewBox="0 0 260 70" className="h-full w-full">
@@ -1283,7 +1561,7 @@ export default function SimulatorPage() {
                 <div className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/[0.03]"}`}>
                   <div className={`text-[11px] mb-1 ${isLight ? "text-slate-500" : "text-white/60"}`}>Input Mode</div>
                   <div className="flex gap-2">
-                    <button onClick={() => setTradeInputMode("shares")} className={`px-2.5 py-1.5 rounded-md text-xs border ${tradeInputMode === "shares" ? "bg-blue-600 text-white border-blue-500" : isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/15 bg-white/10 text-white/85"}`}>Shares</button>
+                    <button onClick={() => setTradeInputMode("shares")} className={`px-2.5 py-1.5 rounded-md text-xs border ${tradeInputMode === "shares" ? "bg-blue-600 text-white border-blue-500" : isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/15 bg-white/10 text-white/85"}`}>{selectedAssetType === "crypto" ? "Coin Units" : "Shares"}</button>
                     <button onClick={() => setTradeInputMode("dollars")} className={`px-2.5 py-1.5 rounded-md text-xs border ${tradeInputMode === "dollars" ? "bg-blue-600 text-white border-blue-500" : isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/15 bg-white/10 text-white/85"}`}>Dollar Amount</button>
                   </div>
                   {tradeInputMode === "shares" ? (
@@ -1295,6 +1573,11 @@ export default function SimulatorPage() {
                 <div className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/[0.03]"}`}>
                   <div className={`text-[11px] ${isLight ? "text-slate-500" : "text-white/60"}`}>Estimated Cost</div>
                   <div className="text-lg font-semibold">{fmtMoney(estimatedTradeValue)}</div>
+                  {selectedAssetType === "crypto" && (
+                    <div className={`text-[11px] mt-1 ${isLight ? "text-slate-500" : "text-white/60"}`}>
+                      {sharesFromInput.toFixed(6)} {selectedTicker || "COIN"} = {fmtMoney(estimatedTradeValue)}
+                    </div>
+                  )}
                   <div className={`text-[11px] mt-1 ${isLight ? "text-slate-500" : "text-white/60"}`}>Cash After Trade</div>
                   <div className={`text-sm font-semibold ${cashAfterTrade >= 0 ? "text-emerald-500" : "text-rose-500"}`}>{fmtMoney(cashAfterTrade)}</div>
                   <button
@@ -1311,6 +1594,11 @@ export default function SimulatorPage() {
               {astraOpinion && (
                 <div className={`mt-2 rounded-lg border px-3 py-2 text-xs ${isLight ? "border-slate-300 bg-white text-slate-700" : "border-cyan-400/30 bg-cyan-500/10 text-cyan-100"}`}>
                   ASTRA says: {astraOpinion}
+                </div>
+              )}
+              {cryptoLessonNotice && (
+                <div className={`mt-2 rounded-lg border px-3 py-2 text-xs ${isLight ? "border-violet-300 bg-violet-50 text-violet-700" : "border-violet-400/35 bg-violet-500/15 text-violet-200"}`}>
+                  {cryptoLessonNotice}
                 </div>
               )}
             </div>
@@ -1375,6 +1663,7 @@ export default function SimulatorPage() {
                 <tr className={isLight ? "border-b border-slate-200 text-left" : "border-b border-white/10 text-left"}>
                   <th className="py-2 pr-2">Date</th>
                   <th className="py-2 pr-2">Ticker</th>
+                  <th className="py-2 pr-2">Type</th>
                   <th className="py-2 pr-2">Action</th>
                   <th className="py-2 pr-2">Shares</th>
                   <th className="py-2 pr-2">Price</th>
@@ -1387,8 +1676,17 @@ export default function SimulatorPage() {
                   <tr key={tx.id} className={isLight ? "border-b border-slate-100" : "border-b border-white/5"}>
                     <td className="py-2 pr-2">{new Date(Number(tx.ts)).toLocaleString()}</td>
                     <td className="py-2 pr-2 font-semibold">{tx.symbol}</td>
+                    <td className="py-2 pr-2">
+                      <span className={`text-[10px] rounded-full border px-2 py-0.5 ${
+                        normalizeAssetType(tx.assetType) === "crypto"
+                          ? isLight ? "border-violet-300 bg-violet-50 text-violet-700" : "border-violet-400/35 bg-violet-500/20 text-violet-200"
+                          : isLight ? "border-blue-300 bg-blue-50 text-blue-700" : "border-blue-400/35 bg-blue-500/20 text-blue-200"
+                      }`}>
+                        {normalizeAssetType(tx.assetType) === "crypto" ? "CRYPTO" : "STOCK"}
+                      </span>
+                    </td>
                     <td className={`py-2 pr-2 ${tx.action === "BUY" ? "text-emerald-500" : "text-rose-500"}`}>{tx.action}</td>
-                    <td className="py-2 pr-2">{Number(tx.shares || 0).toFixed(4)}</td>
+                    <td className="py-2 pr-2">{Number(tx.shares || 0).toFixed(normalizeAssetType(tx.assetType) === "crypto" ? 6 : 4)}</td>
                     <td className="py-2 pr-2">{fmtMoney(tx.price)}</td>
                     <td className="py-2 pr-2">{fmtMoney(tx.totalValue)}</td>
                     <td className={`py-2 pr-2 ${Number(tx.realizedPnL) >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
@@ -1398,7 +1696,7 @@ export default function SimulatorPage() {
                 ))}
                 {profile.transactions.length === 0 && (
                   <tr>
-                    <td colSpan={7} className={`py-4 text-center ${isLight ? "text-slate-500" : "text-white/60"}`}>
+                    <td colSpan={8} className={`py-4 text-center ${isLight ? "text-slate-500" : "text-white/60"}`}>
                       No trades yet.
                     </td>
                   </tr>
@@ -1437,7 +1735,16 @@ export default function SimulatorPage() {
                 {leaderboardRows.map((row) => (
                   <tr key={`${row.user}-${row.rank}`} className={`${isLight ? "border-b border-slate-100" : "border-b border-white/5"} ${row.user === "You" ? isLight ? "bg-blue-50/80" : "bg-blue-500/10" : ""}`}>
                     <td className="py-2 pr-2 font-semibold">#{row.rank}</td>
-                    <td className="py-2 pr-2">{row.user}</td>
+                    <td className="py-2 pr-2">
+                      {row.user}
+                      {row.user === "You" && isCryptoTrader && (
+                        <span className={`ml-2 text-[10px] rounded-full border px-1.5 py-0.5 ${
+                          isLight ? "border-violet-300 bg-violet-50 text-violet-700" : "border-violet-400/35 bg-violet-500/20 text-violet-200"
+                        }`}>
+                          Crypto Trader
+                        </span>
+                      )}
+                    </td>
                     <td className={`py-2 pr-2 ${row.metric >= 0 ? "text-emerald-500" : "text-rose-500"}`}>{fmtPct(row.metric)}</td>
                     <td className="py-2 pr-2">{fmtMoney(row.value)}</td>
                   </tr>
