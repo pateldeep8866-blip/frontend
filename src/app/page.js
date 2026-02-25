@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { geoMercator, geoPath } from "d3-geo";
 import { getSupabaseClient } from "@/app/api/_lib/supabaseClient";
+import geopoliticalRelations from "@/data/geopolitical-relations.json";
 
 function Badge({ value, light = false }) {
   const v = (value || "").toUpperCase();
@@ -45,18 +46,6 @@ function fmtLarge(n) {
   if (Math.abs(v) >= 1e6) return `${(v / 1e6).toFixed(2)}M`;
   if (Math.abs(v) >= 1e3) return `${(v / 1e3).toFixed(2)}K`;
   return `${v.toFixed(2)}`;
-}
-
-function globalMarketHeatFill(percentChange, isLight) {
-  const v = Number(percentChange);
-  if (!Number.isFinite(v)) return isLight ? "#d1d5db" : "#334155";
-  if (v >= 2) return "#15803d";
-  if (v >= 0.5) return "#4ade80";
-  if (v > 0) return "#bbf7d0";
-  if (v <= -2) return "#b91c1c";
-  if (v <= -0.5) return "#f87171";
-  if (v < 0) return "#fecaca";
-  return isLight ? "#cbd5e1" : "#475569";
 }
 
 function normalizeHistoryEntry(value) {
@@ -272,6 +261,14 @@ const GLOBAL_MACRO_INDICATORS = [
   { key: "wti", label: "WTI Crude", symbol: "CL=F" },
   { key: "gold", label: "Gold", symbol: "GC=F" },
 ];
+const GLOBAL_MARKET_SESSIONS = [
+  { key: "nyse", name: "New York (NYSE)", timeZone: "America/New_York", open: "09:30", close: "16:00", label: "ET" },
+  { key: "lse", name: "London (LSE)", timeZone: "Europe/London", open: "08:00", close: "16:30", label: "GMT/BST" },
+  { key: "tse", name: "Tokyo (TSE)", timeZone: "Asia/Tokyo", open: "09:00", close: "15:30", label: "JST" },
+  { key: "hkex", name: "Hong Kong (HKEX)", timeZone: "Asia/Hong_Kong", open: "09:30", close: "16:00", label: "HKT" },
+  { key: "xetra", name: "Frankfurt (XETRA)", timeZone: "Europe/Berlin", open: "09:00", close: "17:30", label: "CET/CEST" },
+  { key: "asx", name: "Sydney (ASX)", timeZone: "Australia/Sydney", open: "10:00", close: "16:00", label: "AEST/AEDT" },
+];
 
 function withLocalizedHeadlines(items, language, cache) {
   return items.map((item) => {
@@ -436,6 +433,80 @@ function formatMacroIndicatorValue(symbol, value) {
   if (symbol === "^TNX") return `${(n / 10).toFixed(2)}%`;
   if (symbol === "^VIX") return n.toFixed(2);
   return n >= 100 ? n.toFixed(2) : n.toFixed(3);
+}
+
+function parseSessionClock(value) {
+  const [h, m] = String(value || "00:00")
+    .split(":")
+    .map((x) => Number(x));
+  return (Number.isFinite(h) ? h : 0) * 60 + (Number.isFinite(m) ? m : 0);
+}
+
+function formatCountdown(minutes) {
+  const mins = Math.max(0, Math.round(Number(minutes) || 0));
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h === 0) return `${m}m`;
+  return `${h}h ${m}m`;
+}
+
+function relationColor(kind, isLight) {
+  if (kind === "ally") return "#22c55e";
+  if (kind === "tension") return "#ef4444";
+  if (kind === "conflict") return "#7f1d1d";
+  if (kind === "trade") return "#60a5fa";
+  return isLight ? "#d1d5db" : "#334155";
+}
+
+function getSessionStatus(session, now = new Date()) {
+  const weekdayMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: session.timeZone,
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(now);
+
+  const part = (type) => parts.find((p) => p.type === type)?.value || "";
+  const weekday = weekdayMap[part("weekday")] ?? 0;
+  const hour = Number(part("hour") || 0);
+  const minute = Number(part("minute") || 0);
+  const nowMinutes = hour * 60 + minute;
+  const openMinutes = parseSessionClock(session.open);
+  const closeMinutes = parseSessionClock(session.close);
+  const isBusinessDay = weekday >= 1 && weekday <= 5;
+  const isOpen = isBusinessDay && nowMinutes >= openMinutes && nowMinutes < closeMinutes;
+
+  let minutesUntil = 0;
+  let phase = "open";
+
+  if (isOpen) {
+    phase = "close";
+    minutesUntil = closeMinutes - nowMinutes;
+  } else {
+    phase = "open";
+    if (isBusinessDay && nowMinutes < openMinutes) {
+      minutesUntil = openMinutes - nowMinutes;
+    } else {
+      let daysAhead = 1;
+      while (daysAhead <= 7) {
+        const d = (weekday + daysAhead) % 7;
+        if (d >= 1 && d <= 5) break;
+        daysAhead += 1;
+      }
+      minutesUntil = daysAhead * 1440 + openMinutes - nowMinutes;
+    }
+  }
+
+  const localTime = new Intl.DateTimeFormat("en-US", {
+    timeZone: session.timeZone,
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(now);
+
+  return { isOpen, phase, minutesUntil, localTime };
 }
 
 function localizeAiPayloadView(view, language, cache) {
@@ -980,9 +1051,13 @@ export default function Home() {
   const [globalWorldFeatures, setGlobalWorldFeatures] = useState([]);
   const [globalWorldLoading, setGlobalWorldLoading] = useState(false);
   const [globalWorldError, setGlobalWorldError] = useState("");
-  const [globalMarketPerformance, setGlobalMarketPerformance] = useState({});
   const [globalMacroRows, setGlobalMacroRows] = useState([]);
   const [globalMacroLoading, setGlobalMacroLoading] = useState(false);
+  const [marketSessionsTick, setMarketSessionsTick] = useState(Date.now());
+  const [geoCountrySummary, setGeoCountrySummary] = useState("");
+  const [geoCountrySummaryLoading, setGeoCountrySummaryLoading] = useState(false);
+  const geoCountrySummaryCacheRef = useRef(new Map());
+  const [geoCountrySummaryVersion, setGeoCountrySummaryVersion] = useState(0);
   const [geoFilter, setGeoFilter] = useState("all");
   const [geoRegionFilter, setGeoRegionFilter] = useState("all");
   const [geoSort, setGeoSort] = useState("impact");
@@ -1143,6 +1218,21 @@ export default function Home() {
         });
       }
     } catch {}
+    try {
+      const raw = localStorage.getItem("geo_country_summary_cache_v1");
+      const parsed = JSON.parse(raw || "{}");
+      if (parsed && typeof parsed === "object") {
+        const now = Date.now();
+        Object.entries(parsed).forEach(([key, item]) => {
+          const value = String(item?.value || "").trim();
+          const ts = Number(item?.ts || 0);
+          if (!value) return;
+          if (Number.isFinite(ts) && now - ts <= 1000 * 60 * 60 * 24 * 7) {
+            geoCountrySummaryCacheRef.current.set(key, value);
+          }
+        });
+      }
+    } catch {}
   }, []);
 
   useEffect(() => {
@@ -1166,6 +1256,15 @@ export default function Home() {
       localStorage.setItem("headline_impact_cache_v1", JSON.stringify(out));
     } catch {}
   }, [headlineInsightVersion]);
+  useEffect(() => {
+    try {
+      const out = {};
+      geoCountrySummaryCacheRef.current.forEach((value, key) => {
+        out[key] = { value, ts: Date.now() };
+      });
+      localStorage.setItem("geo_country_summary_cache_v1", JSON.stringify(out));
+    } catch {}
+  }, [geoCountrySummaryVersion]);
 
   useEffect(() => {
     const headlines = [
@@ -3499,6 +3598,40 @@ export default function Home() {
     () => GLOBAL_MARKET_COUNTRIES.find((country) => country.code === globalMarketCountry) || GLOBAL_MARKET_COUNTRIES[0],
     [globalMarketCountry]
   );
+  const selectedCountryRelations = useMemo(() => {
+    const rel = geopoliticalRelations?.[selectedGlobalCountry.code] || {};
+    return {
+      alliesPartners: Array.isArray(rel?.alliesPartners) ? rel.alliesPartners : [],
+      tradePartners: Array.isArray(rel?.tradePartners) ? rel.tradePartners : [],
+      tensionsSanctions: Array.isArray(rel?.tensionsSanctions) ? rel.tensionsSanctions : [],
+      activeConflicts: Array.isArray(rel?.activeConflicts) ? rel.activeConflicts : [],
+    };
+  }, [selectedGlobalCountry]);
+  const relationTypeByIso = useMemo(() => {
+    const map = new Map();
+    selectedCountryRelations.tradePartners.forEach((x) => map.set(String(x?.code || "").toUpperCase(), "trade"));
+    selectedCountryRelations.alliesPartners.forEach((x) => map.set(String(x?.code || "").toUpperCase(), "ally"));
+    selectedCountryRelations.tensionsSanctions.forEach((x) => map.set(String(x?.code || "").toUpperCase(), "tension"));
+    selectedCountryRelations.activeConflicts.forEach((x) => map.set(String(x?.code || "").toUpperCase(), "conflict"));
+    return map;
+  }, [selectedCountryRelations]);
+  const alliesAndPartnersList = useMemo(
+    () => {
+      const out = [];
+      const seen = new Set();
+      [...selectedCountryRelations.alliesPartners, ...selectedCountryRelations.tradePartners].forEach((item) => {
+        const code = String(item?.code || "").toUpperCase();
+        const name = String(item?.name || "").trim();
+        const reason = String(item?.reason || "").trim();
+        const key = `${code}|${name}|${reason}`;
+        if (!name || seen.has(key)) return;
+        seen.add(key);
+        out.push({ code, name, reason });
+      });
+      return out;
+    },
+    [selectedCountryRelations]
+  );
   const globalProjection = useMemo(
     () => geoMercator().scale(130).translate([GLOBAL_MAP_WIDTH / 2, GLOBAL_MAP_HEIGHT / 1.5]),
     []
@@ -3536,6 +3669,52 @@ export default function Home() {
     const leadText = lead.headlineDisplay || lead.headlineOriginal || "";
     return `${selectedGlobalCountry.name} is now in focus. Monitoring ${proxyCount} market proxy ${proxyCount === 1 ? "instrument" : "instruments"} and latest catalysts: ${leadText}`;
   }, [globalCountryNews, selectedGlobalCountry]);
+  const marketsOpenNow = useMemo(
+    () =>
+      GLOBAL_MARKET_SESSIONS.map((session) => ({
+        ...session,
+        ...getSessionStatus(session, new Date(marketSessionsTick)),
+      })),
+    [marketSessionsTick]
+  );
+  useEffect(() => {
+    if (!isGlobalMarketMode) return;
+    const key = selectedGlobalCountry.code;
+    const cached = geoCountrySummaryCacheRef.current.get(key);
+    if (cached) {
+      setGeoCountrySummary(cached);
+      return;
+    }
+    setGeoCountrySummary("");
+    let cancelled = false;
+    const loadGeoSummary = async () => {
+      try {
+        setGeoCountrySummaryLoading(true);
+        const res = await fetch("/api/geopolitics-summary", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            country: selectedGlobalCountry.name,
+            relations: selectedCountryRelations,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        const summary = String(data?.summary || "").trim();
+        if (!summary) return;
+        geoCountrySummaryCacheRef.current.set(key, summary);
+        if (!cancelled) {
+          setGeoCountrySummary(summary);
+          setGeoCountrySummaryVersion((v) => v + 1);
+        }
+      } finally {
+        if (!cancelled) setGeoCountrySummaryLoading(false);
+      }
+    };
+    loadGeoSummary();
+    return () => {
+      cancelled = true;
+    };
+  }, [isGlobalMarketMode, selectedGlobalCountry, selectedCountryRelations]);
   useEffect(() => {
     let cancelled = false;
     const loadWorld = async () => {
@@ -3562,27 +3741,8 @@ export default function Home() {
   }, []);
   useEffect(() => {
     if (!isGlobalMarketMode) return;
-    let cancelled = false;
-    const loadPerformance = async () => {
-      try {
-        const res = await fetch("/api/global-market-performance", {
-          cache: "no-store",
-          headers: { "cache-control": "no-store" },
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!cancelled && res.ok && data?.byCountry && typeof data.byCountry === "object") {
-          setGlobalMarketPerformance(data.byCountry);
-        }
-      } catch {
-        if (!cancelled) setGlobalMarketPerformance({});
-      }
-    };
-    loadPerformance();
-    const timer = setInterval(loadPerformance, 60000);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
+    const timer = setInterval(() => setMarketSessionsTick(Date.now()), 60000);
+    return () => clearInterval(timer);
   }, [isGlobalMarketMode]);
   useEffect(() => {
     if (!isGlobalMarketMode) return;
@@ -5672,6 +5832,39 @@ export default function Home() {
                   <div className={`mt-1 text-[10px] ${isLight ? "text-slate-500" : "text-white/55"}`}>Updating macro strip...</div>
                 )}
               </div>
+              <div
+                className={`mb-4 rounded-xl border px-2 py-2 ${
+                  isLight ? "border-slate-200 bg-white/95" : "border-white/12 bg-slate-900/60"
+                }`}
+              >
+                <div className={`mb-2 text-[11px] font-semibold uppercase tracking-wide ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>
+                  Markets Open Now
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-1.5">
+                  {marketsOpenNow.map((session) => (
+                    <div
+                      key={`session-${session.key}`}
+                      className={`rounded-lg border px-2.5 py-2 ${isLight ? "border-slate-200 bg-slate-50/80" : "border-white/10 bg-white/[0.03]"}`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className={`text-xs font-semibold ${isLight ? "text-slate-800" : "text-white/90"}`}>{session.name}</div>
+                        <div className="inline-flex items-center gap-1.5">
+                          <span className={`h-2 w-2 rounded-full ${session.isOpen ? "bg-emerald-500" : "bg-slate-400"}`} />
+                          <span className={`text-[10px] font-semibold ${session.isOpen ? "text-emerald-500" : isLight ? "text-slate-500" : "text-white/60"}`}>
+                            {session.isOpen ? "OPEN" : "CLOSED"}
+                          </span>
+                        </div>
+                      </div>
+                      <div className={`mt-1 text-[11px] ${isLight ? "text-slate-600" : "text-white/70"}`}>
+                        Local time: {session.localTime} ({session.label})
+                      </div>
+                      <div className={`text-[11px] ${isLight ? "text-slate-600" : "text-white/70"}`}>
+                        {session.isOpen ? `Closes in ${formatCountdown(session.minutesUntil)}` : `Opens in ${formatCountdown(session.minutesUntil)}`}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
               <SummaryPanel label={tx("Executive Brief")} text={globalMarketExecutiveSummary} isLight={isLight} className="mb-4" />
               <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
                 <div className={`lg:col-span-3 rounded-xl border p-3 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/[0.03]"}`}>
@@ -5738,21 +5931,39 @@ export default function Home() {
                           const matched = GLOBAL_MARKET_COUNTRIES.find(
                             (country) => String(country.iso2 || country.code || "").toUpperCase() === iso2
                           );
-                          const active = matched?.code === selectedGlobalCountry.code;
-                          const pct = matched ? globalMarketPerformance?.[iso2] : null;
-                          const fillColor = globalMarketHeatFill(pct, isLight);
+                          const active = String(iso2 || "").toUpperCase() === String(selectedGlobalCountry.iso2 || "").toUpperCase();
+                          const relationType = relationTypeByIso.get(String(iso2 || "").toUpperCase()) || "neutral";
+                          const fillColor = active ? "#2563eb" : relationColor(relationType, isLight);
+                          const centroid = relationType === "conflict" ? globalPath.centroid(feature) : null;
                           return (
-                            <path
-                              key={`country-${idx}`}
-                              d={d}
-                              fill={fillColor}
-                              stroke={active ? (isLight ? "#1d4ed8" : "#93c5fd") : isLight ? "#e2e8f0" : "#334155"}
-                              strokeWidth={active ? 2 : 0.7}
-                              className={matched ? "cursor-pointer transition-colors duration-200" : ""}
-                              onClick={() => {
-                                if (matched) setGlobalMarketCountry(matched.code);
-                              }}
-                            />
+                            <g key={`country-${idx}`}>
+                              <path
+                                d={d}
+                                fill={fillColor}
+                                stroke={active ? (isLight ? "#1d4ed8" : "#93c5fd") : isLight ? "#e2e8f0" : "#334155"}
+                                strokeWidth={active ? 2 : 0.7}
+                                className={matched ? "cursor-pointer" : ""}
+                                style={{ transition: "fill 360ms ease, stroke 360ms ease" }}
+                                onClick={() => {
+                                  if (matched) setGlobalMarketCountry(matched.code);
+                                }}
+                              />
+                              {relationType === "conflict" &&
+                                Array.isArray(centroid) &&
+                                Number.isFinite(centroid[0]) &&
+                                Number.isFinite(centroid[1]) && (
+                                  <text
+                                    x={centroid[0]}
+                                    y={centroid[1]}
+                                    textAnchor="middle"
+                                    fontSize="12"
+                                    fill="#fecaca"
+                                    className="pointer-events-none select-none"
+                                  >
+                                    ⚠
+                                  </text>
+                                )}
+                            </g>
                           );
                         })}
                         {globalMarkers.map((country) => {
@@ -5802,12 +6013,12 @@ export default function Home() {
                     )}
                   </div>
                   <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px]">
-                    <span className={`${isLight ? "text-slate-500" : "text-white/60"}`}>Heat:</span>
-                    <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-green-700" /> +2%+</span>
-                    <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-green-400" /> +0.5% to +2%</span>
-                    <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-red-400" /> -0.5% to -2%</span>
-                    <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-red-700" /> -2%+</span>
-                    <span className="inline-flex items-center gap-1"><span className={`h-2.5 w-2.5 rounded-full ${isLight ? "bg-gray-300" : "bg-slate-600"}`} /> No data</span>
+                    <span className={`${isLight ? "text-slate-500" : "text-white/60"}`}>Relations:</span>
+                    <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-green-500" /> Allies / Partners</span>
+                    <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-red-500" /> Tensions / Sanctions</span>
+                    <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-[#7f1d1d]" /> Active Conflict ⚠</span>
+                    <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-blue-400" /> Trade Partners</span>
+                    <span className="inline-flex items-center gap-1"><span className={`h-2.5 w-2.5 rounded-full ${isLight ? "bg-gray-300" : "bg-slate-600"}`} /> Neutral</span>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-1.5">
                     {GLOBAL_MARKET_COUNTRIES.slice(0, 10).map((country) => (
@@ -5868,6 +6079,80 @@ export default function Home() {
                         </div>
                       </div>
                     ))}
+                  </div>
+
+                  <div className={`mb-3 rounded-lg border p-2.5 ${isLight ? "border-slate-200 bg-slate-50/80" : "border-white/10 bg-white/[0.03]"}`}>
+                    <div className={`text-[11px] font-semibold uppercase tracking-wide mb-1 ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>
+                      Geopolitical Summary
+                    </div>
+                    <div className={`text-xs leading-relaxed ${isLight ? "text-slate-700" : "text-white/78"}`}>
+                      {geoCountrySummaryLoading
+                        ? "Generating geopolitical standing summary..."
+                        : geoCountrySummary || "No summary available for this country yet."}
+                    </div>
+                  </div>
+
+                  <div className={`mb-3 rounded-lg border p-2.5 ${isLight ? "border-slate-200 bg-slate-50/80" : "border-white/10 bg-white/[0.03]"}`}>
+                    <div className={`text-[11px] font-semibold uppercase tracking-wide mb-2 ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>
+                      ALLIES & PARTNERS
+                    </div>
+                    <div className="space-y-2">
+                      {alliesAndPartnersList.length ? (
+                        alliesAndPartnersList.map((item, idx) => (
+                          <div key={`ally-${item.code}-${idx}`} className="text-xs">
+                            <div className={`inline-flex items-center gap-1.5 font-semibold ${isLight ? "text-slate-800" : "text-white/90"}`}>
+                              <span className="h-2 w-2 rounded-full bg-green-500" />
+                              {item.name}
+                            </div>
+                            <div className={`${isLight ? "text-slate-600" : "text-white/70"}`}>{item.reason}</div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className={`text-xs ${isLight ? "text-slate-500" : "text-white/60"}`}>No major allies/partners listed.</div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className={`mb-3 rounded-lg border p-2.5 ${isLight ? "border-slate-200 bg-slate-50/80" : "border-white/10 bg-white/[0.03]"}`}>
+                    <div className={`text-[11px] font-semibold uppercase tracking-wide mb-2 ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>
+                      TENSIONS & SANCTIONS
+                    </div>
+                    <div className="space-y-2">
+                      {selectedCountryRelations.tensionsSanctions.length ? (
+                        selectedCountryRelations.tensionsSanctions.map((item, idx) => (
+                          <div key={`tension-${item.code}-${idx}`} className="text-xs">
+                            <div className={`inline-flex items-center gap-1.5 font-semibold ${isLight ? "text-slate-800" : "text-white/90"}`}>
+                              <span className="h-2 w-2 rounded-full bg-red-500" />
+                              {item.name}
+                            </div>
+                            <div className={`${isLight ? "text-slate-600" : "text-white/70"}`}>{item.reason}</div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className={`text-xs ${isLight ? "text-slate-500" : "text-white/60"}`}>No major sanctions or direct tensions listed.</div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className={`mb-3 rounded-lg border p-2.5 ${isLight ? "border-slate-200 bg-slate-50/80" : "border-white/10 bg-white/[0.03]"}`}>
+                    <div className={`text-[11px] font-semibold uppercase tracking-wide mb-2 ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>
+                      ACTIVE CONFLICTS
+                    </div>
+                    <div className="space-y-2">
+                      {selectedCountryRelations.activeConflicts.length ? (
+                        selectedCountryRelations.activeConflicts.map((item, idx) => (
+                          <div key={`conflict-${item.code}-${idx}`} className="text-xs">
+                            <div className={`inline-flex items-center gap-1.5 font-semibold ${isLight ? "text-slate-800" : "text-white/90"}`}>
+                              <span className="text-[#7f1d1d]">⚠</span>
+                              {item.name}
+                            </div>
+                            <div className={`${isLight ? "text-slate-600" : "text-white/70"}`}>{item.reason}</div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className={`text-xs ${isLight ? "text-slate-500" : "text-white/60"}`}>No active military conflicts listed for this profile.</div>
+                      )}
+                    </div>
                   </div>
 
                   <div className={`text-xs font-semibold uppercase tracking-wide mb-2 ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>

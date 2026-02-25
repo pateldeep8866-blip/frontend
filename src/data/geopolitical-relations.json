@@ -1,0 +1,217 @@
+{
+  "US": {
+    "alliesPartners": [
+      { "code": "GB", "name": "United Kingdom", "reason": "NATO member and long-standing military ally." },
+      { "code": "DE", "name": "Germany", "reason": "NATO ally with deep security and economic coordination." },
+      { "code": "JP", "name": "Japan", "reason": "Treaty ally in Indo-Pacific security architecture." },
+      { "code": "CA", "name": "Canada", "reason": "NORAD defense integration and close policy alignment." }
+    ],
+    "tradePartners": [
+      { "code": "MX", "name": "Mexico", "reason": "USMCA trade bloc partner across manufacturing supply chains." },
+      { "code": "CN", "name": "China", "reason": "Major trade counterpart despite strategic rivalry." }
+    ],
+    "tensionsSanctions": [
+      { "code": "CN", "name": "China", "reason": "Technology controls, tariffs, and strategic competition." },
+      { "code": "RU", "name": "Russia", "reason": "Broad sanctions tied to the war in Ukraine." },
+      { "code": "IR", "name": "Iran", "reason": "Sanctions and regional security confrontation." }
+    ],
+    "activeConflicts": [
+      { "code": "RU", "name": "Russia", "reason": "Proxy and sanctions confrontation linked to Ukraine war (since 2022)." }
+    ]
+  },
+  "CA": {
+    "alliesPartners": [
+      { "code": "US", "name": "United States", "reason": "NORAD and NATO defense partner." },
+      { "code": "GB", "name": "United Kingdom", "reason": "Five Eyes intelligence and defense cooperation." }
+    ],
+    "tradePartners": [
+      { "code": "US", "name": "United States", "reason": "Primary export market under USMCA." },
+      { "code": "CN", "name": "China", "reason": "Major but sensitive trade relationship." }
+    ],
+    "tensionsSanctions": [
+      { "code": "RU", "name": "Russia", "reason": "Sanctions tied to Ukraine conflict." },
+      { "code": "CN", "name": "China", "reason": "Periodic diplomatic and trade disputes." }
+    ],
+    "activeConflicts": []
+  },
+  "MX": {
+    "alliesPartners": [
+      { "code": "US", "name": "United States", "reason": "Integrated North American trade and border coordination." },
+      { "code": "CA", "name": "Canada", "reason": "USMCA trade partner." }
+    ],
+    "tradePartners": [
+      { "code": "US", "name": "United States", "reason": "Largest export destination for industrial goods." },
+      { "code": "CN", "name": "China", "reason": "Growing import and industrial supply-chain linkages." }
+    ],
+    "tensionsSanctions": [],
+    "activeConflicts": []
+  },
+  "BR": {
+    "alliesPartners": [
+      { "code": "AR", "name": "Argentina", "reason": "Regional partner through Mercosur integration." },
+      { "code": "US", "name": "United States", "reason": "Pragmatic cooperation in security and energy." }
+    ],
+    "tradePartners": [
+      { "code": "CN", "name": "China", "reason": "Top commodity export buyer (soy, iron ore, oil)." },
+      { "code": "US", "name": "United States", "reason": "Major bilateral trade and investment partner." }
+    ],
+    "tensionsSanctions": [],
+    "activeConflicts": []
+  },
+  "UK": {
+    "alliesPartners": [
+      { "code": "US", "name": "United States", "reason": "Special relationship and NATO military ally." },
+      { "code": "FR", "name": "France", "reason": "European security cooperation and joint defense posture." },
+      { "code": "DE", "name": "Germany", "reason": "Coordination on sanctions and European security." }
+    ],
+    "tradePartners": [
+      { "code": "US", "name": "United States", "reason": "Key services and investment partner." },
+      { "code": "DE", "name": "Germany", "reason": "Large bilateral trade in autos and machinery." }
+    ],
+    "tensionsSanctions": [
+      { "code": "RU", "name": "Russia", "reason": "Sanctions and security confrontation over Ukraine." }
+    ],
+    "activeConflicts": []
+  },
+  "DE": {
+    "alliesPartners": [
+      { "code": "FR", "name": "France", "reason": "Core EU strategic and policy partner." },
+      { "code": "US", "name": "United States", "reason": "NATO ally and defense coordination partner." }
+    ],
+    "tradePartners": [
+      { "code": "CN", "name": "China", "reason": "Major industrial trade partner." },
+      { "code": "US", "name": "United States", "reason": "Important export and investment market." }
+    ],
+    "tensionsSanctions": [
+      { "code": "RU", "name": "Russia", "reason": "Energy decoupling and sanctions due to Ukraine war." }
+    ],
+    "activeConflicts": []
+  },
+  "FR": {
+    "alliesPartners": [
+      { "code": "DE", "name": "Germany", "reason": "Core EU alliance for fiscal and security policy." },
+      { "code": "US", "name": "United States", "reason": "NATO ally with strong defense ties." }
+    ],
+    "tradePartners": [
+      { "code": "DE", "name": "Germany", "reason": "Top intra-EU trade and manufacturing partner." },
+      { "code": "US", "name": "United States", "reason": "Large bilateral goods and services market." }
+    ],
+    "tensionsSanctions": [
+      { "code": "RU", "name": "Russia", "reason": "Sanctions and geopolitical confrontation over Ukraine." }
+    ],
+    "activeConflicts": []
+  },
+  "SA": {
+    "alliesPartners": [
+      { "code": "US", "name": "United States", "reason": "Security cooperation and defense procurement partner." },
+      { "code": "AE", "name": "UAE", "reason": "Regional security and policy coordination." }
+    ],
+    "tradePartners": [
+      { "code": "CN", "name": "China", "reason": "Major energy export destination." },
+      { "code": "IN", "name": "India", "reason": "Large crude export and investment relationship." }
+    ],
+    "tensionsSanctions": [
+      { "code": "IR", "name": "Iran", "reason": "Regional strategic rivalry in Gulf security." }
+    ],
+    "activeConflicts": []
+  },
+  "AE": {
+    "alliesPartners": [
+      { "code": "SA", "name": "Saudi Arabia", "reason": "Regional security and energy coordination." },
+      { "code": "US", "name": "United States", "reason": "Defense and technology cooperation partner." }
+    ],
+    "tradePartners": [
+      { "code": "IN", "name": "India", "reason": "Large bilateral trade and logistics corridor ties." },
+      { "code": "CN", "name": "China", "reason": "Growing infrastructure and energy trade links." }
+    ],
+    "tensionsSanctions": [
+      { "code": "IR", "name": "Iran", "reason": "Regional maritime and security friction." }
+    ],
+    "activeConflicts": []
+  },
+  "IN": {
+    "alliesPartners": [
+      { "code": "US", "name": "United States", "reason": "Strategic technology and Indo-Pacific security partner." },
+      { "code": "JP", "name": "Japan", "reason": "Quad alignment and infrastructure cooperation." }
+    ],
+    "tradePartners": [
+      { "code": "AE", "name": "UAE", "reason": "Comprehensive trade agreement and logistics corridor." },
+      { "code": "CN", "name": "China", "reason": "Large two-way trade despite strategic tensions." }
+    ],
+    "tensionsSanctions": [
+      { "code": "CN", "name": "China", "reason": "Border disputes and strategic rivalry." },
+      { "code": "PK", "name": "Pakistan", "reason": "Long-running territorial and security tensions." }
+    ],
+    "activeConflicts": []
+  },
+  "CN": {
+    "alliesPartners": [
+      { "code": "RU", "name": "Russia", "reason": "Strategic coordination in energy and diplomacy." },
+      { "code": "PK", "name": "Pakistan", "reason": "Long-term strategic and infrastructure partner." }
+    ],
+    "tradePartners": [
+      { "code": "US", "name": "United States", "reason": "Large bilateral trade despite controls and tariffs." },
+      { "code": "DE", "name": "Germany", "reason": "Core industrial trade relationship." }
+    ],
+    "tensionsSanctions": [
+      { "code": "US", "name": "United States", "reason": "Technology restrictions and tariff disputes." },
+      { "code": "TW", "name": "Taiwan", "reason": "Sovereignty dispute and military pressure." }
+    ],
+    "activeConflicts": []
+  },
+  "JP": {
+    "alliesPartners": [
+      { "code": "US", "name": "United States", "reason": "Treaty ally and key regional security partner." },
+      { "code": "AU", "name": "Australia", "reason": "Indo-Pacific defense and maritime coordination." }
+    ],
+    "tradePartners": [
+      { "code": "CN", "name": "China", "reason": "Major manufacturing and export market linkage." },
+      { "code": "US", "name": "United States", "reason": "Large bilateral trade and tech investment ties." }
+    ],
+    "tensionsSanctions": [
+      { "code": "CN", "name": "China", "reason": "East China Sea and strategic competition." },
+      { "code": "KP", "name": "North Korea", "reason": "Missile and security threats." }
+    ],
+    "activeConflicts": []
+  },
+  "KR": {
+    "alliesPartners": [
+      { "code": "US", "name": "United States", "reason": "Defense treaty and integrated military posture." },
+      { "code": "JP", "name": "Japan", "reason": "Expanding trilateral security coordination." }
+    ],
+    "tradePartners": [
+      { "code": "CN", "name": "China", "reason": "Critical electronics and manufacturing trade partner." },
+      { "code": "US", "name": "United States", "reason": "Major technology and auto market partner." }
+    ],
+    "tensionsSanctions": [
+      { "code": "KP", "name": "North Korea", "reason": "Persistent military and missile confrontation." }
+    ],
+    "activeConflicts": []
+  },
+  "AU": {
+    "alliesPartners": [
+      { "code": "US", "name": "United States", "reason": "AUKUS and long-standing security alliance." },
+      { "code": "JP", "name": "Japan", "reason": "Regional defense and maritime coordination." }
+    ],
+    "tradePartners": [
+      { "code": "CN", "name": "China", "reason": "Large commodity export destination." },
+      { "code": "JP", "name": "Japan", "reason": "Long-term LNG and resources trade partner." }
+    ],
+    "tensionsSanctions": [
+      { "code": "CN", "name": "China", "reason": "Trade coercion episodes and strategic rivalry." }
+    ],
+    "activeConflicts": []
+  },
+  "ZA": {
+    "alliesPartners": [
+      { "code": "BR", "name": "Brazil", "reason": "BRICS coordination on trade and development policy." },
+      { "code": "IN", "name": "India", "reason": "BRICS cooperation and investment ties." }
+    ],
+    "tradePartners": [
+      { "code": "CN", "name": "China", "reason": "Top commodities and industrial trade partner." },
+      { "code": "DE", "name": "Germany", "reason": "Automotive and industrial goods trade relationship." }
+    ],
+    "tensionsSanctions": [],
+    "activeConflicts": []
+  }
+}
