@@ -52,6 +52,7 @@ const RESEARCH_ENGINE_API_URL =
 const SIM_RISK_LEVEL_KEY = "simulator_risk_level_v1";
 const SIM_RISK_CUSTOM_KEY = "simulator_risk_custom_v1";
 const SIM_TRADING_STYLE_KEY = "simulator_trading_style_v1";
+const ACHIEVEMENTS_KEY = "simulator_achievements_v1";
 const RISK_PRESETS = {
   CONSERVATIVE: { maxPositionPct: 0.05, maxCryptoPct: 0, minCashReservePct: 0.2, allowCrypto: false, target: "8-15%" },
   MODERATE: { maxPositionPct: 0.15, maxCryptoPct: 0.08, minCashReservePct: 0.12, allowCrypto: true, target: "15-25%" },
@@ -287,6 +288,7 @@ export default function SimulatorPage() {
   const [deepResearchError, setDeepResearchError] = useState("");
   const [deepResearchData, setDeepResearchData] = useState(null);
   const [cryptoLessonNotice, setCryptoLessonNotice] = useState("");
+  const [achievementVault, setAchievementVault] = useState({});
   const [riskLevel, setRiskLevel] = useState("MODERATE");
   const [customRisk, setCustomRisk] = useState({ maxPositionPct: 0.12, maxCryptoPct: 0.1, minCashReservePct: 0.1, target: "Custom" });
   const [tradingStyle, setTradingStyle] = useState("swing");
@@ -350,6 +352,13 @@ export default function SimulatorPage() {
       };
     } catch {}
     setProfile(loaded);
+    try {
+      const savedAchievements = localStorage.getItem(ACHIEVEMENTS_KEY);
+      if (savedAchievements) {
+        const parsed = JSON.parse(savedAchievements);
+        if (parsed && typeof parsed === "object") setAchievementVault(parsed);
+      }
+    } catch {}
   }, []);
 
   const holdingsArray = useMemo(
@@ -808,13 +817,31 @@ export default function SimulatorPage() {
     const diversified = holdingsArray.length >= 5;
     const bearSurvivor = spyReturnFor(7) < 0 && portfolioReturnFor(7) > 0;
     return [
-      { key: "first", label: "First Trade", unlocked: firstTrade },
-      { key: "diamond", label: "Diamond Hands", unlocked: diamondHands },
-      { key: "ten", label: "10% Club", unlocked: tenClub },
-      { key: "diversified", label: "Diversified", unlocked: diversified },
-      { key: "bear", label: "Bear Survivor", unlocked: bearSurvivor },
+      { key: "first", label: "First Trade", unlocked: Boolean(achievementVault.first || firstTrade) },
+      { key: "diamond", label: "Diamond Hands", unlocked: Boolean(achievementVault.diamond || diamondHands) },
+      { key: "ten", label: "10% Club", unlocked: Boolean(achievementVault.ten || tenClub) },
+      { key: "diversified", label: "Diversified", unlocked: Boolean(achievementVault.diversified || diversified) },
+      { key: "bear", label: "Bear Survivor", unlocked: Boolean(achievementVault.bear || bearSurvivor) },
     ];
-  }, [profile.transactions.length, holdingsArray, totalReturnPct, spyReturnFor, portfolioReturnFor]);
+  }, [achievementVault, profile.transactions.length, holdingsArray, totalReturnPct, spyReturnFor, portfolioReturnFor]);
+
+  useEffect(() => {
+    setAchievementVault((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const item of achievements) {
+        if (item.unlocked && !next[item.key]) {
+          next[item.key] = true;
+          changed = true;
+        }
+      }
+      if (!changed) return prev;
+      try {
+        localStorage.setItem(ACHIEVEMENTS_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, [achievements]);
 
   const isCryptoTrader = useMemo(() => {
     if (!holdingsArray.length) return false;
@@ -947,6 +974,19 @@ export default function SimulatorPage() {
       if (execShares <= 0) return { profile: baseProfile, executed: null };
       const totalShares = Number(existing.shares || 0) + execShares;
       const avgBuy = ((Number(existing.avgBuy || 0) * Number(existing.shares || 0)) + execValue) / totalShares;
+      const stopPct = riskPolicy.level === "CONSERVATIVE" ? 0.05 : riskPolicy.level === "AGGRESSIVE" ? 0.12 : 0.08;
+      const computedStop = price * (1 - stopPct);
+      const computedTarget = price + (price - computedStop) * 2;
+      const incomingStop = Number(trade?.stop_loss || trade?.stopLoss || 0);
+      const incomingTarget = Number(trade?.take_profit || trade?.takeProfit || 0);
+      const stopRatio = price > 0 ? incomingStop / price : 0;
+      const targetRatio = price > 0 ? incomingTarget / price : 0;
+      const stopLoss = Number.isFinite(incomingStop) && incomingStop > 0 && stopRatio > 0.4 && stopRatio < 1
+        ? incomingStop
+        : computedStop;
+      const takeProfit = Number.isFinite(incomingTarget) && incomingTarget > 0 && targetRatio > 1 && targetRatio < 3
+        ? incomingTarget
+        : computedTarget;
       holdings[key] = {
         ...existing,
         symbol,
@@ -954,8 +994,8 @@ export default function SimulatorPage() {
         cryptoId: assetType === "crypto" ? String(existing.cryptoId || trade?.cryptoId || CRYPTO_SYMBOL_TO_ID[symbol] || "") : "",
         shares: totalShares,
         avgBuy,
-        stopLoss: Number(trade?.stop_loss || trade?.stopLoss || existing?.stopLoss || (price * 0.92)),
-        takeProfit: Number(trade?.take_profit || trade?.takeProfit || existing?.takeProfit || (price * 1.12)),
+        stopLoss,
+        takeProfit,
         firstBuyAt: Number(existing.firstBuyAt || Date.now()),
       };
       cash -= execValue;
@@ -1380,13 +1420,20 @@ export default function SimulatorPage() {
     }
   };
 
-  const resetPortfolio = () => {
-    const ok = window.confirm("Reset simulator portfolio back to $100,000 and clear all transactions?");
+  const resetPortfolio = async () => {
+    const ok = window.confirm(
+      "Reset portfolio to $100,000?\nThis will clear all trade history and start fresh."
+    );
     if (!ok) return;
     const fresh = createDefaultProfile();
+    try {
+      await fetch("/api/trades/reset", { method: "POST" });
+    } catch {}
     setProfile(fresh);
     setTradeMessage("Portfolio reset to $100,000.");
     setAstraOpinion("");
+    setAutoMessage("");
+    setExpandedDecisionId("");
   };
 
   return (
@@ -1584,7 +1631,7 @@ export default function SimulatorPage() {
                     </div>
                     <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
                       <div className={`${isLight ? "text-slate-700" : "text-white/80"}`}>Regime: <span className="font-semibold">{profile?.autoPilot?.agentState?.regime || "unknown"}</span></div>
-                      <div className={`${isLight ? "text-slate-700" : "text-white/80"}`}>Provider: <span className="font-semibold">{profile?.autoPilot?.agentState?.provider || "fallback"}</span></div>
+                      <div className={`${isLight ? "text-slate-700" : "text-white/80"}`}>Provider: <span className="font-semibold">{["QUANT_LAB", "fallback"].includes(String(profile?.autoPilot?.agentState?.provider || "")) ? String(profile?.autoPilot?.agentState?.provider) : "fallback"}</span></div>
                       <div className={`${isLight ? "text-slate-700" : "text-white/80"}`}>Scanned: <span className="font-semibold">{Number(profile?.autoPilot?.agentState?.scannedInstruments || 0)}</span></div>
                       <div className={`${isLight ? "text-slate-700" : "text-white/80"}`}>Confidence: <span className="font-semibold">{Number(profile?.autoPilot?.agentState?.confidence || 0)}%</span></div>
                       <div className={`${isLight ? "text-slate-700" : "text-white/80"}`}>Buys: <span className="font-semibold">{Number(profile?.autoPilot?.agentState?.buyCount || 0)}</span></div>

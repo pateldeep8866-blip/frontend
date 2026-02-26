@@ -30,6 +30,7 @@ const FULL_CANDIDATE_UNIVERSE = [
   "SOXX", "ARKK", "IBB", "EEM", "EFA",
   "VNQ", "HYG", "USO", "SLV", "GDXJ",
 ];
+const CORE_CANDIDATE_UNIVERSE = FULL_CANDIDATE_UNIVERSE.slice(0, 13);
 const CANDIDATE_CRYPTOS = ["BTC", "ETH", "SOL", "XRP"];
 const QUANT_INDICATORS = ["rsi", "macd", "bollinger", "vwap", "ema_cross", "volume_profile"];
 const ALLOCATION_RULES = {
@@ -490,6 +491,21 @@ async function fetchQuantSignal(featuresPayload) {
   }
 }
 
+async function checkQuantLabHealth() {
+  const quantUrl = process.env.QUANT_ENGINE_URL || "http://localhost:3001";
+  try {
+    const res = await fetch(`${quantUrl}/health`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!res.ok) return false;
+    return true;
+  } catch (error) {
+    console.warn("QUANT_LAB health check failed:", error?.message || error);
+    return false;
+  }
+}
+
 function fallbackQuantFromPrice(candidate) {
   const pct = Number(candidate?.percentChange || 0);
   const signal = pct > 1.5 ? "BUY" : pct < -1.5 ? "SELL" : "NEUTRAL";
@@ -878,10 +894,11 @@ export async function POST(req) {
 
     const UNIVERSE = [...FULL_CANDIDATE_UNIVERSE];
 
-    const marketFeatures = await fetchMarketFeatures(UNIVERSE);
+    const quantHealthOk = await checkQuantLabHealth();
+    const marketFeatures = quantHealthOk ? await fetchMarketFeatures(UNIVERSE) : null;
 
     let quantResult = null;
-    if (marketFeatures) {
+    if (marketFeatures && quantHealthOk) {
       quantResult = await fetchQuantSignal({
         tickers: marketFeatures.tickers,
         macro: marketFeatures.macro,
@@ -1013,7 +1030,7 @@ export async function POST(req) {
     const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
     const key = OPENAI_API_KEY || OPENROUTER_API_KEY;
 
-    if (key && !String(key).includes("PASTE_")) {
+    if (quantLabConnected && key && !String(key).includes("PASTE_")) {
       const prompt = [
         `You are ASTRA, an elite quantitative trader managing a $${(cash + holdings.reduce((s, h) => s + Number(h.currentPrice || 0) * Number(h.shares || 0), 0)).toFixed(2)} virtual portfolio.`,
         `Risk Profile: ${riskPolicy.level} (max position ${(riskPolicy.maxPositionPct * 100).toFixed(0)}%, max crypto ${(riskPolicy.maxCryptoPct * 100).toFixed(0)}%, min cash reserve ${(riskPolicy.minCashReservePct * 100).toFixed(0)}%)`,
@@ -1163,6 +1180,26 @@ export async function POST(req) {
     decisions = ensureActionableDecisions(decisions, { cash, holdings, context: { ...context, todayPick }, riskPolicy, tradingStyle })
       .map((d) => {
         const c = scoredCandidates.find((x) => x.symbol === String(d?.ticker || "").toUpperCase() && normalizeAssetType(x.assetType) === normalizeAssetType(d?.assetType));
+        const chosenPrice = Number(d?.entry_price || c?.price || c?.entryPrice || 0);
+        const stopPct =
+          riskPolicy.level === "CONSERVATIVE" ? 0.05 : riskPolicy.level === "AGGRESSIVE" ? 0.12 : 0.08;
+        const computedStop = chosenPrice > 0 ? chosenPrice * (1 - stopPct) : 0;
+        const computedTarget = chosenPrice > 0 ? chosenPrice + (chosenPrice - computedStop) * 2 : 0;
+        const candidateStop = Number(d?.stop_loss || c?.quant?.stop_loss || c?.stopLoss || 0);
+        const candidateTarget = Number(
+          d?.take_profit ||
+            (Array.isArray(c?.quant?.take_profit) ? c.quant.take_profit[0] : c?.takeProfit || 0)
+        );
+        const stopRatio = chosenPrice > 0 ? candidateStop / chosenPrice : 0;
+        const targetRatio = chosenPrice > 0 ? candidateTarget / chosenPrice : 0;
+        const safeStop =
+          Number.isFinite(candidateStop) && candidateStop > 0 && stopRatio > 0.4 && stopRatio < 1
+            ? candidateStop
+            : computedStop;
+        const safeTarget =
+          Number.isFinite(candidateTarget) && candidateTarget > 0 && targetRatio > 1 && targetRatio < 3
+            ? candidateTarget
+            : computedTarget;
         const composite = Number(d?.composite_score ?? c?.total ?? 50);
         let action = String(d?.action || "HOLD").toUpperCase();
         if (tradingStyle === "day_trading") {
@@ -1186,9 +1223,9 @@ export async function POST(req) {
             macd: String(c?.quant?.indicators?.macd?.signal || "n/a"),
             vwap: String(c?.quant?.indicators?.vwap?.price_vs_vwap || "n/a"),
           },
-          entry_price: Number(d?.entry_price || c?.quant?.entry_price || c?.price || 0),
-          stop_loss: Number(d?.stop_loss || c?.quant?.stop_loss || (Number(c?.price || 0) * (1 - (riskPolicy.level === "CONSERVATIVE" ? 0.05 : riskPolicy.level === "AGGRESSIVE" ? 0.12 : 0.08)))),
-          take_profit: Number(d?.take_profit || (Array.isArray(c?.quant?.take_profit) ? c.quant.take_profit[0] : Number(c?.price || 0) * 1.12)),
+          entry_price: chosenPrice,
+          stop_loss: Number(safeStop || 0),
+          take_profit: Number(safeTarget || 0),
           confidence: Math.max(0, Math.min(100, Number(d?.confidence || c?.quant?.confidence || 60))),
           quant_momentum: Number(d?.quant_momentum || c?.quantMomentum || c?.quant?.momentum_score || 0),
           quant_mean_reversion: Number(d?.quant_mean_reversion || c?.quantMeanReversion || c?.quant?.mean_reversion_score || 0),
@@ -1341,12 +1378,9 @@ export async function POST(req) {
       confidence: avgConfidence,
       riskLevel: String(riskPolicy?.level || "MODERATE").toUpperCase(),
       scannedInstruments: Number(
-        quantResult?.total_requested ||
-          quantResult?.universe_size ||
-          marketFeatures?.total_tickers ||
-          marketFeatures?.valid_count ||
-          scoredCandidates.length ||
-          0
+        quantLabConnected
+          ? (quantResult?.total_requested || marketFeatures?.total_tickers || FULL_CANDIDATE_UNIVERSE.length)
+          : Math.max(CORE_CANDIDATE_UNIVERSE.length, marketFeatures?.valid_count || scoredCandidates.length || 0)
       ),
       candidateUniverse: Number(candidates.length || 0),
       quantLabConnected,

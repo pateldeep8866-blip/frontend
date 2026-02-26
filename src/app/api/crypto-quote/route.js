@@ -1,16 +1,37 @@
 import { NextResponse } from "next/server";
 import { cgJson } from "../_lib/coingecko";
 
+const SYMBOL_TO_ID = {
+  BTC: "bitcoin",
+  ETH: "ethereum",
+  SOL: "solana",
+  BNB: "binancecoin",
+  XRP: "ripple",
+  ADA: "cardano",
+  AVAX: "avalanche-2",
+  DOGE: "dogecoin",
+  LINK: "chainlink",
+  MATIC: "matic-network",
+};
+
 async function resolveId(symbol) {
   const q = String(symbol || "").trim();
   if (!q) return "";
+  const mapped = SYMBOL_TO_ID[q.toUpperCase()];
+  if (mapped) return mapped;
   const { data: d } = await cgJson(
     `https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(q)}`,
     { revalidate: 12 }
   );
   const coins = Array.isArray(d?.coins) ? d.coins : [];
-  const exact = coins.find((c) => String(c?.symbol || "").toUpperCase() === q.toUpperCase());
-  return String((exact || coins[0])?.id || "");
+  const exact = coins.find(
+    (c) => String(c?.symbol || "").toUpperCase() === q.toUpperCase()
+  );
+  const safe =
+    exact ||
+    coins.find((c) => String(c?.id || "").toLowerCase() === q.toLowerCase()) ||
+    coins[0];
+  return String(safe?.id || "");
 }
 
 export async function GET(req) {

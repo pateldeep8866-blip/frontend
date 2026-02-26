@@ -475,6 +475,31 @@ export function getDbMeta() {
   return { db_path: DB_PATH };
 }
 
+export function cleanupBadCryptoTrades() {
+  const conn = ensureDb();
+  const targets = conn.prepare(`
+    SELECT trade_id
+    FROM trades
+    WHERE (ticker = 'BTC' OR ticker = 'ETH')
+      AND entry_price < 100
+  `).all();
+  const tradeIds = targets.map((r) => String(r.trade_id || "")).filter(Boolean);
+  if (!tradeIds.length) {
+    return { deletedTrades: 0, deletedOutcomes: 0 };
+  }
+
+  let deletedOutcomes = 0;
+  const deleteOutcomeStmt = conn.prepare("DELETE FROM trade_outcomes WHERE trade_id = ?");
+  const deleteTradeStmt = conn.prepare("DELETE FROM trades WHERE trade_id = ?");
+  for (const tradeId of tradeIds) {
+    const outResult = deleteOutcomeStmt.run(tradeId);
+    const tradeResult = deleteTradeStmt.run(tradeId);
+    deletedOutcomes += Number(outResult?.changes || 0);
+    if (!tradeResult?.changes) continue;
+  }
+  return { deletedTrades: tradeIds.length, deletedOutcomes };
+}
+
 
 export function getStrategyPerformance() {
   const conn = ensureDb();
