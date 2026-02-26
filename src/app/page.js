@@ -4105,11 +4105,11 @@ export default function Home() {
 
 
   return (
-    <div className={`min-h-screen relative overflow-hidden ${isCherry ? "cherry-mode bg-[#fffefc] text-[#3a2530]" : isAzula ? "azula-mode bg-[#fafbfd] text-slate-900" : isLight ? "light-mode bg-[#fbfdff] text-slate-900" : "dark-mode bg-slate-950 text-white"}`}>
+    <div className={`min-h-screen relative overflow-hidden ${isCherry ? "cherry-mode bg-[#fffefc] text-[#3a2530]" : isAzula ? "azula-mode bg-[#09090b] text-[#e7e1c5]" : isLight ? "light-mode bg-[#fbfdff] text-slate-900" : "dark-mode bg-slate-950 text-white"}`}>
       <div>
-        <div className={`pointer-events-none absolute -top-24 -left-20 h-80 w-80 rounded-full blur-3xl ${isCherry ? "bg-rose-100/34" : isAzula ? "bg-slate-300/8" : isLight ? "bg-sky-200/35" : "bg-cyan-500/12"}`} />
-        <div className={`pointer-events-none absolute top-1/3 -right-28 h-96 w-96 rounded-full blur-3xl ${isCherry ? "bg-rose-100/28" : isAzula ? "bg-slate-400/7" : isLight ? "bg-blue-200/30" : "bg-blue-500/10"}`} />
-        <div className={`pointer-events-none absolute inset-0 ${isCherry ? "bg-[radial-gradient(circle_at_12%_6%,rgba(244,114,182,0.08),transparent_31%),radial-gradient(circle_at_86%_70%,rgba(251,113,133,0.07),transparent_36%),radial-gradient(circle_at_52%_14%,rgba(196,181,253,0.05),transparent_30%),linear-gradient(120deg,rgba(255,255,255,0.985),rgba(255,252,253,0.97),rgba(255,255,255,0.99))]" : isAzula ? "bg-[radial-gradient(circle_at_16%_9%,rgba(100,116,139,0.08),transparent_46%),radial-gradient(circle_at_86%_74%,rgba(99,102,241,0.05),transparent_50%),radial-gradient(circle_at_53%_18%,rgba(14,165,233,0.04),transparent_40%),linear-gradient(180deg,rgba(248,250,252,0.84),rgba(246,249,252,0.74),rgba(255,255,255,0.7))]" : isLight ? "bg-[radial-gradient(circle_at_15%_10%,rgba(125,211,252,0.18),transparent_40%),radial-gradient(circle_at_80%_70%,rgba(147,197,253,0.14),transparent_42%),radial-gradient(circle_at_55%_18%,rgba(59,130,246,0.09),transparent_35%)]" : "bg-[radial-gradient(circle_at_20%_10%,rgba(59,130,246,0.08),transparent_35%),radial-gradient(circle_at_80%_70%,rgba(14,165,233,0.07),transparent_35%)]"}`}/>
+        <div className={`pointer-events-none absolute -top-24 -left-20 h-80 w-80 rounded-full blur-3xl ${isCherry ? "bg-rose-100/34" : isAzula ? "bg-[#c8b273]/10" : isLight ? "bg-sky-200/35" : "bg-cyan-500/12"}`} />
+        <div className={`pointer-events-none absolute top-1/3 -right-28 h-96 w-96 rounded-full blur-3xl ${isCherry ? "bg-rose-100/28" : isAzula ? "bg-[#e6d9aa]/10" : isLight ? "bg-blue-200/30" : "bg-blue-500/10"}`} />
+        <div className={`pointer-events-none absolute inset-0 ${isCherry ? "bg-[radial-gradient(circle_at_12%_6%,rgba(244,114,182,0.08),transparent_31%),radial-gradient(circle_at_86%_70%,rgba(251,113,133,0.07),transparent_36%),radial-gradient(circle_at_52%_14%,rgba(196,181,253,0.05),transparent_30%),linear-gradient(120deg,rgba(255,255,255,0.985),rgba(255,252,253,0.97),rgba(255,255,255,0.99))]" : isAzula ? "bg-[radial-gradient(circle_at_18%_8%,rgba(200,178,115,0.1),transparent_42%),radial-gradient(circle_at_82%_74%,rgba(236,223,169,0.08),transparent_46%),linear-gradient(180deg,rgba(9,9,11,0.96),rgba(17,17,23,0.96),rgba(10,10,14,0.98))]" : isLight ? "bg-[radial-gradient(circle_at_15%_10%,rgba(125,211,252,0.18),transparent_40%),radial-gradient(circle_at_80%_70%,rgba(147,197,253,0.14),transparent_42%),radial-gradient(circle_at_55%_18%,rgba(59,130,246,0.09),transparent_35%)]" : "bg-[radial-gradient(circle_at_20%_10%,rgba(59,130,246,0.08),transparent_35%),radial-gradient(circle_at_80%_70%,rgba(14,165,233,0.07),transparent_35%)]"}`}/>
 
         {isCherry && (
           <div className="pointer-events-none absolute inset-0 z-[1] overflow-hidden sakura-scene sakura-scene-pro" aria-hidden="true">
@@ -4128,7 +4128,7 @@ export default function Home() {
             ))}
           </div>
         )}
-        {isAzula && (
+        {false && isAzula && (
           <div className="pointer-events-none absolute inset-0 z-[1] overflow-hidden azula-scene" aria-hidden="true">
             {AZULA_FLAME_IDS.map((flameId) => (
               <span key={`azula-flame-${flameId}`} className={`azula-flame azula-flame-${flameId}`} />
@@ -4197,9 +4197,9 @@ export default function Home() {
                   onClick={(event) => selectThemeFromDropdown("azula", event)}
                   className={`mt-1 w-full rounded-lg px-3 py-2 text-left text-xs font-semibold ${
                     theme === "azula"
-                      ? "bg-sky-600 text-white"
+                      ? "bg-[#b89a58] text-[#0b0b0d]"
                       : isLight
-                        ? "text-sky-800 hover:bg-sky-50"
+                        ? "text-[#6e5a2f] hover:bg-[#f7f2e2]"
                         : "text-white/85 hover:bg-white/10"
                   }`}
                 >
@@ -4307,9 +4307,9 @@ export default function Home() {
                 onClick={(event) => selectThemeFromDropdown("azula", event)}
                 className={`rounded-md px-2 py-1.5 text-xs font-semibold ${
                   theme === "azula"
-                    ? "bg-sky-600 text-white"
+                    ? "bg-[#b89a58] text-[#0b0b0d]"
                     : isLight
-                      ? "bg-sky-50 text-sky-800 hover:bg-sky-100"
+                      ? "bg-[#f7f2e2] text-[#6e5a2f] hover:bg-[#efe6cc]"
                       : "bg-white/10 text-white/85 hover:bg-white/15"
                 }`}
               >
@@ -4736,11 +4736,11 @@ export default function Home() {
               <div className={`relative shrink-0 ${isAzula ? "azula-logo-thunder" : ""}`}>
                 {!isLight && (
                   <>
-                    <span className="pointer-events-none absolute -left-5 top-2 h-3 w-3 rounded-[2px] bg-cyan-300/65 shadow-[0_0_14px_rgba(56,189,248,0.85)]" />
-                    <span className="pointer-events-none absolute -left-1 top-12 h-2.5 w-2.5 rounded-[2px] bg-sky-300/55 shadow-[0_0_12px_rgba(125,211,252,0.75)]" />
-                    <span className="pointer-events-none absolute -left-4 top-[5.5rem] h-2 w-2 rounded-full bg-cyan-200/70 shadow-[0_0_10px_rgba(125,211,252,0.8)]" />
-                    <span className="pointer-events-none absolute right-1 top-[-0.2rem] h-2.5 w-2.5 rounded-[2px] bg-cyan-300/55 shadow-[0_0_12px_rgba(56,189,248,0.75)]" />
-                    <span className="pointer-events-none absolute right-[-0.4rem] top-[4.9rem] h-2 w-2 rounded-full bg-cyan-200/65 shadow-[0_0_10px_rgba(125,211,252,0.7)]" />
+                    <span className="pointer-events-none absolute -left-5 top-2 h-3 w-3 rounded-[2px] bg-[#d7c07a]/65 shadow-[0_0_14px_rgba(199,164,77,0.8)]" />
+                    <span className="pointer-events-none absolute -left-1 top-12 h-2.5 w-2.5 rounded-[2px] bg-[#e6d9aa]/55 shadow-[0_0_12px_rgba(214,189,116,0.72)]" />
+                    <span className="pointer-events-none absolute -left-4 top-[5.5rem] h-2 w-2 rounded-full bg-[#d7c07a]/60 shadow-[0_0_10px_rgba(199,164,77,0.76)]" />
+                    <span className="pointer-events-none absolute right-1 top-[-0.2rem] h-2.5 w-2.5 rounded-[2px] bg-[#d7c07a]/55 shadow-[0_0_12px_rgba(199,164,77,0.72)]" />
+                    <span className="pointer-events-none absolute right-[-0.4rem] top-[4.9rem] h-2 w-2 rounded-full bg-[#e6d9aa]/60 shadow-[0_0_10px_rgba(214,189,116,0.66)]" />
                   </>
                 )}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -4751,20 +4751,28 @@ export default function Home() {
                 />
               </div>
               <div className="text-left">
-                <h1 className={`text-5xl md:text-6xl font-semibold leading-none tracking-tight ${isCherry ? "bg-gradient-to-r from-rose-900 via-fuchsia-800 to-indigo-800 bg-clip-text text-transparent" : isAzula ? "azula-title-neon text-transparent bg-clip-text bg-gradient-to-r from-cyan-200 via-blue-200 to-violet-300" : isLight ? "text-slate-900" : "bg-gradient-to-r from-white via-cyan-100 to-sky-200 bg-clip-text text-transparent"}`}>
+                <h1 className={`text-5xl md:text-6xl font-semibold leading-none tracking-tight ${isCherry ? "bg-gradient-to-r from-rose-900 via-fuchsia-800 to-indigo-800 bg-clip-text text-transparent" : isAzula ? "azula-title-neon text-transparent bg-clip-text bg-gradient-to-r from-[#d9c58a] via-[#efe3bc] to-[#b9974c]" : isLight ? "text-slate-900" : "bg-gradient-to-r from-white via-cyan-100 to-sky-200 bg-clip-text text-transparent"}`}>
                   Arthastra
                 </h1>
-                <p className={`mt-2 text-3xl md:text-4xl font-medium leading-none tracking-tight ${isCherry ? "text-rose-900" : isAzula ? "text-cyan-100/95" : isLight ? "text-slate-700" : "text-cyan-100/90"}`}>
+                <p className={`mt-2 text-3xl md:text-4xl font-medium leading-none tracking-tight ${isCherry ? "text-rose-900" : isAzula ? "text-[#f0e7c8]/95" : isLight ? "text-slate-700" : "text-cyan-100/90"}`}>
                   {t("analyticalInformation")}
                 </p>
               </div>
             </div>
           </div>
-          <p className={`mt-5 text-lg md:text-xl font-medium ${isCherry ? "text-rose-900/90" : isAzula ? "text-cyan-100/90" : isLight ? "text-slate-700" : "text-slate-200/90"}`}>{t("clarityLine")}</p>
-          <p className={`text-xs mt-3 ${isCherry ? "text-rose-800/80" : isAzula ? "text-slate-300/90" : isLight ? "text-slate-500" : "text-slate-400/80"}`}>{t("founder")}: Deep Patel • {t("coFounder")}: Juan M. Ramirez</p>
+          <p className={`mt-5 text-lg md:text-xl font-medium ${isCherry ? "text-rose-900/90" : isAzula ? "text-[#ddd2ae]/90" : isLight ? "text-slate-700" : "text-slate-200/90"}`}>{t("clarityLine")}</p>
+          <p className={`text-xs mt-3 ${isCherry ? "text-rose-800/80" : isAzula ? "text-[#b8ab82]/80" : isLight ? "text-slate-500" : "text-slate-400/80"}`}>{t("founder")}: Deep Patel • {t("coFounder")}: Juan M. Ramirez</p>
           <div className={`mt-5 inline-flex rounded-xl overflow-hidden border ${
             isLight ? "border-slate-300 bg-white/85 shadow-sm" : "border-white/15 bg-slate-900/60"
           }`}>
+            <Link
+              href="/home"
+              className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${
+                isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"
+              }`}
+            >
+              {t("home")}
+            </Link>
             <button
               onClick={() => setAssetMode("stock")}
               className={`px-3 py-1.5 text-xs font-semibold ${
@@ -4826,14 +4834,6 @@ export default function Home() {
                 </span>
               )}
             </Link>
-            <button
-              onClick={() => setAssetMode("news")}
-              className={`px-3 py-1.5 text-xs font-semibold ${
-                assetMode === "news" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-700" : "bg-transparent text-white/80"
-              }`}
-            >
-              {t("news")}
-            </button>
             <button
               onClick={() => setAssetMode("geopolitics")}
               className={`px-3 py-1.5 text-xs font-semibold ${

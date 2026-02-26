@@ -1,391 +1,281 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 
-const LANGUAGE_OPTIONS = [
-  { code: "en", label: "English" },
-  { code: "zh", label: "Mandarin Chinese" },
-  { code: "hi", label: "Hindi" },
-  { code: "es", label: "Espanol" },
-  { code: "fr", label: "Francais" },
-  { code: "ar", label: "Arabic" },
-  { code: "bn", label: "Bengali" },
-  { code: "pt", label: "Portuguese" },
-  { code: "ru", label: "Russian" },
-  { code: "ur", label: "Urdu" },
+const PILLARS = [
+  {
+    icon: "🔬",
+    title: "Research First",
+    text: "Every strong decision starts with real research. Arthastra helps you evaluate fundamentals, technicals, and macro context before capital is at risk.",
+  },
+  {
+    icon: "🎓",
+    title: "Learn by Doing",
+    text: "Simulation bridges the gap between theory and execution. You can practice under live market conditions without real-money risk.",
+  },
+  {
+    icon: "🧠",
+    title: "Understand the Why",
+    text: "Price movement alone is noise. We focus on why moves happen, what it means, and how to respond with discipline.",
+  },
 ];
-const AZULA_FLAME_IDS = Array.from({ length: 8 }, (_, index) => index + 1);
-const AZULA_LIGHTNING_IDS = Array.from({ length: 8 }, (_, index) => index + 1);
 
-const ABOUT_TEXT = {
-  en: {
-    backHome: "Back Home",
-    dark: "Dark",
-    light: "Light",
-    sakura: "Sakura",
-    azula: "Azula",
-    aboutTitle: "About Arthastra",
-    clarity: "Clarity in Every Market.",
-    intro:
-      "At ArthastraAI, AI stands for Analytical Information. We provide structured analytical information across stocks, crypto, metals, FX, and global market trends.",
-    foundersPhoto: "Founders Photo",
-    mission: "Our Mission",
-    missionBody:
-      "Arthastra helps everyday investors make informed decisions through structured analytical insights across stocks, crypto, metals, FX, and global market news.",
-    founders: "Founders",
-    founder: "Founder",
-    coFounder: "Co-founder",
-    founderNote:
-      "Built to provide clear market context, disciplined frameworks, and practical next steps.",
-    covers: "What ASTRA Covers",
-    legal: "Legal Notice",
-    legalBody:
-      "For informational purposes only. This platform does not provide financial, investment, legal, tax, or accounting advice. All decisions and outcomes are solely your responsibility.",
+const TYPES = [
+  { icon: "⚡", name: "Day Trading", horizon: "Minutes to Hours" },
+  { icon: "📈", name: "Swing Trading", horizon: "Days to Weeks" },
+  { icon: "🏗️", name: "Long-Term Investing", horizon: "Years to Decades" },
+  { icon: "🌐", name: "International Markets", horizon: "Any Timeframe" },
+  { icon: "🏛️", name: "Bonds & Fixed Income", horizon: "Months to Years" },
+  { icon: "💎", name: "Value Investing", horizon: "Years" },
+  { icon: "🚀", name: "Growth Investing", horizon: "Years" },
+  { icon: "₿", name: "Crypto & Digital Assets", horizon: "Varies" },
+];
+
+const METRICS = [
+  { label: "Core Product", value: "Paper Trading + AI Research" },
+  { label: "Coverage", value: "Stocks · Crypto · FX · Metals · Macro" },
+  { label: "Learning Model", value: "Explainable Signals + Summaries" },
+  { label: "Positioning", value: "Educational-first Fintech" },
+];
+
+const MOATS = [
+  {
+    title: "Integrated Workflow",
+    text: "Research, simulation, and execution logic are in one interface, reducing context switching and decision latency.",
   },
-  es: {
-    backHome: "Inicio",
-    dark: "Oscuro",
-    light: "Claro",
-    sakura: "Sakura",
-    azula: "Azula",
-    aboutTitle: "Acerca de Arthastra",
-    clarity: "Claridad en cada mercado.",
-    intro:
-      "En ArthastraAI, AI significa Informacion Analitica. Brindamos informacion estructurada sobre acciones, cripto, metales, FX y tendencias globales.",
-    foundersPhoto: "Foto de fundadores",
-    mission: "Nuestra mision",
-    missionBody:
-      "Arthastra ayuda a inversionistas a tomar decisiones informadas con analisis estructurado en acciones, cripto, metales, FX y noticias globales.",
-    founders: "Fundadores",
-    founder: "Fundador",
-    coFounder: "Cofundador",
-    founderNote:
-      "Construido para ofrecer contexto claro del mercado y marcos de accion practicos.",
-    covers: "Que cubre ASTRA",
-    legal: "Aviso legal",
-    legalBody:
-      "Solo con fines informativos. Esta plataforma no ofrece asesoramiento financiero, legal, fiscal ni contable.",
+  {
+    title: "Explainability Layer",
+    text: "Signals are translated into plain-language reasoning, helping users learn and retain decision frameworks.",
   },
-  fr: {
-    backHome: "Accueil",
-    dark: "Sombre",
-    light: "Clair",
-    sakura: "Sakura",
-    azula: "Azula",
-    aboutTitle: "A propos d'Arthastra",
-    clarity: "Clarte sur chaque marche.",
-    intro:
-      "Chez ArthastraAI, AI signifie Information Analytique. Nous fournissons des informations structurees sur actions, crypto, metaux, FX et tendances mondiales.",
-    foundersPhoto: "Photo des fondateurs",
-    mission: "Notre mission",
-    missionBody:
-      "Arthastra aide les investisseurs a prendre des decisions informees grace a une analyse structuree des marches.",
-    founders: "Fondateurs",
-    founder: "Fondateur",
-    coFounder: "Cofondateur",
-    founderNote:
-      "Concu pour offrir un contexte de marche clair et des actions pratiques.",
-    covers: "Ce que couvre ASTRA",
-    legal: "Mention legale",
-    legalBody:
-      "A des fins informatives uniquement. Cette plateforme ne fournit pas de conseil financier, juridique, fiscal ou comptable.",
+  {
+    title: "Adaptive Intelligence",
+    text: "ASTRA and QUANT_LAB combine market data, regime context, and structured scoring to support disciplined decisions.",
   },
-  hi: {
-    backHome: "होम",
-    dark: "डार्क",
-    light: "लाइट",
-    sakura: "सकुरा",
-    azula: "अज़ूला",
-    aboutTitle: "Arthastra के बारे में",
-    clarity: "हर बाजार में स्पष्टता।",
-    intro:
-      "ArthastraAI में AI का अर्थ विश्लेषणात्मक जानकारी है। हम स्टॉक, क्रिप्टो, मेटल्स, एफएक्स और ग्लोबल ट्रेंड्स पर संरचित जानकारी देते हैं।",
-    foundersPhoto: "फाउंडर्स फोटो",
-    mission: "हमारा मिशन",
-    missionBody:
-      "Arthastra निवेशकों को स्पष्ट और संरचित विश्लेषण के साथ बेहतर निर्णय लेने में मदद करता है।",
-    founders: "संस्थापक",
-    founder: "संस्थापक",
-    coFounder: "सह-संस्थापक",
-    founderNote:
-      "स्पष्ट मार्केट संदर्भ और व्यावहारिक फ्रेमवर्क देने के लिए बनाया गया।",
-    covers: "ASTRA क्या कवर करता है",
-    legal: "कानूनी सूचना",
-    legalBody:
-      "यह केवल जानकारी के लिए है। यह प्लेटफॉर्म वित्तीय, कानूनी, टैक्स या अकाउंटिंग सलाह नहीं देता।",
-  },
-};
+];
+
+const ROADMAP = [
+  { phase: "Now", item: "Education-first simulator with global market intelligence" },
+  { phase: "Next", item: "Deeper strategy benchmarking and performance attribution" },
+  { phase: "Later", item: "Advanced institutional-grade research workflows" },
+];
 
 export default function AboutPage() {
   const [theme, setTheme] = useState("dark");
-  const [language, setLanguage] = useState("en");
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("theme_mode");
-      if (saved === "light" || saved === "dark" || saved === "cherry" || saved === "azula") setTheme(saved);
-    } catch {}
-    try {
-      const lang = localStorage.getItem("site_language");
-      if (LANGUAGE_OPTIONS.some((x) => x.code === lang)) setLanguage(lang);
-    } catch {}
+    if (typeof window === "undefined") return;
+    const saved = localStorage.getItem("theme_mode");
+    if (["dark", "light", "cherry", "azula"].includes(saved)) {
+      setTheme(saved);
+    }
   }, []);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem("theme_mode", theme);
-    } catch {}
-  }, [theme]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem("site_language", language);
-    } catch {}
-  }, [language]);
 
   const isCherry = theme === "cherry";
   const isAzula = theme === "azula";
   const isLight = theme === "light" || isCherry || isAzula;
 
-  const pageClass = isCherry
-    ? "cherry-mode min-h-screen relative overflow-hidden bg-[#fffefc] text-[#3a2530]"
-    : isAzula
-      ? "azula-mode min-h-screen relative overflow-hidden bg-[#fafbfd] text-slate-900"
-    : isLight
-      ? "min-h-screen relative overflow-hidden bg-gradient-to-br from-white via-blue-50 to-cyan-50 text-slate-900"
-      : "min-h-screen relative overflow-hidden bg-slate-950 text-white";
+  const pageClass = useMemo(() => {
+    if (isCherry) return "cherry-mode bg-[#fffefc] text-[#3a2530]";
+    if (isAzula) return "azula-mode bg-[#09090b] text-[#e7e1c5]";
+    if (isLight) return "light-mode bg-[#fbfdff] text-slate-900";
+    return "dark-mode bg-slate-950 text-white";
+  }, [isCherry, isAzula, isLight]);
 
-  const cardClass = isCherry
-    ? "rounded-2xl border border-rose-200/60 bg-white/90 backdrop-blur-sm p-6 shadow-[0_10px_36px_rgba(190,24,93,0.12)]"
-    : isAzula
-      ? "rounded-2xl border border-sky-200/70 bg-white/92 backdrop-blur-sm p-6 shadow-[0_10px_36px_rgba(14,116,144,0.14)]"
-    : isLight
-      ? "rounded-2xl border border-blue-200/80 bg-white/85 backdrop-blur-sm p-6 shadow-[0_10px_40px_rgba(59,130,246,0.12)]"
-      : "rounded-2xl border border-white/12 bg-slate-900/55 p-6";
-
-  const chipClass = isCherry
-    ? "rounded-xl border border-rose-200/70 bg-rose-50/70 p-3 text-rose-900"
-    : isAzula
-      ? "rounded-xl border border-sky-200 bg-sky-50/80 p-3 text-sky-900"
-    : isLight
-      ? "rounded-xl border border-blue-200 bg-blue-50/80 p-3 text-slate-700"
-      : "rounded-xl border border-white/10 bg-white/5 p-3 text-slate-300";
-  const t = (key) => ABOUT_TEXT[language]?.[key] || ABOUT_TEXT.en[key] || key;
+  const accentPillClass = isAzula
+    ? "border-[#cdb270]/50 bg-[#1a1710] text-[#e7d9ae]"
+    : isCherry
+      ? "border-rose-300 bg-rose-50 text-rose-700"
+      : isLight
+        ? "border-slate-300 bg-white text-slate-700"
+        : "border-cyan-400/30 bg-cyan-500/10 text-cyan-200";
 
   return (
-    <div className={pageClass}>
-      <div
-        className={`pointer-events-none absolute -top-24 -left-20 h-80 w-80 rounded-full blur-3xl ${
-          isCherry ? "bg-rose-200/28" : isAzula ? "bg-sky-300/32" : isLight ? "bg-blue-300/35" : "bg-cyan-500/12"
-        }`}
-      />
-      <div
-        className={`pointer-events-none absolute top-1/3 -right-28 h-96 w-96 rounded-full blur-3xl ${
-          isCherry ? "bg-rose-200/24" : isAzula ? "bg-blue-300/30" : isLight ? "bg-cyan-300/30" : "bg-blue-500/10"
-        }`}
-      />
-      <div
-        className={`pointer-events-none absolute inset-0 ${
-          isCherry
-            ? "bg-[radial-gradient(circle_at_16%_12%,rgba(244,114,182,0.12),transparent_34%),radial-gradient(circle_at_84%_72%,rgba(251,113,133,0.1),transparent_36%)]"
-            : isAzula
-              ? "bg-[radial-gradient(circle_at_20%_10%,rgba(56,189,248,0.2),transparent_36%),radial-gradient(circle_at_80%_70%,rgba(37,99,235,0.18),transparent_38%)]"
-            : isLight
-              ? "bg-[radial-gradient(circle_at_20%_10%,rgba(59,130,246,0.12),transparent_35%),radial-gradient(circle_at_80%_70%,rgba(6,182,212,0.12),transparent_35%)]"
-              : "bg-[radial-gradient(circle_at_20%_10%,rgba(59,130,246,0.08),transparent_35%),radial-gradient(circle_at_80%_70%,rgba(14,165,233,0.07),transparent_35%)]"
-        }`}
-      />
-      {isAzula && (
-        <div className="pointer-events-none absolute inset-0 z-[1] overflow-hidden azula-scene" aria-hidden="true">
-          {AZULA_FLAME_IDS.map((flameId) => (
-            <span key={`about-azula-flame-${flameId}`} className={`azula-flame azula-flame-${flameId}`} />
-          ))}
-          {AZULA_LIGHTNING_IDS.map((boltId) => (
-            <span key={`about-azula-bolt-${boltId}`} className={`azula-lightning azula-lightning-${boltId}`} />
-          ))}
-        </div>
-      )}
+    <div className={`min-h-screen relative overflow-hidden ${pageClass}`}>
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_10%,rgba(125,211,252,0.12),transparent_40%),radial-gradient(circle_at_80%_70%,rgba(147,197,253,0.08),transparent_42%)]" />
 
-      <div className="relative z-10 mx-auto w-full max-w-5xl px-6 py-10 md:py-14">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-8">
+      <main className="relative z-10 mx-auto w-full max-w-6xl px-6 py-10 md:py-14">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <div className={`text-xs uppercase tracking-[0.2em] ${isLight ? "text-slate-500" : "text-white/60"}`}>
+            About Arthastra
+          </div>
           <Link
             href="/"
-            className={`px-3 py-1.5 rounded-lg border text-xs ${
+            className={`px-3 py-1.5 rounded-lg border text-xs font-semibold ${
               isLight
-                ? "border-slate-300 bg-white/85 text-slate-700 hover:bg-slate-100"
+                ? "border-slate-300 bg-white/90 text-slate-700 hover:bg-slate-100"
                 : "border-white/15 bg-slate-900/60 text-white/85 hover:bg-slate-800/70"
             }`}
           >
-            {t("backHome")}
+            Back Home
           </Link>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setTheme("dark")}
-              className={`px-3 py-1.5 rounded-lg border text-xs ${
-                theme === "dark"
-                  ? "bg-blue-600 text-white border-blue-500"
-                  : isLight
-                    ? "border-slate-300 bg-white/85 text-slate-700"
-                    : "border-white/15 bg-slate-900/60 text-white/85"
-              }`}
-            >
-              {t("dark")}
-            </button>
-            <button
-              onClick={() => setTheme("light")}
-              className={`px-3 py-1.5 rounded-lg border text-xs ${
-                theme === "light"
-                  ? "bg-blue-600 text-white border-blue-500"
-                  : isLight
-                    ? "border-slate-300 bg-white/85 text-slate-700"
-                    : "border-white/15 bg-slate-900/60 text-white/85"
-              }`}
-            >
-              {t("light")}
-            </button>
-            <button
-              onClick={() => setTheme("cherry")}
-              className={`px-3 py-1.5 rounded-lg border text-xs ${
-                theme === "cherry"
-                  ? "bg-rose-600 text-white border-rose-500"
-                  : isLight
-                    ? "border-rose-200 bg-white/90 text-rose-800"
-                    : "border-white/15 bg-slate-900/60 text-white/85"
-              }`}
-            >
-              {t("sakura")}
-            </button>
-            <button
-              onClick={() => setTheme("azula")}
-              className={`px-3 py-1.5 rounded-lg border text-xs ${
-                theme === "azula"
-                  ? "bg-sky-600 text-white border-sky-500"
-                  : isLight
-                    ? "border-sky-200 bg-white/90 text-sky-800"
-                    : "border-white/15 bg-slate-900/60 text-white/85"
-              }`}
-            >
-              {t("azula")}
-            </button>
-            <select
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-              className={`px-2.5 py-1.5 rounded-lg border text-xs ${
-                isLight
-                  ? "border-slate-300 bg-white/90 text-slate-700"
-                  : "border-white/15 bg-slate-900/60 text-white/85"
-              }`}
-            >
-              {LANGUAGE_OPTIONS.map((option) => (
-                <option key={option.code} value={option.code}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <a
-              href="mailto:support@arthastraai.com"
-              className={`px-3 py-1.5 rounded-lg border text-xs ${
-                isLight
-                  ? "border-slate-300 bg-white/85 text-slate-700 hover:bg-slate-100"
-                  : "border-white/15 bg-slate-900/60 text-white/85 hover:bg-slate-800/70"
-              }`}
-            >
-              support@arthastraai.com
-            </a>
-          </div>
         </div>
 
-        <div className="text-center mb-10">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/arthastra-icon-transparent.svg"
-            alt="Arthastra logo"
-            className="mx-auto h-20 w-20 md:h-24 md:w-24"
-          />
-          <h1
-            className={`mt-4 text-4xl md:text-6xl font-semibold tracking-tight bg-gradient-to-r bg-clip-text text-transparent ${
-              isCherry
-                ? "from-rose-900 via-fuchsia-800 to-indigo-800"
-                : isLight
-                  ? "from-slate-900 via-blue-700 to-cyan-600"
-                  : "from-white via-cyan-100 to-sky-200"
-            }`}
-          >
-            {t("aboutTitle")}
+        <section className="app-card rounded-2xl border border-white/12 bg-slate-900/55 backdrop-blur-md p-6 md:p-8 shadow-[0_14px_40px_-22px_rgba(15,23,42,0.9)] mb-6">
+          <div className={`inline-flex items-center rounded-full border px-3 py-1 text-[11px] uppercase tracking-[0.16em] ${accentPillClass}`}>
+            Company Overview
+          </div>
+          <h1 className={`text-4xl md:text-6xl font-semibold leading-tight ${isLight ? "text-slate-900" : "text-white"}`}>
+            Built for people who want to understand before they invest.
           </h1>
-          <p className={`mt-3 text-lg ${isCherry ? "text-rose-900/80" : isLight ? "text-slate-600" : "text-slate-300"}`}>
-            {t("clarity")}
+          <p className={`mt-4 max-w-3xl text-sm md:text-base leading-7 ${isLight ? "text-slate-600" : "text-white/75"}`}>
+            Most platforms take your money first and explain later. Arthastra is built to close that gap: research, education, and simulation first, then informed decision-making.
           </p>
-          <p className={`mt-2 text-sm ${isCherry ? "text-rose-900/70" : isLight ? "text-slate-500" : "text-slate-400"}`}>
-            {t("intro")}
+          <p className={`mt-4 text-xs ${isLight ? "text-slate-500" : "text-white/60"}`}>
+            Founders: Juan M. Ramirez · Deep Patel
           </p>
-        </div>
-
-        <section className={`${cardClass} mb-6`}>
-          <h2 className={`text-sm font-semibold mb-3 ${isLight ? "text-slate-800" : "text-slate-100"}`}>
-            {t("foundersPhoto")}
-          </h2>
-          <div className="overflow-hidden rounded-2xl border border-white/10">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/founders-team.jpg"
-              alt="Deep Patel and Juan M. Ramirez"
-              className="w-full h-auto object-cover"
-            />
+          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+            {METRICS.map((m) => (
+              <div key={m.label} className={`rounded-xl border p-3 ${isLight ? "border-slate-300 bg-white/85" : "border-white/10 bg-white/5"}`}>
+                <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-500" : "text-white/60"}`}>{m.label}</div>
+                <div className={`mt-1 text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{m.value}</div>
+              </div>
+            ))}
           </div>
-          <p className={`text-xs mt-3 ${isCherry ? "text-rose-900/65" : isLight ? "text-slate-500" : "text-slate-400"}`}>
+        </section>
+
+        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <article className="app-card rounded-2xl border border-white/12 bg-slate-900/55 backdrop-blur-md p-6 shadow-[0_14px_40px_-22px_rgba(15,23,42,0.9)]">
+            <h2 className={`text-2xl font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>The Origin Story</h2>
+            <div className={`mt-4 space-y-4 text-sm leading-7 ${isLight ? "text-slate-700" : "text-white/80"}`}>
+              <p>
+                During the pandemic, Juan moved from passive index investing into deeper independent research. One stock he researched in detail moved from the teens to $68.
+              </p>
+              <p>
+                The difference was not luck. It was understanding why to hold, and when to exit. That insight became the foundation for Arthastra.
+              </p>
+              <p>
+                Arthastra exists to help users make informed, explainable decisions instead of blind follow-through.
+              </p>
+            </div>
+          </article>
+
+          <article className="app-card rounded-2xl border border-white/12 bg-slate-900/55 backdrop-blur-md p-6 shadow-[0_14px_40px_-22px_rgba(15,23,42,0.9)]">
+            <h2 className={`text-2xl font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>Platform Philosophy</h2>
+            <div className={`mt-4 space-y-3 text-sm leading-7 ${isLight ? "text-slate-700" : "text-white/80"}`}>
+              <p>Research should be accessible.</p>
+              <p>Execution should be practiced safely.</p>
+              <p>Learning should be continuous and measurable.</p>
+            </div>
+            <div className={`mt-5 rounded-xl border p-4 ${isLight ? "border-slate-300 bg-white/80" : "border-white/10 bg-white/5"}`}>
+              <p className={`text-sm ${isLight ? "text-slate-600" : "text-white/75"}`}>
+                Arthastra AI is a paper-trading simulator for educational purposes only. It does not provide financial advice.
+              </p>
+            </div>
+          </article>
+        </section>
+
+        <section className="app-card rounded-2xl border border-white/12 bg-slate-900/55 backdrop-blur-md p-6 md:p-8 shadow-[0_14px_40px_-22px_rgba(15,23,42,0.9)] mb-6">
+          <h2 className={`text-2xl font-semibold mb-4 ${isLight ? "text-slate-900" : "text-white"}`}>Founders Photo</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-4">
+            <div className="overflow-hidden rounded-2xl border border-white/10">
+              <Image
+                src="/founders-team.jpg"
+                alt="Deep Patel and Juan M. Ramirez"
+                width={1800}
+                height={2200}
+                className="h-auto w-full object-cover"
+                priority
+              />
+            </div>
+            <div className="space-y-3">
+              <div className={`rounded-xl border p-4 ${isLight ? "border-slate-300 bg-white/85" : "border-white/10 bg-white/5"}`}>
+                <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-500" : "text-white/60"}`}>Juan M. Ramirez</div>
+                <div className={`mt-1 text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>Co-Founder · Systems & Product</div>
+                <p className={`mt-2 text-sm leading-6 ${isLight ? "text-slate-600" : "text-white/75"}`}>
+                  Focused on architecture, execution systems, and product strategy that turns research into repeatable process.
+                </p>
+              </div>
+              <div className={`rounded-xl border p-4 ${isLight ? "border-slate-300 bg-white/85" : "border-white/10 bg-white/5"}`}>
+                <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-500" : "text-white/60"}`}>Deep Patel</div>
+                <div className={`mt-1 text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>Co-Founder · Market Research</div>
+                <p className={`mt-2 text-sm leading-6 ${isLight ? "text-slate-600" : "text-white/75"}`}>
+                  Leads analytical framing and market interpretation to ensure signals stay grounded and educational.
+                </p>
+              </div>
+              <div className={`rounded-xl border p-4 ${isLight ? "border-slate-300 bg-white/85" : "border-white/10 bg-white/5"}`}>
+                <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-500" : "text-white/60"}`}>Why This Team</div>
+                <p className={`mt-2 text-sm leading-6 ${isLight ? "text-slate-600" : "text-white/75"}`}>
+                  Builder + researcher partnership with a clear thesis: improve financial outcomes by improving decision quality first.
+                </p>
+              </div>
+            </div>
+          </div>
+          <p className={`mt-3 text-xs ${isLight ? "text-slate-500" : "text-white/60"}`}>
             Deep Patel and Juan M. Ramirez
           </p>
         </section>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <section className={cardClass}>
-            <h2 className={`text-sm font-semibold mb-3 ${isLight ? "text-slate-800" : "text-slate-100"}`}>
-              {t("mission")}
-            </h2>
-            <p className={`text-sm leading-relaxed ${isCherry ? "text-rose-900/75" : isLight ? "text-slate-600" : "text-slate-300"}`}>
-              {t("missionBody")}
-            </p>
-          </section>
-          <section className={cardClass}>
-            <h2 className={`text-sm font-semibold mb-3 ${isLight ? "text-slate-800" : "text-slate-100"}`}>
-              {t("founders")}
-            </h2>
-            <p className={`text-sm ${isCherry ? "text-rose-900/80" : isLight ? "text-slate-700" : "text-slate-300"}`}>{t("founder")}: Deep Patel</p>
-            <p className={`text-sm mt-1 ${isCherry ? "text-rose-900/80" : isLight ? "text-slate-700" : "text-slate-300"}`}>
-              {t("coFounder")}: Juan M. Ramirez
-            </p>
-            <p className={`text-xs mt-3 ${isCherry ? "text-rose-900/65" : isLight ? "text-slate-500" : "text-slate-400"}`}>
-              {t("founderNote")}
-            </p>
-          </section>
-        </div>
-
-        <section className={`${cardClass} mb-6`}>
-          <h2 className={`text-sm font-semibold mb-3 ${isLight ? "text-slate-800" : "text-slate-100"}`}>
-            {t("covers")}
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
-            <div className={chipClass}>Stock analytics and trends</div>
-            <div className={chipClass}>Crypto market monitoring</div>
-            <div className={chipClass}>Precious metals tracking</div>
-            <div className={chipClass}>FX conversion and overview</div>
-            <div className={chipClass}>World-impact market news</div>
-            <div className={chipClass}>ASTRA assistant Q&amp;A support</div>
+        <section className="app-card rounded-2xl border border-white/12 bg-slate-900/55 backdrop-blur-md p-6 md:p-8 shadow-[0_14px_40px_-22px_rgba(15,23,42,0.9)] mb-6">
+          <h2 className={`text-2xl font-semibold mb-4 ${isLight ? "text-slate-900" : "text-white"}`}>Why Arthastra Wins</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {MOATS.map((m) => (
+              <div key={m.title} className={`rounded-xl border p-4 ${isLight ? "border-slate-300 bg-white/85" : "border-white/10 bg-white/5"}`}>
+                <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{m.title}</div>
+                <p className={`mt-2 text-sm leading-6 ${isLight ? "text-slate-600" : "text-white/75"}`}>{m.text}</p>
+              </div>
+            ))}
           </div>
         </section>
 
-        <section className={cardClass}>
-          <h2 className={`text-sm font-semibold mb-3 ${isLight ? "text-slate-800" : "text-slate-100"}`}>
-            {t("legal")}
-          </h2>
-          <p className={`text-xs leading-relaxed ${isCherry ? "text-rose-900/65" : isLight ? "text-slate-500" : "text-slate-400"}`}>
-            {t("legalBody")}
-          </p>
+        <section className="app-card rounded-2xl border border-white/12 bg-slate-900/55 backdrop-blur-md p-6 md:p-8 shadow-[0_14px_40px_-22px_rgba(15,23,42,0.9)] mb-6">
+          <h2 className={`text-2xl font-semibold mb-4 ${isLight ? "text-slate-900" : "text-white"}`}>Mission Pillars</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {PILLARS.map((pillar) => (
+              <div key={pillar.title} className={`rounded-xl border p-4 ${isLight ? "border-slate-300 bg-white/85" : "border-white/10 bg-white/5"}`}>
+                <div className="text-2xl">{pillar.icon}</div>
+                <div className={`mt-2 text-base font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{pillar.title}</div>
+                <p className={`mt-2 text-sm leading-6 ${isLight ? "text-slate-600" : "text-white/75"}`}>{pillar.text}</p>
+              </div>
+            ))}
+          </div>
         </section>
-      </div>
+
+        <section className="app-card rounded-2xl border border-white/12 bg-slate-900/55 backdrop-blur-md p-6 md:p-8 shadow-[0_14px_40px_-22px_rgba(15,23,42,0.9)] mb-6">
+          <h2 className={`text-2xl font-semibold mb-4 ${isLight ? "text-slate-900" : "text-white"}`}>Roadmap</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {ROADMAP.map((r) => (
+              <div key={r.phase} className={`rounded-xl border p-4 ${isLight ? "border-slate-300 bg-white/85" : "border-white/10 bg-white/5"}`}>
+                <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-500" : "text-white/60"}`}>{r.phase}</div>
+                <div className={`mt-1 text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{r.item}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="app-card rounded-2xl border border-white/12 bg-slate-900/55 backdrop-blur-md p-6 md:p-8 shadow-[0_14px_40px_-22px_rgba(15,23,42,0.9)] mb-6">
+          <h2 className={`text-2xl font-semibold mb-4 ${isLight ? "text-slate-900" : "text-white"}`}>Investor Paths We Support</h2>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {TYPES.map((t) => (
+              <div key={t.name} className={`rounded-xl border p-3 ${isLight ? "border-slate-300 bg-white/85" : "border-white/10 bg-white/5"}`}>
+                <div className="text-xl">{t.icon}</div>
+                <div className={`mt-2 text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{t.name}</div>
+                <div className={`mt-1 text-[11px] uppercase tracking-wide ${isLight ? "text-slate-500" : "text-white/60"}`}>{t.horizon}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="text-center py-4">
+          <h3 className={`text-2xl md:text-3xl font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>Your market classroom starts here.</h3>
+          <p className={`mt-2 text-sm ${isLight ? "text-slate-600" : "text-white/70"}`}>Practice, learn, and build conviction before real capital is on the line.</p>
+          <div className="mt-5">
+            <Link
+              href="/simulator"
+              className={`inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold ${
+                isAzula
+                  ? "bg-[#b7954c] text-[#111112]"
+                  : isCherry
+                    ? "bg-rose-600 text-white"
+                    : "bg-blue-600 text-white"
+              }`}
+            >
+              Open Simulator
+            </Link>
+          </div>
+        </section>
+      </main>
     </div>
   );
 }

@@ -102,8 +102,11 @@ body {
 }
 
 .azula-mode {
-  background-color: #f9fbfd;
-  background-image: linear-gradient(180deg, #f4f7fb 0%, #f8fafc 45%, #ffffff 100%);
+  background-color: #070708;
+  background-image:
+    radial-gradient(circle at 12% 8%, rgba(232, 216, 174, 0.07), transparent 40%),
+    radial-gradient(circle at 82% 76%, rgba(190, 158, 90, 0.06), transparent 44%),
+    linear-gradient(180deg, #08080a 0%, #0d0d11 45%, #09090c 100%);
   isolation: isolate;
 }
 
@@ -116,14 +119,16 @@ body {
 }
 
 .azula-mode .app-card {
-  background: rgba(255, 255, 255, 0.88) !important;
-  border-color: rgba(148, 163, 184, 0.26) !important;
+  background: linear-gradient(180deg, rgba(18, 18, 24, 0.95), rgba(13, 13, 18, 0.95)) !important;
+  border-color: rgba(205, 178, 112, 0.34) !important;
   box-shadow:
-    0 14px 30px -20px rgba(100, 116, 139, 0.24),
-    0 0 0 1px rgba(191, 219, 254, 0.2) inset;
-  color: #334155 !important;
+    0 18px 34px -20px rgba(0, 0, 0, 0.72),
+    0 1px 0 rgba(255, 255, 255, 0.02) inset,
+    0 0 0 1px rgba(218, 194, 141, 0.2) inset;
+  color: #f2ecdb !important;
   position: relative;
   overflow: hidden;
+  backdrop-filter: blur(2px);
 }
 
 .azula-mode .app-card::before {
@@ -131,12 +136,10 @@ body {
   position: absolute;
   inset: -35% -20%;
   pointer-events: none;
-  background:
-    linear-gradient(116deg, transparent 24%, rgba(186, 230, 253, 0.2) 38%, rgba(56, 189, 248, 0.14) 46%, transparent 62%),
-    linear-gradient(126deg, transparent 48%, rgba(99, 102, 241, 0.1) 58%, transparent 66%);
-  opacity: 0.28;
+  background: linear-gradient(112deg, transparent 30%, rgba(224, 202, 153, 0.14) 48%, transparent 68%);
+  opacity: 0.14;
   transform: translateX(-68%);
-  animation: azulaCardLightning 3.2s linear infinite;
+  animation: azulaCardLightning 9.5s linear infinite;
 }
 
 .azula-mode .app-card::after {
@@ -144,66 +147,66 @@ body {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  box-shadow:
-    0 0 20px rgba(56, 189, 248, 0.12) inset,
-    0 0 14px rgba(99, 102, 241, 0.08) inset;
-  opacity: 0.24;
-  animation: azulaCardPulse 2.6s ease-in-out infinite;
+  box-shadow: 0 0 12px rgba(216, 192, 136, 0.1) inset;
+  opacity: 0.14;
+  animation: azulaCardPulse 7.2s ease-in-out infinite;
 }
 
 .azula-mode .app-card:hover {
-  border-color: rgba(125, 211, 252, 0.42) !important;
+  border-color: rgba(222, 200, 151, 0.52) !important;
 }
 
 .azula-mode .app-card-title {
-  color: #334155 !important;
+  color: #eadfbf !important;
 }
 
 .azula-mode .app-card,
 .azula-mode .app-card * {
-  color: #334155 !important;
+  color: #f2ecdb !important;
   opacity: 1 !important;
-  -webkit-text-fill-color: #334155 !important;
+  -webkit-text-fill-color: #f2ecdb !important;
 }
 
 .azula-mode .app-card [class*="text-green-"] {
-  color: #047857 !important;
-  -webkit-text-fill-color: #047857 !important;
+  color: #34d399 !important;
+  -webkit-text-fill-color: #34d399 !important;
 }
 
 .azula-mode .app-card [class*="text-red-"] {
-  color: #b91c1c !important;
-  -webkit-text-fill-color: #b91c1c !important;
+  color: #fb7185 !important;
+  -webkit-text-fill-color: #fb7185 !important;
 }
 
 .azula-mode .app-card [class*="text-blue-"] {
-  color: #1d4ed8 !important;
-  -webkit-text-fill-color: #1d4ed8 !important;
+  color: #d9c58e !important;
+  -webkit-text-fill-color: #d9c58e !important;
 }
 
 .azula-mode .app-card [class*="bg-white/"] {
-  background-color: rgba(239, 248, 255, 0.66) !important;
+  background-color: rgba(24, 24, 31, 0.84) !important;
 }
 
 .azula-mode .app-card [class*="border-white/"] {
-  border-color: rgba(148, 163, 184, 0.24) !important;
+  border-color: rgba(214, 190, 137, 0.28) !important;
 }
 
 .azula-mode button[class*="bg-blue-600"] {
-  background-color: #2563eb !important;
-  box-shadow: 0 0 18px rgba(59, 130, 246, 0.45);
+  background: linear-gradient(180deg, #d2b372 0%, #b6904a 100%) !important;
+  color: #111112 !important;
+  box-shadow:
+    0 6px 16px -8px rgba(210, 179, 114, 0.65),
+    0 0 0 1px rgba(255, 242, 204, 0.18) inset;
 }
 
 .azula-mode button[class*="bg-blue-600"]:hover {
-  background-color: #1d4ed8 !important;
+  background: linear-gradient(180deg, #dbc085 0%, #c09b57 100%) !important;
 }
 
 .azula-title-neon {
   text-shadow:
-    0 0 12px rgba(56, 189, 248, 0.95),
-    0 0 28px rgba(37, 99, 235, 0.78),
-    0 0 42px rgba(99, 102, 241, 0.64),
-    2px 2px 0 rgba(15, 23, 42, 0.35);
+    0 0 8px rgba(232, 216, 174, 0.62),
+    0 0 16px rgba(188, 157, 94, 0.36),
+    2px 2px 0 rgba(0, 0, 0, 0.35);
 }
 
 .azula-logo-thunder::before,
