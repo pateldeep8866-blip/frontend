@@ -47,6 +47,11 @@ function normalizeAssetType(value) {
   return String(value || "").toLowerCase() === "crypto" ? "crypto" : "stock";
 }
 
+function getTradingStyle(raw) {
+  const style = String(raw || "swing").toLowerCase();
+  return style === "day_trading" ? "day_trading" : "swing";
+}
+
 function getRiskPolicy(rawLevel, custom) {
   const level = String(rawLevel || "MODERATE").toUpperCase();
   if (level === "CONSERVATIVE") {
@@ -146,11 +151,11 @@ function getLessonForStrategy(strategy) {
   return lessons[String(strategy || "").toLowerCase()] || "Quantitative signal detected.";
 }
 
-function buildPrioritySellDecisions({ holdings, quantResult, riskLevel }) {
+function buildPrioritySellDecisions({ holdings, quantResult, riskLevel, tradingStyle }) {
   const decisions = [];
   const quantScores = Array.isArray(quantResult?.all_scores) ? quantResult.all_scores : [];
   const scoreByTicker = new Map(quantScores.map((s) => [String(s?.ticker || "").toUpperCase(), s]));
-  const maxHoldDays = { conservative: 5, moderate: 15, aggressive: 30 }[String(riskLevel || "").toLowerCase()] || 15;
+  const maxHoldDays = tradingStyle === "day_trading" ? 1 : ({ conservative: 5, moderate: 15, aggressive: 30 }[String(riskLevel || "").toLowerCase()] || 15);
 
   for (const holding of holdings) {
     const ticker = String(holding?.symbol || "").toUpperCase();
@@ -638,7 +643,7 @@ function normalizeDecisions(raw) {
     .slice(0, 8);
 }
 
-function ensureActionableDecisions(decisions, { cash, holdings, context, riskPolicy }) {
+function ensureActionableDecisions(decisions, { cash, holdings, context, riskPolicy, tradingStyle }) {
   const normalized = Array.isArray(decisions) ? [...decisions] : [];
   const holdingByKey = new Map(
     (Array.isArray(holdings) ? holdings : []).map((h) => [
@@ -703,7 +708,7 @@ function ensureActionableDecisions(decisions, { cash, holdings, context, riskPol
   if (!hasPosition && !hasActionableBuy && cashNum > 100) {
     const best = (context?.topCandidates || []).find((c) => {
       if (normalizeAssetType(c?.assetType) === "crypto" && Number(maxCryptoPct) <= 0) return false;
-      return Number(c?.total || c?.score || 0) >= 65;
+      return Number(c?.total || c?.score || 0) >= (tradingStyle === "day_trading" ? 58 : 65);
     }) || context?.topCandidates?.[0];
     const stockCandidate = String(best?.symbol || context?.todayPick?.symbol || "AAPL").toUpperCase();
     const stockPrice = Number(best?.price) || Number((context?.movers || []).find((m) => String(m?.symbol || "").toUpperCase() === stockCandidate)?.price) || 100;
@@ -733,8 +738,59 @@ function ensureActionableDecisions(decisions, { cash, holdings, context, riskPol
     });
   }
 
+  // In day-trading mode, reduce passive HOLD states when a valid setup exists.
+  if (tradingStyle === "day_trading") {
+    const hasAction = normalized.some((d) => ["BUY", "SELL"].includes(String(d?.action || "").toUpperCase()) && Number(d?.shares || 0) > 0);
+    if (!hasAction && cashNum > 100) {
+      const best = (context?.topCandidates || []).find((c) => Number(c?.total || c?.score || 0) >= 58) || context?.topCandidates?.[0];
+      if (best) {
+        const ticker = String(best?.symbol || "AAPL").toUpperCase();
+        const price = Number(best?.price || 0) || 100;
+        const budget = Math.max(0, Math.min(cashNum - reserveCash, portfolioValue * Math.max(0.06, maxPositionPct * 0.8)));
+        const shares = Math.max(1, Math.floor(budget / price));
+        normalized.unshift({
+          action: "BUY",
+          ticker,
+          assetType: normalizeAssetType(best?.assetType),
+          shares,
+          entry_price: price,
+          stop_loss: Number(best?.stopLoss || price * 0.99),
+          take_profit: Number(best?.takeProfit || price * 1.02),
+          composite_score: Math.max(58, Number(best?.total || best?.score || 58)),
+          confidence: 60,
+          risk: "MEDIUM",
+          reasoning: "Day-trading mode requires active intraday positioning when qualified setups are available.",
+          lesson: "Intraday mode prioritizes execution over passive hold states.",
+        });
+      }
+    }
+  }
+
   // Prevent no-op logs: remove HOLD entries with empty tickers.
   return normalized.filter((d) => String(d?.ticker || "").trim() || String(d?.action || "").toUpperCase() !== "HOLD");
+}
+
+function isNyseOpenNow() {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date());
+  const wd = parts.find((p) => p.type === "weekday")?.value || "Mon";
+  const hour = Number(parts.find((p) => p.type === "hour")?.value || 0);
+  const minute = Number(parts.find((p) => p.type === "minute")?.value || 0);
+  const mins = hour * 60 + minute;
+  return wd !== "Sat" && wd !== "Sun" && mins >= 570 && mins < 960;
+}
+
+function nextDecisionTs(tradingStyle = "swing") {
+  if (tradingStyle === "day_trading") {
+    if (isNyseOpenNow()) return Date.now() + 5 * 60 * 1000;
+    return nextMarketOpenTs();
+  }
+  return nextMarketOpenTs();
 }
 
 function nextMarketOpenTs() {
@@ -765,6 +821,7 @@ export async function POST(req) {
     const body = await req.json().catch(() => ({}));
     const cash = toNum(body?.cash) ?? 0;
     const riskPolicy = getRiskPolicy(body?.riskLevel, body?.customRisk);
+    const tradingStyle = getTradingStyle(body?.tradingStyle);
     const holdingsInput = Array.isArray(body?.holdings) ? body.holdings : [];
     const holdingsSymbols = holdingsInput
       .filter((h) => normalizeAssetType(h?.assetType) === "stock")
@@ -956,6 +1013,7 @@ export async function POST(req) {
         `You are ASTRA, an elite quantitative trader managing a $${(cash + holdings.reduce((s, h) => s + Number(h.currentPrice || 0) * Number(h.shares || 0), 0)).toFixed(2)} virtual portfolio.`,
         `Risk Profile: ${riskPolicy.level} (max position ${(riskPolicy.maxPositionPct * 100).toFixed(0)}%, max crypto ${(riskPolicy.maxCryptoPct * 100).toFixed(0)}%, min cash reserve ${(riskPolicy.minCashReservePct * 100).toFixed(0)}%)`,
         `Available Cash: $${cash.toFixed(2)}`,
+        `Trading Style: ${tradingStyle === "day_trading" ? "DAY_TRADING" : "SWING"} (day trading should prefer active intraday decisions and avoid idle HOLD bias)`,
         `Market Regime: ${marketRegime} (VIX ${macro.vix ?? "—"})`,
         "Current Holdings:",
         JSON.stringify(holdings, null, 2),
@@ -1097,16 +1155,22 @@ export async function POST(req) {
       decisions = normalizeDecisions(fallbackDecisions({ cash, holdings }, { ...context, todayPick }));
     }
 
-    decisions = ensureActionableDecisions(decisions, { cash, holdings, context: { ...context, todayPick }, riskPolicy })
+    decisions = ensureActionableDecisions(decisions, { cash, holdings, context: { ...context, todayPick }, riskPolicy, tradingStyle })
       .map((d) => {
         const c = scoredCandidates.find((x) => x.symbol === String(d?.ticker || "").toUpperCase() && normalizeAssetType(x.assetType) === normalizeAssetType(d?.assetType));
         const composite = Number(d?.composite_score ?? c?.total ?? 50);
         let action = String(d?.action || "HOLD").toUpperCase();
-        if (composite >= 80) action = action === "SELL" ? "HOLD" : "BUY";
-        else if (composite >= 65) action = action === "SELL" ? "HOLD" : "BUY";
-        else if (composite >= 50) action = "HOLD";
-        else if (composite >= 35) action = action === "BUY" ? "HOLD" : "SELL";
-        else action = "SELL";
+        if (tradingStyle === "day_trading") {
+          if (composite >= 58) action = action === "SELL" ? "HOLD" : "BUY";
+          else if (composite >= 45) action = "HOLD";
+          else action = "SELL";
+        } else {
+          if (composite >= 80) action = action === "SELL" ? "HOLD" : "BUY";
+          else if (composite >= 65) action = action === "SELL" ? "HOLD" : "BUY";
+          else if (composite >= 50) action = "HOLD";
+          else if (composite >= 35) action = action === "BUY" ? "HOLD" : "SELL";
+          else action = "SELL";
+        }
         return {
           ...d,
           action,
@@ -1127,6 +1191,34 @@ export async function POST(req) {
       })
       .slice(0, 8);
 
+    if (tradingStyle === "day_trading") {
+      const hasActive = decisions.some((d) => ["BUY", "SELL"].includes(String(d?.action || "").toUpperCase()) && Number(d?.shares || 0) > 0);
+      if (!hasActive && cash > 100) {
+        const best = topCandidates.find((c) => Number(c?.total || 0) >= 55) || topCandidates[0];
+        if (best && Number(best?.price || 0) > 0) {
+          const px = Number(best.price);
+          const alloc = Math.max(0, cash * 0.08);
+          const shares = Math.max(1, Math.floor(alloc / px));
+          decisions.unshift({
+            action: "BUY",
+            ticker: String(best.symbol || "AAPL").toUpperCase(),
+            assetType: normalizeAssetType(best.assetType),
+            shares,
+            entry_price: px,
+            stop_loss: Number(best.stopLoss || (px * 0.99)),
+            take_profit: Number(best.takeProfit || (px * 1.02)),
+            composite_score: 62,
+            strategy: String(best?.strategy || best?.quantSignal || "momentum").toLowerCase(),
+            reasoning: "Day-trading mode selected an intraday setup to avoid idle HOLD bias when cash is available.",
+            confidence: 62,
+            risk: "MEDIUM",
+            holdDays: 1,
+            lesson: "Intraday mode prioritizes active execution with tight risk controls.",
+          });
+        }
+      }
+    }
+
     const totalHoldingsValue = holdings.reduce((sum, h) => sum + Number(h?.currentPrice || 0) * Number(h?.shares || 0), 0);
     const totalValue = Math.max(1, cash + totalHoldingsValue);
     const availableCash = cash;
@@ -1136,6 +1228,7 @@ export async function POST(req) {
       holdings,
       quantResult,
       riskLevel: riskPolicy.level,
+      tradingStyle,
     });
     const sellReasonsOrder = { stop_loss: 1, take_profit: 2, signal_reversal: 3, signal_weakening: 3, time_stop: 4 };
     prioritySells.sort((a, b) => (sellReasonsOrder[a.reason] || 99) - (sellReasonsOrder[b.reason] || 99));
@@ -1154,7 +1247,7 @@ export async function POST(req) {
     // Bug fix 2: force QUANT pick to BUY when valid and cash available.
     const quantPick = quantResult?.single_pick;
     const noTrade = quantResult?.no_trade;
-    const hasCash = availableCash > totalValue * 0.15;
+    const hasCash = availableCash > totalValue * (tradingStyle === "day_trading" ? 0.08 : 0.15);
     if (quantPick && !noTrade && hasCash) {
       const price = Number(quantPick?.entry_price || 0);
       const allocation = availableCash * 0.15;
@@ -1228,6 +1321,7 @@ export async function POST(req) {
 
     const agentState = {
       mode: "autopilot",
+      tradingStyle,
       cycleStatus: buyCount + sellCount > 0 ? "actionable" : "monitoring",
       provider,
       regime: marketRegime,
@@ -1317,7 +1411,7 @@ export async function POST(req) {
         agentState,
         executionPlan,
         loggedTrades,
-        nextDecisionAt: nextMarketOpenTs(),
+        nextDecisionAt: nextDecisionTs(tradingStyle),
       },
       { headers: { "cache-control": "no-store, max-age=0" } }
     );

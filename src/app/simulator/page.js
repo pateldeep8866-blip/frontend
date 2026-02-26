@@ -51,6 +51,7 @@ const RESEARCH_ENGINE_API_URL =
   process.env.NEXT_PUBLIC_RESEARCH_ENGINE_URL || "http://localhost:8001/api/research";
 const SIM_RISK_LEVEL_KEY = "simulator_risk_level_v1";
 const SIM_RISK_CUSTOM_KEY = "simulator_risk_custom_v1";
+const SIM_TRADING_STYLE_KEY = "simulator_trading_style_v1";
 const RISK_PRESETS = {
   CONSERVATIVE: { maxPositionPct: 0.05, maxCryptoPct: 0, minCashReservePct: 0.2, allowCrypto: false, target: "8-15%" },
   MODERATE: { maxPositionPct: 0.15, maxCryptoPct: 0.08, minCashReservePct: 0.12, allowCrypto: true, target: "15-25%" },
@@ -288,6 +289,7 @@ export default function SimulatorPage() {
   const [cryptoLessonNotice, setCryptoLessonNotice] = useState("");
   const [riskLevel, setRiskLevel] = useState("MODERATE");
   const [customRisk, setCustomRisk] = useState({ maxPositionPct: 0.12, maxCryptoPct: 0.1, minCashReservePct: 0.1, target: "Custom" });
+  const [tradingStyle, setTradingStyle] = useState("swing");
   const autoExitLockRef = useRef(false);
 
   const isCherry = theme === "cherry";
@@ -320,6 +322,12 @@ export default function SimulatorPage() {
 
   useEffect(() => {
     try {
+      localStorage.setItem(SIM_TRADING_STYLE_KEY, String(tradingStyle || "swing"));
+    } catch {}
+  }, [tradingStyle]);
+
+  useEffect(() => {
+    try {
       const saved = localStorage.getItem("theme_mode");
       if (saved === "dark" || saved === "light" || saved === "cherry" || saved === "azula") setTheme(saved);
       const savedRisk = localStorage.getItem(SIM_RISK_LEVEL_KEY);
@@ -329,6 +337,8 @@ export default function SimulatorPage() {
         const parsed = JSON.parse(savedCustom);
         if (parsed && typeof parsed === "object") setCustomRisk((prev) => ({ ...prev, ...parsed }));
       }
+      const savedStyle = localStorage.getItem(SIM_TRADING_STYLE_KEY);
+      if (savedStyle === "day_trading" || savedStyle === "swing") setTradingStyle(savedStyle);
     } catch {}
     const loaded = readProfile();
     try {
@@ -1008,6 +1018,7 @@ export default function SimulatorPage() {
           holdings: holdingsPayload,
           riskLevel,
           customRisk,
+          tradingStyle,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -1078,7 +1089,7 @@ export default function SimulatorPage() {
     } finally {
       setAutoRunning(false);
     }
-  }, [appendModeSnapshot, applySingleTrade, autoPilotEnabled, autoRunning, profile, quotes, riskLevel, customRisk]);
+  }, [appendModeSnapshot, applySingleTrade, autoPilotEnabled, autoRunning, profile, quotes, riskLevel, customRisk, tradingStyle]);
 
   const enableAutoPilot = () => {
     setProfile((prev) => ({
@@ -1424,6 +1435,29 @@ export default function SimulatorPage() {
               ))}
             </div>
           </div>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className={`text-xs uppercase tracking-wide ${isLight ? "text-slate-500" : "text-white/60"}`}>Trading Style</div>
+              <div className={`text-xs ${isLight ? "text-slate-600" : "text-white/70"}`}>
+                {tradingStyle === "day_trading" ? "Intraday active mode (5 min cycle)" : "Swing mode (session-to-session)"}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setTradingStyle("day_trading")}
+                className={`px-2.5 py-1.5 rounded-lg border text-xs ${tradingStyle === "day_trading" ? "bg-blue-600 text-white border-blue-500" : isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/15 bg-white/10 text-white/85"}`}
+              >
+                Day Trading
+              </button>
+              <button
+                onClick={() => setTradingStyle("swing")}
+                className={`px-2.5 py-1.5 rounded-lg border text-xs ${tradingStyle === "swing" ? "bg-blue-600 text-white border-blue-500" : isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/15 bg-white/10 text-white/85"}`}
+              >
+                Swing
+              </button>
+            </div>
+          </div>
+
           {riskLevel === "CUSTOM" && (
             <div className="mt-3 grid grid-cols-1 md:grid-cols-4 gap-2">
               <label className="text-xs">
@@ -1506,6 +1540,7 @@ export default function SimulatorPage() {
             <div className={`mt-3 rounded-lg border px-3 py-2 text-xs flex flex-wrap items-center gap-2 ${isLight ? "border-blue-300 bg-blue-50 text-blue-800" : "border-cyan-400/30 bg-cyan-500/12 text-cyan-100"}`}>
               <span>ASTRA is managing your portfolio • Last action: {relativeTime(profile?.autoPilot?.lastActionAt)}</span>
               <span className={`rounded-full border px-2 py-0.5 ${isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/20 bg-white/10 text-white/85"}`}>Risk: {riskPolicy.level}</span>
+              <span className={`rounded-full border px-2 py-0.5 ${isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/20 bg-white/10 text-white/85"}`}>Style: {tradingStyle === "day_trading" ? "DAY" : "SWING"}</span>
               <button
                 onClick={() => {
                   setSimTab("autopilot");
