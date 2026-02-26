@@ -1055,6 +1055,7 @@ export default function SimulatorPage() {
         body: JSON.stringify({
           cash: Number(profile.cash || 0),
           totalValue: Number(portfolioTotal || 0),
+          startingCash: Number(profile.startingCash || STARTING_CASH),
           holdings: holdingsPayload,
           riskLevel,
           customRisk,

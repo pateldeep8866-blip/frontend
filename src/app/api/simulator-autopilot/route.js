@@ -576,6 +576,7 @@ function fallbackDecisions(payload, context) {
   const holdings = Array.isArray(payload?.holdings) ? payload.holdings : [];
   const cash = toNum(payload?.cash) ?? 0;
   const decisions = [];
+  const allowFallbackBuy = Boolean(context?.allowFallbackBuy);
 
   holdings
     .slice(0, 2)
@@ -596,25 +597,27 @@ function fallbackDecisions(payload, context) {
       }
     });
 
-  if (cash > 1000) {
-    const candidate = context?.movers?.find((m) => Number(m?.percentChange) > 1) || context?.todayPick || { symbol: "AAPL" };
-    decisions.push({
-      action: "BUY",
-      ticker: String(candidate?.symbol || "AAPL").toUpperCase(),
-      assetType: normalizeAssetType(candidate?.assetType),
-      cryptoId: String(candidate?.cryptoId || ""),
-      shares: normalizeAssetType(candidate?.assetType) === "crypto" ? 0.01 : 10,
-      reasoning:
-        normalizeAssetType(candidate?.assetType) === "crypto"
-          ? "Crypto momentum is constructive but volatility remains elevated. Adding only a small, controlled position maintains upside exposure while preserving capital."
-          : "A high-liquidity leader with positive momentum and broad market participation offers cleaner execution and manageable risk.",
-      confidence: normalizeAssetType(candidate?.assetType) === "crypto" ? 65 : 68,
-      risk: normalizeAssetType(candidate?.assetType) === "crypto" ? "HIGH" : "MEDIUM",
-      lesson:
-        normalizeAssetType(candidate?.assetType) === "crypto"
-          ? "This demonstrates cautious crypto sizing under a strict risk budget."
-          : "This demonstrates momentum confirmation before adding new exposure.",
-    });
+  if (allowFallbackBuy && cash > 1000) {
+    const candidate = context?.movers?.find((m) => Number(m?.percentChange) > 1.2) || null;
+    if (candidate?.symbol) {
+      decisions.push({
+        action: "BUY",
+        ticker: String(candidate?.symbol || "AAPL").toUpperCase(),
+        assetType: normalizeAssetType(candidate?.assetType),
+        cryptoId: String(candidate?.cryptoId || ""),
+        shares: normalizeAssetType(candidate?.assetType) === "crypto" ? 0.005 : 8,
+        reasoning:
+          normalizeAssetType(candidate?.assetType) === "crypto"
+            ? "Momentum is constructive, but risk remains elevated. Position size is intentionally small."
+            : "A liquid leader with improving momentum and broad participation supports a measured starter position.",
+        confidence: normalizeAssetType(candidate?.assetType) === "crypto" ? 62 : 66,
+        risk: normalizeAssetType(candidate?.assetType) === "crypto" ? "HIGH" : "MEDIUM",
+        lesson:
+          normalizeAssetType(candidate?.assetType) === "crypto"
+            ? "Use smaller size when volatility is elevated."
+            : "Position size first, conviction second.",
+      });
+    }
   }
 
   if (!decisions.length) {
@@ -661,7 +664,7 @@ function normalizeDecisions(raw) {
     .slice(0, 8);
 }
 
-function ensureActionableDecisions(decisions, { cash, holdings, context, riskPolicy, tradingStyle }) {
+function ensureActionableDecisions(decisions, { cash, holdings, context, riskPolicy, tradingStyle, allowStarterBuy = true }) {
   const normalized = Array.isArray(decisions) ? [...decisions] : [];
   const holdingByKey = new Map(
     (Array.isArray(holdings) ? holdings : []).map((h) => [
@@ -723,7 +726,7 @@ function ensureActionableDecisions(decisions, { cash, holdings, context, riskPol
   const hasActionableBuy = normalized.some((d) => String(d?.action || "").toUpperCase() === "BUY" && Number(d?.shares || 0) > 0);
 
   // If portfolio is empty and model only HOLDs, force a starter BUY.
-  if (!hasPosition && !hasActionableBuy && cashNum > 100) {
+  if (allowStarterBuy && !hasPosition && !hasActionableBuy && cashNum > 100) {
     const best = (context?.topCandidates || []).find((c) => {
       if (normalizeAssetType(c?.assetType) === "crypto" && Number(maxCryptoPct) <= 0) return false;
       return Number(c?.total || c?.score || 0) >= (tradingStyle === "day_trading" ? 58 : 65);
@@ -838,6 +841,7 @@ export async function POST(req) {
   try {
     const body = await req.json().catch(() => ({}));
     const cash = toNum(body?.cash) ?? 0;
+    const startingValue = Math.max(1, toNum(body?.startingCash) ?? toNum(body?.startingValue) ?? 100000);
     const riskPolicy = getRiskPolicy(body?.riskLevel, body?.customRisk);
     const tradingStyle = getTradingStyle(body?.tradingStyle);
     const holdingsInput = Array.isArray(body?.holdings) ? body.holdings : [];
@@ -885,6 +889,12 @@ export async function POST(req) {
         buyDate: h?.buyDate || h?.created_utc || null,
       };
     });
+    const holdingsNowValue = holdings.reduce(
+      (sum, h) => sum + Number(h?.currentPrice || 0) * Number(h?.shares || 0),
+      0
+    );
+    const currentPortfolioValue = cash + holdingsNowValue;
+    const drawdownPct = ((currentPortfolioValue - startingValue) / startingValue) * 100;
 
     const candidates = [
       ...candidateStocks.map((symbol) => ({ symbol, assetType: "stock", cryptoId: "" })),
@@ -987,6 +997,19 @@ export async function POST(req) {
     const marketRegime = quantResult?.regime ||
       (Number(macro.vix) < 15 ? "risk_on" :
        Number(macro.vix) < 20 ? "neutral" : "risk_off");
+    const stockCoverage =
+      candidateStocks.length > 0 ? candidateStockQuotes.length / candidateStocks.length : 0;
+    const severeDrawdown = drawdownPct <= -15;
+    const weakDataMode = !quantLabConnected && stockCoverage < 0.25;
+    const capitalPreservationMode = severeDrawdown || weakDataMode;
+    const allowNewBuysBase =
+      !capitalPreservationMode &&
+      (marketRegime !== "risk_off" || quantLabConnected) &&
+      (Number(macro.marketChange ?? 0) > -1.5 || quantLabConnected);
+    const allowFallbackBuy =
+      allowNewBuysBase &&
+      (macro.marketTrend === "UP" || Number(macro.marketChange ?? 0) > 0.2);
+    const maxBuysPerCycle = drawdownPct <= -10 ? 1 : 2;
 
     let todayPick = null;
     try {
@@ -1022,6 +1045,7 @@ export async function POST(req) {
       sectorLaggards: [...sectors].sort((a, b) => Number(a.percentChange || 0) - Number(b.percentChange || 0)).slice(0, 2),
       todayPick,
       topCandidates,
+      allowFallbackBuy,
     };
 
     let decisions = [];
@@ -1094,8 +1118,9 @@ export async function POST(req) {
     }
 
     // Strategy router signals get priority before fallback template logic.
-    if (strategyRouter && !strategyRouter.no_trade && strategyRouter.top_signal) {
+    if (allowNewBuysBase && strategyRouter && !strategyRouter.no_trade && strategyRouter.top_signal) {
       const sig = strategyRouter.top_signal;
+      if (Number(sig?.conviction || 0) >= 0.45) {
       const strategyName = String(sig?.strategy || sig?.strategy_name || "").toLowerCase();
       const price = Number(sig?.entry_price || 0);
       const alloc = Math.max(0.05, Number(sig?.position_size_pct || 0.1));
@@ -1109,7 +1134,7 @@ export async function POST(req) {
           entry_price: price,
           stop_loss: Number(sig?.stop_loss || 0),
           take_profit: Number(sig?.take_profit || 0),
-          composite_score: Math.max(70, Math.round(Number(sig?.conviction || 0) * 100)),
+          composite_score: Math.round(Math.max(0, Math.min(1, Number(sig?.conviction || 0))) * 100),
           strategy: strategyName,
           reasoning: String(sig?.reasoning || "").trim() || "Strategy router identified a valid setup.",
           confidence: Math.round(Number(sig?.conviction || 0) * 100),
@@ -1118,15 +1143,17 @@ export async function POST(req) {
           lesson: getLessonForStrategy(strategyName),
         });
       }
+      }
     }
 
     const allSignals = Array.isArray(strategyRouter?.all_signals) ? strategyRouter.all_signals : [];
     const seenStrategies = new Set(decisions.map((d) => String(d?.strategy || "").toLowerCase()).filter(Boolean));
     for (const sig of allSignals) {
       if (String(sig?.action || "").toUpperCase() !== "BUY") continue;
+      if (!allowNewBuysBase) continue;
       const strategyName = String(sig?.strategy || sig?.strategy_name || "").toLowerCase();
       if (seenStrategies.has(strategyName)) continue;
-      if (Number(sig?.conviction || 0) < 0.2) continue;
+      if (Number(sig?.conviction || 0) < 0.55) continue;
       const ticker = String(sig?.ticker || "").toUpperCase();
       if (!ticker || decisions.find((d) => String(d?.ticker || "").toUpperCase() === ticker)) continue;
       const price = Number(sig?.entry_price || 0);
@@ -1140,7 +1167,7 @@ export async function POST(req) {
           entry_price: price,
           stop_loss: Number(sig?.stop_loss || 0),
           take_profit: Number(sig?.take_profit || 0),
-          composite_score: Math.max(70, Math.round(Number(sig?.conviction || 0) * 100)),
+          composite_score: Math.round(Math.max(0, Math.min(1, Number(sig?.conviction || 0))) * 100),
           strategy: strategyName,
           reasoning: String(sig?.reasoning || "").trim() || "Strategy signal identified a buy setup.",
           confidence: Math.max(45, Math.round(Number(sig?.conviction || 0) * 100)),
@@ -1177,7 +1204,14 @@ export async function POST(req) {
       decisions = normalizeDecisions(fallbackDecisions({ cash, holdings }, { ...context, todayPick }));
     }
 
-    decisions = ensureActionableDecisions(decisions, { cash, holdings, context: { ...context, todayPick }, riskPolicy, tradingStyle })
+    decisions = ensureActionableDecisions(decisions, {
+      cash,
+      holdings,
+      context: { ...context, todayPick },
+      riskPolicy,
+      tradingStyle,
+      allowStarterBuy: allowNewBuysBase,
+    })
       .map((d) => {
         const c = scoredCandidates.find((x) => x.symbol === String(d?.ticker || "").toUpperCase() && normalizeAssetType(x.assetType) === normalizeAssetType(d?.assetType));
         const chosenPrice = Number(d?.entry_price || c?.price || c?.entryPrice || 0);
@@ -1233,7 +1267,7 @@ export async function POST(req) {
       })
       .slice(0, 8);
 
-    if (tradingStyle === "day_trading") {
+    if (tradingStyle === "day_trading" && allowNewBuysBase) {
       const hasActive = decisions.some((d) => ["BUY", "SELL"].includes(String(d?.action || "").toUpperCase()) && Number(d?.shares || 0) > 0);
       if (!hasActive && cash > 100) {
         const best = topCandidates.find((c) => Number(c?.total || 0) >= 55) || topCandidates[0];
@@ -1295,8 +1329,12 @@ export async function POST(req) {
     console.log('available cash:', availableCash);
     console.log('forced buy check:', quantPick, noTrade, hasCash);
 
-    if (quantPick && !noTrade && hasCash) {
+    if (quantPick && !noTrade && hasCash && allowNewBuysBase) {
       const pickTicker = String(quantPick?.ticker || "").toUpperCase();
+      const alreadyHeld = holdings.some((h) => String(h?.symbol || "").toUpperCase() === pickTicker && Number(h?.shares || 0) > 0);
+      if (alreadyHeld) {
+        console.log("Forced BUY skipped (already held):", pickTicker);
+      } else {
       const fallbackCandidate = scoredCandidates.find((c) => String(c?.symbol || "").toUpperCase() === pickTicker);
       const fallbackPx = Number(fallbackCandidate?.entryPrice || fallbackCandidate?.price || 0);
       const price = Number(quantPick?.entry_price || fallbackPx || 0);
@@ -1326,7 +1364,41 @@ export async function POST(req) {
         else decisions.unshift(forcedBuy);
         console.log("Forced BUY:", forcedBuy.ticker, "shares:", shares, "composite:", Number(quantPick.composite_score || 0));
       }
+      }
     }
+
+    if (!allowNewBuysBase) {
+      decisions = decisions.map((d) =>
+        String(d?.action || "").toUpperCase() === "BUY"
+          ? {
+              ...d,
+              action: "HOLD",
+              shares: 0,
+              reasoning:
+                "Capital-preservation mode is active due to drawdown or weak data quality. ASTRA is pausing new buys until conditions improve.",
+              confidence: Math.max(60, Number(d?.confidence || 0)),
+              risk: "LOW",
+            }
+          : d
+      );
+    }
+
+    const heldKeys = new Set(
+      holdings
+        .filter((h) => Number(h?.shares || 0) > 0)
+        .map((h) => `${normalizeAssetType(h?.assetType)}:${String(h?.symbol || "").toUpperCase()}`)
+    );
+    let buySlots = 0;
+    decisions = decisions.filter((d) => {
+      if (String(d?.action || "").toUpperCase() !== "BUY") return true;
+      const key = `${normalizeAssetType(d?.assetType)}:${String(d?.ticker || "").toUpperCase()}`;
+      if (heldKeys.has(key)) return false;
+      const composite = Number(d?.composite_score || 0);
+      const compositeFloor = marketRegime === "risk_off" ? 75 : 65;
+      if (composite < compositeFloor) return false;
+      buySlots += 1;
+      return buySlots <= maxBuysPerCycle;
+    });
 
     // Process all sells before buys.
     const buyOrHold = decisions.filter((d) => String(d?.action || "").toUpperCase() !== "SELL");
@@ -1346,7 +1418,9 @@ export async function POST(req) {
     ].slice(0, 3);
 
     const outlook =
-      macro.marketTrend === "UP"
+      capitalPreservationMode
+        ? "Capital-preservation mode is active. ASTRA is reducing risk, prioritizing cash, and waiting for stronger signal quality."
+        : macro.marketTrend === "UP"
         ? "Risk appetite is constructive, but volatility management remains important. ASTRA is favoring quality momentum with cash reserve discipline."
         : macro.marketTrend === "DOWN"
           ? "Market tone is defensive. ASTRA is prioritizing capital preservation and trimming weaker risk exposures."
@@ -1388,6 +1462,8 @@ export async function POST(req) {
       sellCount,
       holdCount,
       highRiskCount,
+      drawdownPct: Number(drawdownPct.toFixed(2)),
+      capitalPreservationMode,
       cashReserveTargetPct: Number(riskPolicy?.minCashReservePct || 0),
       generatedAt: new Date().toISOString(),
     };
