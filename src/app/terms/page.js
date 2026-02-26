@@ -1,249 +1,84 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-
-const LANGUAGE_OPTIONS = [
-  { code: "en", label: "English" },
-  { code: "zh", label: "Mandarin Chinese" },
-  { code: "hi", label: "Hindi" },
-  { code: "es", label: "Espanol" },
-  { code: "fr", label: "Francais" },
-  { code: "ar", label: "Arabic" },
-  { code: "bn", label: "Bengali" },
-  { code: "pt", label: "Portuguese" },
-  { code: "ru", label: "Russian" },
-  { code: "ur", label: "Urdu" },
-];
-const AZULA_FLAME_IDS = Array.from({ length: 8 }, (_, index) => index + 1);
-const AZULA_LIGHTNING_IDS = Array.from({ length: 8 }, (_, index) => index + 1);
-
-const TERMS_TEXT = {
-  en: { backHome: "Back Home", dark: "Dark", light: "Light", sakura: "Sakura", azula: "Azula", title: "Terms of Service", effectiveDate: "Effective Date: February 24, 2026" },
-  es: { backHome: "Inicio", dark: "Oscuro", light: "Claro", sakura: "Sakura", azula: "Azula", title: "Terminos de Servicio", effectiveDate: "Fecha efectiva: 24 de febrero de 2026" },
-  fr: { backHome: "Accueil", dark: "Sombre", light: "Clair", sakura: "Sakura", azula: "Azula", title: "Conditions d'utilisation", effectiveDate: "Date d'effet : 24 fevrier 2026" },
-  hi: { backHome: "होम", dark: "डार्क", light: "लाइट", sakura: "सकुरा", azula: "अज़ूला", title: "सेवा की शर्तें", effectiveDate: "प्रभावी तिथि: 24 फरवरी 2026" },
-};
+import LegalPageShell from "../../components/LegalPageShell";
 
 export default function TermsPage() {
-  const [theme, setTheme] = useState("dark");
-  const [language, setLanguage] = useState("en");
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("theme_mode");
-      if (saved === "light" || saved === "dark" || saved === "cherry" || saved === "azula") setTheme(saved);
-    } catch {}
-    try {
-      const lang = localStorage.getItem("site_language");
-      if (LANGUAGE_OPTIONS.some((x) => x.code === lang)) setLanguage(lang);
-    } catch {}
-  }, []);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem("theme_mode", theme);
-    } catch {}
-  }, [theme]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem("site_language", language);
-    } catch {}
-  }, [language]);
-
-  const isCherry = theme === "cherry";
-  const isAzula = theme === "azula";
-  const isLight = theme === "light" || isCherry || isAzula;
-  const pageClass = isCherry
-    ? "cherry-mode min-h-screen relative overflow-hidden bg-[#fffefc] text-[#3a2530]"
-    : isAzula
-      ? "azula-mode min-h-screen relative overflow-hidden bg-[#fafbfd] text-slate-900"
-    : isLight
-      ? "min-h-screen relative overflow-hidden bg-[#fbfdff] text-slate-900"
-      : "min-h-screen relative overflow-hidden bg-slate-950 text-white";
-
-  const cardClass = isCherry
-    ? "rounded-2xl border border-rose-200/60 bg-white/92 p-6 md:p-7 shadow-[0_14px_34px_-20px_rgba(190,24,93,0.2)]"
-    : isAzula
-      ? "rounded-2xl border border-sky-200/70 bg-white/92 p-6 md:p-7 shadow-[0_14px_34px_-20px_rgba(14,116,144,0.18)]"
-    : isLight
-      ? "rounded-2xl border border-slate-200 bg-white/90 p-6 md:p-7 shadow-[0_14px_34px_-20px_rgba(59,130,246,0.16)]"
-      : "rounded-2xl border border-white/12 bg-slate-900/55 p-6 md:p-7";
-
-  const headingClass = isLight ? "text-slate-900" : "text-white";
-  const textClass = isCherry ? "text-rose-900/80" : isAzula ? "text-sky-950/85" : isLight ? "text-slate-700" : "text-slate-300";
-  const mutedTextClass = isCherry ? "text-rose-900/65" : isAzula ? "text-sky-900/65" : isLight ? "text-slate-500" : "text-slate-400";
-  const t = (key) => TERMS_TEXT[language]?.[key] || TERMS_TEXT.en[key] || key;
-
   return (
-    <div className={pageClass}>
-      <div className={`pointer-events-none absolute -top-24 -left-20 h-80 w-80 rounded-full blur-3xl ${isCherry ? "bg-rose-100/34" : isAzula ? "bg-sky-300/32" : isLight ? "bg-sky-200/35" : "bg-cyan-500/12"}`} />
-      <div className={`pointer-events-none absolute top-1/3 -right-28 h-96 w-96 rounded-full blur-3xl ${isCherry ? "bg-rose-100/28" : isAzula ? "bg-blue-300/30" : isLight ? "bg-blue-200/30" : "bg-blue-500/10"}`} />
-      <div className={`pointer-events-none absolute inset-0 ${isCherry ? "bg-[radial-gradient(circle_at_12%_6%,rgba(244,114,182,0.08),transparent_31%),radial-gradient(circle_at_86%_70%,rgba(251,113,133,0.07),transparent_36%)]" : isAzula ? "bg-[radial-gradient(circle_at_15%_10%,rgba(56,189,248,0.2),transparent_40%),radial-gradient(circle_at_80%_70%,rgba(37,99,235,0.18),transparent_42%)]" : isLight ? "bg-[radial-gradient(circle_at_15%_10%,rgba(125,211,252,0.18),transparent_40%),radial-gradient(circle_at_80%_70%,rgba(147,197,253,0.14),transparent_42%)]" : "bg-[radial-gradient(circle_at_20%_10%,rgba(59,130,246,0.08),transparent_35%),radial-gradient(circle_at_80%_70%,rgba(14,165,233,0.07),transparent_35%)]"}`} />
-      {isAzula && (
-        <div className="pointer-events-none absolute inset-0 z-[1] overflow-hidden azula-scene" aria-hidden="true">
-          {AZULA_FLAME_IDS.map((flameId) => (
-            <span key={`terms-azula-flame-${flameId}`} className={`azula-flame azula-flame-${flameId}`} />
-          ))}
-          {AZULA_LIGHTNING_IDS.map((boltId) => (
-            <span key={`terms-azula-bolt-${boltId}`} className={`azula-lightning azula-lightning-${boltId}`} />
-          ))}
-        </div>
-      )}
+    <LegalPageShell
+      title="Terms of Service"
+      effectiveDate="February 26, 2026"
+      lastUpdated="February 26, 2026"
+    >
+      <p>IMPORTANT: READ CAREFULLY. By accessing or using Arthastra AI, you agree to these Terms. If you do not agree, do not use the platform. These Terms contain a binding arbitration clause and class action waiver.</p>
 
-      <div className="relative z-10 mx-auto w-full max-w-5xl px-6 py-10 md:py-14">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-8">
-          <Link
-            href="/"
-            className={`px-3 py-1.5 rounded-lg border text-xs ${isLight ? "border-slate-300 bg-white/90 text-slate-700 hover:bg-slate-100" : "border-white/15 bg-slate-900/60 text-white/85 hover:bg-slate-800/70"}`}
-          >
-            {t("backHome")}
-          </Link>
-          <div className={`inline-flex rounded-xl overflow-hidden border ${isLight ? "border-slate-300 bg-white/90" : "border-white/15 bg-slate-900/60"}`}>
-            <button
-              onClick={() => setTheme("dark")}
-              className={`px-3 py-1.5 text-xs font-semibold ${theme === "dark" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-800" : "bg-transparent text-white/85"}`}
-            >
-              {t("dark")}
-            </button>
-            <button
-              onClick={() => setTheme("light")}
-              className={`px-3 py-1.5 text-xs font-semibold ${theme === "light" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-800" : "bg-transparent text-white/85"}`}
-            >
-              {t("light")}
-            </button>
-            <button
-              onClick={() => setTheme("cherry")}
-              className={`px-3 py-1.5 text-xs font-semibold ${theme === "cherry" ? "bg-rose-600 text-white" : isLight ? "bg-transparent text-rose-800" : "bg-transparent text-white/85"}`}
-            >
-              {t("sakura")}
-            </button>
-            <button
-              onClick={() => setTheme("azula")}
-              className={`px-3 py-1.5 text-xs font-semibold ${theme === "azula" ? "bg-sky-600 text-white" : isLight ? "bg-transparent text-sky-800" : "bg-transparent text-white/85"}`}
-            >
-              {t("azula")}
-            </button>
-          </div>
-          <select
-            value={language}
-            onChange={(e) => setLanguage(e.target.value)}
-            className={`px-2.5 py-1.5 rounded-lg border text-xs ${
-              isLight ? "border-slate-300 bg-white/90 text-slate-700" : "border-white/15 bg-slate-900/60 text-white/85"
-            }`}
-          >
-            {LANGUAGE_OPTIONS.map((option) => (
-              <option key={option.code} value={option.code}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
+      <section>
+        <h2 className="text-base font-semibold text-white">1. PARTIES AND AGREEMENT</h2>
+        <p className="mt-2">These Terms constitute a legally binding agreement between you ("User") and Arthastra AI, operated by Juan M. Ramirez and Deep Patel ("Arthastra AI," "we," "us," "our"), governing your access to and use of the platform at arthastraai.com.</p>
+        <p className="mt-2">By creating an account or using the Platform you confirm you are at least 18 years of age and legally capable of entering into this agreement.</p>
+      </section>
 
-        <div className={cardClass}>
-          <h1 className={`text-3xl md:text-4xl font-semibold tracking-tight ${headingClass}`}>{t("title")}</h1>
-          <p className={`mt-2 text-sm ${mutedTextClass}`}>{t("effectiveDate")}</p>
-          <p className={`mt-4 text-sm leading-relaxed ${textClass}`}>
-            Arthastra AI is an educational and informational research platform. It is not a broker-dealer,
-            not an investment adviser, and does not make investment decisions for users.
-          </p>
+      <section>
+        <h2 className="text-base font-semibold text-white">2. PLATFORM DESCRIPTION</h2>
+        <p className="mt-2">Arthastra AI is an educational financial technology platform providing:</p>
+        <ul className="mt-2 list-disc pl-5 space-y-1">
+          <li>Paper trading simulation tools for educational practice only</li>
+          <li>ASTRA: an automated trading signal tool for simulator use only</li>
+          <li>QUANT_LAB: a quantitative market analysis and research engine for educational use only</li>
+          <li>Financial market data aggregation and visualization</li>
+          <li>Investment education content and market school resources</li>
+          <li>Portfolio tracking within the simulated environment only</li>
+        </ul>
+        <p className="mt-2 font-semibold">THE PLATFORM IS A SIMULATOR. No real money is ever invested, traded, or managed through the Platform. All trades, portfolios, and results are simulated and for educational purposes only.</p>
+      </section>
 
-          <div className="mt-6 space-y-6">
-            <section>
-              <h2 className={`text-base font-semibold ${headingClass}`}>1. Service Description</h2>
-              <p className={`mt-2 text-sm leading-relaxed ${textClass}`}>
-                Arthastra AI aggregates publicly available financial information and presents analytical insights
-                for user exploration. Output is informational only and is provided to support independent research.
-              </p>
-            </section>
+      <section>
+        <h2 className="text-base font-semibold text-white">3. CRITICAL FINANCIAL DISCLAIMER</h2>
+        <p className="mt-2 font-semibold">ARTHASTRA AI IS NOT A BROKER-DEALER, INVESTMENT ADVISER, FINANCIAL PLANNER, OR FIDUCIARY. NOTHING ON THIS PLATFORM CONSTITUTES FINANCIAL ADVICE, INVESTMENT RECOMMENDATIONS, OR A SOLICITATION TO BUY OR SELL ANY SECURITY, CRYPTOCURRENCY, OR OTHER FINANCIAL INSTRUMENT.</p>
+        <p className="mt-2">Specifically:</p>
+        <ul className="mt-2 list-disc pl-5 space-y-1">
+          <li>ASTRA, our automated trading signal tool, provides simulated decisions for EDUCATIONAL PURPOSES ONLY</li>
+          <li>QUANT_LAB signals are quantitative research tools, not investment recommendations</li>
+          <li>Past simulated performance does not indicate, predict, or guarantee future real-world results</li>
+          <li>Simulated results may not reflect actual tradeable market conditions</li>
+          <li>We do not consider your personal financial situation, goals, or risk tolerance</li>
+          <li>No advisory, broker-dealer, fiduciary, or client relationship is created by use of this Platform</li>
+        </ul>
+        <p className="mt-2 font-semibold">IF YOU USE REAL MONEY TO REPLICATE ANY STRATEGY, SIGNAL, OR DECISION SHOWN ON THIS PLATFORM, YOU DO SO ENTIRELY AT YOUR OWN RISK. ARTHASTRA AI BEARS NO RESPONSIBILITY FOR ANY FINANCIAL LOSSES.</p>
+      </section>
 
-            <section>
-              <h2 className={`text-base font-semibold ${headingClass}`}>2. No Financial Advice (Critical Disclaimer)</h2>
-              <p className={`mt-2 text-sm leading-relaxed font-semibold ${textClass}`}>
-                Content is for educational and informational purposes only. Nothing on the platform constitutes
-                financial advice, investment recommendations, or a solicitation to buy or sell any security.
-              </p>
-              <p className={`mt-2 text-sm leading-relaxed ${textClass}`}>
-                Arthastra AI owes no fiduciary duty and does not create any broker-dealer, advisory, or client relationship.
-              </p>
-            </section>
+      <section><h2 className="text-base font-semibold text-white">4. ELIGIBILITY</h2><p className="mt-2">You may use the Platform only if you:</p><ul className="mt-2 list-disc pl-5 space-y-1"><li>Are at least 18 years of age</li><li>Are in a jurisdiction where use is lawful</li><li>Are not prohibited from receiving financial information under applicable law</li><li>Have not been previously suspended from the Platform</li><li>Agree to use the Platform solely for lawful educational purposes</li></ul></section>
 
-            <section>
-              <h2 className={`text-base font-semibold ${headingClass}`}>3. User Responsibility</h2>
-              <p className={`mt-2 text-sm leading-relaxed ${textClass}`}>
-                Users are solely responsible for all decisions and outcomes resulting from their use of the platform.
-                Arthastra AI is not liable for trading losses, missed opportunities, or any financial consequences.
-              </p>
-            </section>
+      <section><h2 className="text-base font-semibold text-white">5. ACCOUNT REGISTRATION AND SECURITY</h2><p className="mt-2">You agree to:</p><ul className="mt-2 list-disc pl-5 space-y-1"><li>Provide accurate registration information</li><li>Maintain security of your account credentials</li><li>Notify us immediately of any unauthorized account access</li><li>Accept responsibility for all activity under your account</li><li>Not share, sell, or transfer your account</li></ul><p className="mt-2">We reserve the right to suspend or terminate accounts at our sole discretion for any violation of these Terms.</p></section>
 
-            <section>
-              <h2 className={`text-base font-semibold ${headingClass}`}>4. No Guarantees / No Warranty</h2>
-              <p className={`mt-2 text-sm leading-relaxed ${textClass}`}>
-                The service is provided on an “as is” and “as available” basis without warranties of accuracy,
-                completeness, timeliness, reliability, or uninterrupted availability. Data may be delayed,
-                incomplete, unavailable, or incorrect.
-              </p>
-            </section>
+      <section><h2 className="text-base font-semibold text-white">6. ACCEPTABLE USE</h2><p className="mt-2">You agree NOT to:</p><ul className="mt-2 list-disc pl-5 space-y-1"><li>Use the Platform for any unlawful purpose</li><li>Reverse engineer or attempt to derive source code from the Platform including ASTRA and QUANT_LAB</li><li>Scrape or harvest data through automated means</li><li>Use the Platform to engage in actual securities fraud or market manipulation</li><li>Attempt unauthorized access to any part of the Platform or its infrastructure</li><li>Use the Platform to violate any securities laws or regulations</li><li>Commercially exploit or resell the Platform or its data without written consent</li><li>Use the Platform to develop competing products or services</li></ul></section>
 
-            <section>
-              <h2 className={`text-base font-semibold ${headingClass}`}>5. Limitation of Liability</h2>
-              <p className={`mt-2 text-sm leading-relaxed ${textClass}`}>
-                To the maximum extent permitted by law, Arthastra AI is not liable for indirect, incidental,
-                consequential, special, exemplary, or punitive damages. If liability is imposed, total liability
-                is limited to the amount paid by you to use the service in the prior twelve months (or USD $100,
-                whichever is lower).
-              </p>
-            </section>
+      <section><h2 className="text-base font-semibold text-white">7. INTELLECTUAL PROPERTY</h2><p className="mt-2">The Platform, including all software, algorithms, models, data pipelines, trading signals, ASTRA, QUANT_LAB, content, branding, and user interfaces is the exclusive property of Arthastra AI and its founders. All rights are reserved.</p><p className="mt-2">You are granted a limited, non-exclusive, non-transferable, revocable license to access and use the Platform for personal, non-commercial, educational purposes only.</p><p className="mt-2">The ASTRA trading signal engine, QUANT_LAB quantitative system, and all underlying models and algorithms are trade secrets and proprietary technology of Arthastra AI. You may not copy, reverse engineer, or attempt to replicate these systems.</p></section>
 
-            <section>
-              <h2 className={`text-base font-semibold ${headingClass}`}>6. Intellectual Property</h2>
-              <p className={`mt-2 text-sm leading-relaxed ${textClass}`}>
-                Arthastra AI retains all rights in its software, branding, and platform systems. Users retain ownership
-                of their submitted inputs but grant a limited license for processing and service operation.
-              </p>
-            </section>
+      <section><h2 className="text-base font-semibold text-white">8. THIRD-PARTY DATA AND SERVICES</h2><p className="mt-2">Market data is sourced from third-party providers. We do not warrant accuracy, completeness, or timeliness of any third-party data. Third-party data is provided "as is."</p></section>
 
-            <section>
-              <h2 className={`text-base font-semibold ${headingClass}`}>7. Acceptable Use</h2>
-              <p className={`mt-2 text-sm leading-relaxed ${textClass}`}>
-                You may not scrape, reverse engineer, abuse, automate in unauthorized ways, use the service for illegal
-                market manipulation, or use the service to violate securities laws or regulations.
-              </p>
-            </section>
+      <section><h2 className="text-base font-semibold text-white">9. ADVERTISING AND AFFILIATE RELATIONSHIPS</h2><p className="mt-2">The Platform may display third-party advertisements and may participate in affiliate marketing programs. We may receive compensation when users click ads or sign up for third-party services through links on the Platform.</p><p className="mt-2">Advertising relationships do not influence our simulated trading signals, ASTRA decisions, or QUANT_LAB analysis.</p></section>
 
-            <section>
-              <h2 className={`text-base font-semibold ${headingClass}`}>8. Privacy & Data Use</h2>
-              <p className={`mt-2 text-sm leading-relaxed ${textClass}`}>
-                We may collect account details, usage logs, and operational telemetry to provide and improve the service.
-                We do not sell personal data. For privacy questions, contact{" "}
-                <a href="mailto:support@arthastraai.com" className="underline">support@arthastraai.com</a>.
-              </p>
-            </section>
+      <section><h2 className="text-base font-semibold text-white">10. DATA COLLECTION AND PRIVACY</h2><p className="mt-2">Your use of the Platform is subject to our Privacy Policy and Cookie Policy, incorporated into these Terms by reference. By using the Platform you consent to the data practices described in those policies including collection of usage data, behavioral analytics, and advertising-related tracking where you have provided consent.</p></section>
 
-            <section>
-              <h2 className={`text-base font-semibold ${headingClass}`}>9. Risk Disclosure</h2>
-              <p className={`mt-2 text-sm leading-relaxed ${textClass}`}>
-                Investing involves risk, including possible loss of principal. Past performance does not guarantee
-                future results. Platform analytics are not predictive guarantees.
-              </p>
-            </section>
+      <section><h2 className="text-base font-semibold text-white">11. RISK DISCLOSURE</h2><p className="mt-2 font-semibold">INVESTING INVOLVES SUBSTANTIAL RISK OF LOSS. You may lose all of your investment. Past performance whether real or simulated does not guarantee future results.</p></section>
 
-            <section>
-              <h2 className={`text-base font-semibold ${headingClass}`}>10. Governing Law & Disputes</h2>
-              <p className={`mt-2 text-sm leading-relaxed ${textClass}`}>
-                These terms are governed by Wisconsin law, excluding conflict-of-law rules. You agree to resolve disputes
-                through binding individual arbitration where legally permitted, and waive participation in class actions
-                to the extent enforceable.
-              </p>
-            </section>
-          </div>
+      <section><h2 className="text-base font-semibold text-white">12. DISCLAIMERS OF WARRANTY</h2><p className="mt-2 font-semibold">THE PLATFORM IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT ANY WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, ACCURACY, OR UNINTERRUPTED AVAILABILITY.</p></section>
 
-          <p className={`mt-8 text-xs ${mutedTextClass}`}>
-            This page is provided for product policy clarity and does not replace formal legal counsel.
-          </p>
-        </div>
-      </div>
-    </div>
+      <section><h2 className="text-base font-semibold text-white">13. LIMITATION OF LIABILITY</h2><p className="mt-2 font-semibold">TO THE MAXIMUM EXTENT PERMITTED BY LAW, ARTHASTRA AI SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES.</p><p className="mt-2 font-semibold">TOTAL AGGREGATE LIABILITY SHALL NOT EXCEED THE GREATER OF: (A) THE AMOUNT YOU PAID IN THE PRIOR TWELVE MONTHS, OR (B) ONE HUNDRED U.S. DOLLARS ($100).</p></section>
+
+      <section><h2 className="text-base font-semibold text-white">14. INDEMNIFICATION</h2><p className="mt-2">You agree to defend, indemnify, and hold harmless Arthastra AI, its founders, officers, employees, and agents from any claims arising from: your use of the Platform, your violation of these Terms, your violation of any law, or your infringement of any third-party rights.</p></section>
+
+      <section><h2 className="text-base font-semibold text-white">15. GOVERNING LAW</h2><p className="mt-2">These Terms are governed by the laws of the State of Wisconsin, United States, without regard to conflict-of-law provisions.</p></section>
+
+      <section><h2 className="text-base font-semibold text-white">16. DISPUTE RESOLUTION AND ARBITRATION</h2><p className="mt-2"><span className="font-semibold">Informal Resolution:</span> Contact support@arthastraai.com and attempt informal resolution for at least 30 days before filing any formal claim.</p><p className="mt-2"><span className="font-semibold">Binding Arbitration:</span> Any dispute shall be resolved by binding individual arbitration administered by the American Arbitration Association (AAA) under its Consumer Arbitration Rules.</p><p className="mt-2 font-semibold">Class Action Waiver: YOU AND ARTHASTRA AI AGREE THAT EACH MAY BRING CLAIMS ONLY IN YOUR INDIVIDUAL CAPACITY AND NOT AS A CLASS MEMBER IN ANY CLASS OR REPRESENTATIVE ACTION.</p></section>
+
+      <section><h2 className="text-base font-semibold text-white">17. MODIFICATIONS</h2><p className="mt-2">We may modify these Terms at any time. Continued use after changes constitutes acceptance.</p></section>
+
+      <section><h2 className="text-base font-semibold text-white">18. TERMINATION</h2><p className="mt-2">We may suspend or terminate your access at any time with or without cause. Sections 3, 7, 12, 13, 14, 15, and 16 survive termination.</p></section>
+
+      <section><h2 className="text-base font-semibold text-white">19. ENTIRE AGREEMENT</h2><p className="mt-2">These Terms, Privacy Policy, and Cookie Policy constitute the entire agreement between you and Arthastra AI.</p></section>
+
+      <section><h2 className="text-base font-semibold text-white">20. CONTACT</h2><p className="mt-2">Arthastra AI<br />Founders: Juan M. Ramirez and Deep Patel<br />Email: support@arthastraai.com<br />Legal: legal@arthastraai.com<br />Website: arthastraai.com</p></section>
+    </LegalPageShell>
   );
 }

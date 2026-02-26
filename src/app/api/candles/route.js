@@ -1,5 +1,43 @@
 import { NextResponse } from "next/server";
 
+const CRYPTO_TO_YAHOO = {
+  BTC: "BTC-USD",
+  ETH: "ETH-USD",
+  SOL: "SOL-USD",
+  BNB: "BNB-USD",
+  XRP: "XRP-USD",
+  ADA: "ADA-USD",
+  AVAX: "AVAX-USD",
+  DOGE: "DOGE-USD",
+  LINK: "LINK-USD",
+  MATIC: "MATIC-USD",
+};
+
+const CRYPTO_TO_COINGECKO = {
+  BTC: "bitcoin",
+  ETH: "ethereum",
+  SOL: "solana",
+  BNB: "binancecoin",
+  XRP: "ripple",
+  ADA: "cardano",
+  AVAX: "avalanche-2",
+  DOGE: "dogecoin",
+  LINK: "chainlink",
+  MATIC: "matic-network",
+};
+
+function toYahooSymbol(symbol) {
+  const clean = String(symbol || "").trim().toUpperCase();
+  if (CRYPTO_TO_YAHOO[clean]) return CRYPTO_TO_YAHOO[clean];
+  if (/^[A-Z0-9]{2,10}$/.test(clean)) return clean;
+  return clean;
+}
+
+function isCryptoSymbol(symbol) {
+  const clean = String(symbol || "").trim().toUpperCase();
+  return Boolean(CRYPTO_TO_YAHOO[clean]);
+}
+
 async function fetchStooqDailyCandles(symbol, from, to) {
   const stooqSymbol = `${symbol.toLowerCase()}.us`;
   const url = `https://stooq.com/q/d/l/?s=${encodeURIComponent(stooqSymbol)}&i=d`;
@@ -45,8 +83,66 @@ async function fetchStooqDailyCandles(symbol, from, to) {
   return { t, o, h, l, c, v };
 }
 
+
+async function fetchCoinGeckoDailyCandles(symbol, from, to) {
+  const clean = String(symbol || "").trim().toUpperCase();
+  const id = CRYPTO_TO_COINGECKO[clean];
+  if (!id) return { t: [], o: [], h: [], l: [], c: [], v: [] };
+
+  const fromMs = Number(from) * 1000;
+  const toMs = Number(to) * 1000;
+  const days = Math.max(2, Math.ceil((toMs - fromMs) / (24 * 60 * 60 * 1000)));
+  const url = `https://api.coingecko.com/api/v3/coins/${encodeURIComponent(id)}/market_chart?vs_currency=usd&days=${days}&interval=daily`;
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) return { t: [], o: [], h: [], l: [], c: [], v: [] };
+  const data = await res.json().catch(() => ({}));
+  const prices = Array.isArray(data?.prices) ? data.prices : [];
+  const volumes = Array.isArray(data?.total_volumes) ? data.total_volumes : [];
+
+  const volByDay = new Map();
+  for (const row of volumes) {
+    const ts = Number(row?.[0]);
+    const vol = Number(row?.[1]);
+    if (!Number.isFinite(ts) || !Number.isFinite(vol)) continue;
+    const dayTs = Math.floor(ts / 1000);
+    volByDay.set(dayTs, vol);
+  }
+
+  const t = [];
+  const o = [];
+  const h = [];
+  const l = [];
+  const c = [];
+  const v = [];
+
+  let prevClose = null;
+  for (const row of prices) {
+    const tsMs = Number(row?.[0]);
+    const close = Number(row?.[1]);
+    if (!Number.isFinite(tsMs) || !Number.isFinite(close)) continue;
+    const ts = Math.floor(tsMs / 1000);
+    if (ts < from || ts > to) continue;
+
+    const open = Number.isFinite(prevClose) ? prevClose : close;
+    const high = Math.max(open, close);
+    const low = Math.min(open, close);
+
+    t.push(ts);
+    o.push(open);
+    h.push(high);
+    l.push(low);
+    c.push(close);
+    v.push(Number(volByDay.get(ts) || 0));
+
+    prevClose = close;
+  }
+
+  return { t, o, h, l, c, v };
+}
+
 async function fetchYahooDailyCandles(symbol, from, to) {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=5y&interval=1d`;
+  const yahooSymbol = toYahooSymbol(symbol);
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?range=5y&interval=1d`;
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) return { t: [], o: [], h: [], l: [], c: [], v: [] };
   const data = await res.json().catch(() => ({}));
@@ -90,6 +186,7 @@ export async function GET(req) {
     const { searchParams } = new URL(req.url);
     const symbol = (searchParams.get("symbol") || "").trim().toUpperCase();
     const resolution = (searchParams.get("resolution") || "D").trim(); // D, 60, 15...
+    const isCrypto = isCryptoSymbol(symbol);
     const daysParam = Number(searchParams.get("days"));
     const fromParam = Number(searchParams.get("from"));
     const toParam = Number(searchParams.get("to"));
@@ -110,7 +207,7 @@ export async function GET(req) {
     let data = null;
     let source = "finnhub";
 
-    if (API_KEY) {
+    if (API_KEY && !(isCrypto && resolution === "D")) {
       const url =
         `https://finnhub.io/api/v1/stock/candle` +
         `?symbol=${encodeURIComponent(symbol)}` +
@@ -138,20 +235,31 @@ export async function GET(req) {
           { status: 500 }
         );
       }
-      source = "stooq";
-      data = await fetchStooqDailyCandles(symbol, from, to);
-      if (!Array.isArray(data?.c) || data.c.length < 65) {
-        source = "yahoo";
-        data = await fetchYahooDailyCandles(symbol, from, to);
+
+      if (isCrypto) {
+        source = "coingecko";
+        data = await fetchCoinGeckoDailyCandles(symbol, from, to);
+        if (!Array.isArray(data?.c) || data.c.length < 2) {
+          source = "yahoo";
+          data = await fetchYahooDailyCandles(symbol, from, to);
+        }
+      } else {
+        source = "stooq";
+        data = await fetchStooqDailyCandles(symbol, from, to);
+        if (!Array.isArray(data?.c) || data.c.length < 65) {
+          source = "yahoo";
+          data = await fetchYahooDailyCandles(symbol, from, to);
+        }
       }
     }
 
     const rowCount = Array.isArray(data.c) ? data.c.length : 0;
-    if (rowCount < 65) {
+    const minRowsRequired = isCrypto && resolution === "D" ? 2 : 65;
+    if (rowCount < minRowsRequired) {
       return NextResponse.json(
         {
           error: "Insufficient history",
-          details: `min 65 rows required, got ${rowCount}`,
+          details: `min ${minRowsRequired} rows required, got ${rowCount}`,
           symbol,
           resolution,
           source,

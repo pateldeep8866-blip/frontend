@@ -569,6 +569,8 @@ const UI_TEXT = {
     about: "About",
     terms: "Terms of Service",
     privacy: "Privacy Policy",
+    cookies: "Cookie Policy",
+    disclaimer: "Disclaimer",
     help: "Help",
     loginSignup: "Login / Signup",
     supportEmail: "Support Email",
@@ -601,6 +603,8 @@ const UI_TEXT = {
     about: "Acerca de",
     terms: "Terminos de servicio",
     privacy: "Politica de privacidad",
+    cookies: "Politica de cookies",
+    disclaimer: "Descargo de responsabilidad",
     help: "Ayuda",
     loginSignup: "Iniciar sesion / Registro",
     supportEmail: "Correo de soporte",
@@ -633,6 +637,8 @@ const UI_TEXT = {
     about: "A propos",
     terms: "Conditions d'utilisation",
     privacy: "Politique de confidentialite",
+    cookies: "Politique de cookies",
+    disclaimer: "Avertissement",
     help: "Aide",
     loginSignup: "Connexion / Inscription",
     supportEmail: "Email de support",
@@ -665,6 +671,8 @@ const UI_TEXT = {
     about: "अबाउट",
     terms: "सेवा की शर्तें",
     privacy: "प्राइवेसी पॉलिसी",
+    cookies: "कुकी नीति",
+    disclaimer: "डिस्क्लेमर",
     help: "मदद",
     loginSignup: "लॉगिन / साइनअप",
     supportEmail: "सपोर्ट ईमेल",
@@ -1078,6 +1086,8 @@ export default function Home() {
   const [analysisViewMode, setAnalysisViewMode] = useState("short");
   const [marketNews, setMarketNews] = useState([]);
   const [globalMarketCountry, setGlobalMarketCountry] = useState("US");
+  const [globalCountryQuery, setGlobalCountryQuery] = useState("");
+  const [globalMapZoom, setGlobalMapZoom] = useState(1);
   const [globalCountryQuotes, setGlobalCountryQuotes] = useState([]);
   const [globalCountryQuotesLoading, setGlobalCountryQuotesLoading] = useState(false);
   const [globalWorldFeatures, setGlobalWorldFeatures] = useState([]);
@@ -3798,6 +3808,25 @@ export default function Home() {
     () => GLOBAL_MARKET_COUNTRIES.find((country) => country.code === globalMarketCountry) || GLOBAL_MARKET_COUNTRIES[0],
     [globalMarketCountry]
   );
+  const globalCountryOptions = useMemo(() => {
+    const q = String(globalCountryQuery || "").trim().toLowerCase();
+    if (!q) return GLOBAL_MARKET_COUNTRIES;
+    return GLOBAL_MARKET_COUNTRIES.filter((country) => {
+      const haystack = [
+        String(country.name || ""),
+        String(country.code || ""),
+        String(country.iso2 || ""),
+        ...(Array.isArray(country.keywords) ? country.keywords : []),
+      ]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [globalCountryQuery]);
+  const globalQuickSelectCountries = useMemo(() => {
+    const source = globalCountryOptions.length ? globalCountryOptions : GLOBAL_MARKET_COUNTRIES;
+    return source.slice(0, 18);
+  }, [globalCountryOptions]);
   const selectedCountryRelations = useMemo(() => {
     const rel = geopoliticalRelations?.[selectedGlobalCountry.code] || {};
     return {
@@ -3903,6 +3932,16 @@ export default function Home() {
       })),
     [marketSessionsTick]
   );
+  const globalMarketStats = useMemo(() => {
+    const openSessions = marketsOpenNow.filter((session) => session.isOpen).length;
+    const riskCount = selectedCountryRelationStats.tensions + selectedCountryRelationStats.conflicts;
+    return {
+      proxies: globalCountryQuotes.length,
+      headlines: globalCountryNews.length,
+      openSessions,
+      riskCount,
+    };
+  }, [globalCountryQuotes.length, globalCountryNews.length, marketsOpenNow, selectedCountryRelationStats]);
   useEffect(() => {
     if (!isGlobalMarketMode) return;
     const key = selectedGlobalCountry.code;
@@ -4356,6 +4395,28 @@ export default function Home() {
               }`}
             >
               {t("privacy")}
+            </Link>
+            <Link
+              href="/cookies"
+              onClick={closeParentDropdown}
+              className={`px-3 py-1.5 rounded-lg border text-xs ${
+                isLight
+                  ? "border-slate-300 bg-white/90 text-slate-700 hover:bg-slate-100"
+                  : "border-white/15 bg-slate-900/60 text-white/85 hover:bg-slate-800/70"
+              }`}
+            >
+              {t("cookies")}
+            </Link>
+            <Link
+              href="/disclaimer"
+              onClick={closeParentDropdown}
+              className={`px-3 py-1.5 rounded-lg border text-xs ${
+                isLight
+                  ? "border-slate-300 bg-white/90 text-slate-700 hover:bg-slate-100"
+                  : "border-white/15 bg-slate-900/60 text-white/85 hover:bg-slate-800/70"
+              }`}
+            >
+              {t("disclaimer")}
             </Link>
             <div className="relative">
               <button
@@ -6245,18 +6306,56 @@ export default function Home() {
                 </div>
               </div>
               <SummaryPanel label={tx("Executive Brief")} text={globalMarketExecutiveSummary} isLight={isLight} className="mb-4" />
+              <div className="mb-4 grid grid-cols-2 md:grid-cols-4 gap-2">
+                <div className={`rounded-lg border px-3 py-2 ${isLight ? "border-slate-200 bg-slate-50/80" : "border-white/10 bg-white/[0.03]"}`}>
+                  <div className={`text-[10px] uppercase tracking-wide ${isLight ? "text-slate-500" : "text-cyan-200/70"}`}>Proxies Tracked</div>
+                  <div className={`text-lg font-semibold leading-tight ${isLight ? "text-slate-900" : "text-white"}`}>{globalMarketStats.proxies}</div>
+                </div>
+                <div className={`rounded-lg border px-3 py-2 ${isLight ? "border-slate-200 bg-slate-50/80" : "border-white/10 bg-white/[0.03]"}`}>
+                  <div className={`text-[10px] uppercase tracking-wide ${isLight ? "text-slate-500" : "text-cyan-200/70"}`}>Country Headlines</div>
+                  <div className={`text-lg font-semibold leading-tight ${isLight ? "text-slate-900" : "text-white"}`}>{globalMarketStats.headlines}</div>
+                </div>
+                <div className={`rounded-lg border px-3 py-2 ${isLight ? "border-slate-200 bg-slate-50/80" : "border-white/10 bg-white/[0.03]"}`}>
+                  <div className={`text-[10px] uppercase tracking-wide ${isLight ? "text-slate-500" : "text-cyan-200/70"}`}>Sessions Open</div>
+                  <div className={`text-lg font-semibold leading-tight ${isLight ? "text-slate-900" : "text-white"}`}>{globalMarketStats.openSessions} / {marketsOpenNow.length}</div>
+                </div>
+                <div className={`rounded-lg border px-3 py-2 ${isLight ? "border-slate-200 bg-slate-50/80" : "border-white/10 bg-white/[0.03]"}`}>
+                  <div className={`text-[10px] uppercase tracking-wide ${isLight ? "text-slate-500" : "text-cyan-200/70"}`}>Geo Risk Links</div>
+                  <div className={`text-lg font-semibold leading-tight ${globalMarketStats.riskCount > 0 ? "text-rose-500" : isLight ? "text-slate-900" : "text-white"}`}>{globalMarketStats.riskCount}</div>
+                </div>
+              </div>
               <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
                 <div className={`lg:col-span-3 rounded-xl border p-3 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/[0.03]"}`}>
                   <div className="flex items-center justify-between gap-2 mb-3">
                     <div className={`text-xs font-semibold uppercase tracking-wide ${isLight ? "text-slate-500" : "text-cyan-200/80"}`}>
                       Interactive World Map
                     </div>
-                    <button
-                      onClick={() => setGlobalMarketCountry("US")}
-                      className={`text-[11px] px-2.5 py-1 rounded-md border ${isLight ? "border-slate-300 bg-slate-50 text-slate-600 hover:bg-slate-100" : "border-white/15 bg-white/5 text-white/70 hover:bg-white/10"}`}
-                    >
-                      Reset Focus
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setGlobalMapZoom((z) => Math.max(1, Number((z - 0.2).toFixed(2))))}
+                        className={`text-[11px] px-2 py-1 rounded-md border ${isLight ? "border-slate-300 bg-slate-50 text-slate-600 hover:bg-slate-100" : "border-white/15 bg-white/5 text-white/70 hover:bg-white/10"}`}
+                      >
+                        -
+                      </button>
+                      <button
+                        onClick={() => setGlobalMapZoom(1)}
+                        className={`text-[11px] px-2 py-1 rounded-md border ${isLight ? "border-slate-300 bg-slate-50 text-slate-600 hover:bg-slate-100" : "border-white/15 bg-white/5 text-white/70 hover:bg-white/10"}`}
+                      >
+                        Fit
+                      </button>
+                      <button
+                        onClick={() => setGlobalMapZoom((z) => Math.min(2.4, Number((z + 0.2).toFixed(2))))}
+                        className={`text-[11px] px-2 py-1 rounded-md border ${isLight ? "border-slate-300 bg-slate-50 text-slate-600 hover:bg-slate-100" : "border-white/15 bg-white/5 text-white/70 hover:bg-white/10"}`}
+                      >
+                        +
+                      </button>
+                      <button
+                        onClick={() => setGlobalMarketCountry("US")}
+                        className={`text-[11px] px-2.5 py-1 rounded-md border ${isLight ? "border-slate-300 bg-slate-50 text-slate-600 hover:bg-slate-100" : "border-white/15 bg-white/5 text-white/70 hover:bg-white/10"}`}
+                      >
+                        Reset Focus
+                      </button>
+                    </div>
                   </div>
                   <div className={`relative h-[360px] rounded-xl overflow-hidden border ${isLight ? "border-slate-200 bg-slate-50" : "border-white/10 bg-slate-950/45"}`}>
                     <svg viewBox={`0 0 ${GLOBAL_MAP_WIDTH} ${GLOBAL_MAP_HEIGHT}`} className="h-full w-full">
@@ -6302,7 +6401,10 @@ export default function Home() {
                           strokeWidth="1"
                         />
                       ))}
-                      <g>
+                      <g
+                        transform={`translate(${GLOBAL_MAP_WIDTH / 2} ${GLOBAL_MAP_HEIGHT / 2}) scale(${globalMapZoom}) translate(${-GLOBAL_MAP_WIDTH / 2} ${-GLOBAL_MAP_HEIGHT / 2})`}
+                        style={{ transition: "transform 260ms ease" }}
+                      >
                         {globalWorldFeatures.map((feature, idx) => {
                           const d = globalPath(feature);
                           if (!d) return null;
@@ -6399,8 +6501,20 @@ export default function Home() {
                     <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-blue-400" /> Trade Partners</span>
                     <span className="inline-flex items-center gap-1"><span className={`h-2.5 w-2.5 rounded-full ${isLight ? "bg-gray-300" : "bg-slate-600"}`} /> Neutral</span>
                   </div>
+                  <div className="mt-3">
+                    <input
+                      value={globalCountryQuery}
+                      onChange={(e) => setGlobalCountryQuery(e.target.value)}
+                      placeholder="Search country or code (e.g., Japan, JP, UAE)"
+                      className={`w-full rounded-lg border px-2.5 py-2 text-xs outline-none ${
+                        isLight
+                          ? "border-slate-300 bg-white text-slate-900 focus:border-slate-500"
+                          : "border-white/15 bg-slate-900/55 text-white placeholder:text-white/45 focus:border-cyan-400/50"
+                      }`}
+                    />
+                  </div>
                   <div className="mt-3 flex flex-wrap gap-1.5">
-                    {GLOBAL_MARKET_COUNTRIES.slice(0, 10).map((country) => (
+                    {globalQuickSelectCountries.map((country) => (
                       <button
                         key={`chip-${country.code}`}
                         onClick={() => setGlobalMarketCountry(country.code)}
@@ -6412,7 +6526,7 @@ export default function Home() {
                               : "bg-white/5 text-white/80 border-white/15 hover:bg-white/10"
                         }`}
                       >
-                        {country.code}
+                        {country.code} · {country.name}
                       </button>
                     ))}
                   </div>
@@ -6430,7 +6544,7 @@ export default function Home() {
                         isLight ? "border-slate-300 bg-white text-slate-900 focus:border-slate-500" : "border-white/15 bg-slate-900/60 text-white focus:border-cyan-400/50"
                       }`}
                     >
-                      {GLOBAL_MARKET_COUNTRIES.map((country) => (
+                      {globalCountryOptions.map((country) => (
                         <option key={country.code} value={country.code}>{country.name}</option>
                       ))}
                     </select>

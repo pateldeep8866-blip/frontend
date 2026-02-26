@@ -167,7 +167,9 @@ function buildPrioritySellDecisions({ holdings, quantResult, riskLevel, tradingS
     const gainPct = avgBuy > 0 ? ((currentPrice - avgBuy) / avgBuy) * 100 : 0;
 
     // SELL TYPE 1 — Stop Loss
-    if (holding?.stopLoss && currentPrice <= Number(holding.stopLoss)) {
+    const stopLoss = Number(holding?.stopLoss || 0);
+    const isMeaningfulLoss = avgBuy > 0 ? currentPrice < avgBuy * 0.999 : true;
+    if (stopLoss > 0 && currentPrice <= stopLoss && isMeaningfulLoss) {
       decisions.push({
         action: "SELL",
         ticker,
@@ -887,6 +889,10 @@ export async function POST(req) {
       });
     }
 
+    let provider = "fallback";
+    const quantLabConnected = Boolean(quantResult && quantResult.status !== "offline" && !quantResult.error);
+    provider = quantLabConnected ? "QUANT_LAB" : "fallback";
+
     const quantAllScores = Array.isArray(quantResult?.all_scores) ? quantResult.all_scores : [];
     const quantScoresByTicker = new Map(
       quantAllScores.map((row) => [String(row?.ticker || "").toUpperCase(), row])
@@ -1002,7 +1008,6 @@ export async function POST(req) {
     };
 
     let decisions = [];
-    let provider = "fallback";
 
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
     const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
@@ -1064,7 +1069,7 @@ export async function POST(req) {
         const normalized = normalizeDecisions(parsed);
         if (resp.ok && normalized.length) {
           decisions = normalized;
-          provider = useOpenRouter ? "openrouter" : "openai";
+          // Keep provider branding tied to signal engine, not LLM vendor.
         }
       } catch {
         // fallback below
@@ -1248,8 +1253,16 @@ export async function POST(req) {
     const quantPick = quantResult?.single_pick;
     const noTrade = quantResult?.no_trade;
     const hasCash = availableCash > totalValue * (tradingStyle === "day_trading" ? 0.08 : 0.15);
+    console.log('QUANT result:', quantResult);
+    console.log('entry price:', quantResult?.single_pick?.entry_price);
+    console.log('available cash:', availableCash);
+    console.log('forced buy check:', quantPick, noTrade, hasCash);
+
     if (quantPick && !noTrade && hasCash) {
-      const price = Number(quantPick?.entry_price || 0);
+      const pickTicker = String(quantPick?.ticker || "").toUpperCase();
+      const fallbackCandidate = scoredCandidates.find((c) => String(c?.symbol || "").toUpperCase() === pickTicker);
+      const fallbackPx = Number(fallbackCandidate?.entryPrice || fallbackCandidate?.price || 0);
+      const price = Number(quantPick?.entry_price || fallbackPx || 0);
       const allocation = availableCash * 0.15;
       const shares = price > 0 ? Math.floor(allocation / price) : 0;
       if (shares > 0) {
@@ -1327,8 +1340,16 @@ export async function POST(req) {
       regime: marketRegime,
       confidence: avgConfidence,
       riskLevel: String(riskPolicy?.level || "MODERATE").toUpperCase(),
-      scannedInstruments: Number(scoredCandidates.length || 0),
+      scannedInstruments: Number(
+        quantResult?.total_requested ||
+          quantResult?.universe_size ||
+          marketFeatures?.total_tickers ||
+          marketFeatures?.valid_count ||
+          scoredCandidates.length ||
+          0
+      ),
       candidateUniverse: Number(candidates.length || 0),
+      quantLabConnected,
       buyCount,
       sellCount,
       holdCount,
