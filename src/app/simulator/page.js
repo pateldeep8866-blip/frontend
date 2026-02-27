@@ -391,6 +391,16 @@ export default function SimulatorPage() {
     } catch {}
   }, []);
 
+  const setThemeMode = useCallback((mode) => {
+    const next = String(mode || "").toLowerCase();
+    if (!["dark", "light", "cherry", "azula"].includes(next)) return;
+    setTheme(next);
+    try {
+      localStorage.setItem("theme_mode", next);
+      window.dispatchEvent(new Event("theme-updated"));
+    } catch {}
+  }, []);
+
   const holdingsArray = useMemo(
     () =>
       Object.values(profile.holdings || {}).map((h) => {
@@ -1543,7 +1553,45 @@ export default function SimulatorPage() {
             </Link>
             <div className={`text-xs ${isLight ? "text-slate-500" : "text-white/60"} ${simSans.className}`}>Trading Simulator</div>
           </div>
-          <div className={`text-[11px] ${isLight ? "text-slate-500" : "text-white/55"}`}>Learn before you risk capital.</div>
+          <div className="flex items-center gap-2">
+            <details className="relative">
+              <summary
+                className={`list-none inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[11px] font-semibold cursor-pointer [&::-webkit-details-marker]:hidden ${
+                  isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/15 bg-white/5 text-white/85"
+                }`}
+              >
+                Theme: {theme === "cherry" ? "Sakura" : theme === "azula" ? "Azula" : theme === "light" ? "Light" : "Dark"}
+                <span className="text-[10px]">▼</span>
+              </summary>
+              <div
+                className={`absolute right-0 top-full mt-2 w-40 rounded-xl border p-1.5 shadow-2xl z-40 ${
+                  isLight ? "border-slate-300 bg-white" : "border-white/15 bg-slate-900"
+                }`}
+              >
+                {[
+                  { key: "dark", label: "Dark" },
+                  { key: "light", label: "Light" },
+                  { key: "cherry", label: "Sakura" },
+                  { key: "azula", label: "Azula" },
+                ].map((m) => (
+                  <button
+                    key={m.key}
+                    onClick={() => setThemeMode(m.key)}
+                    className={`mt-1 first:mt-0 w-full rounded-lg px-3 py-2 text-left text-xs font-semibold ${
+                      theme === m.key
+                        ? "bg-blue-600 text-white"
+                        : isLight
+                          ? "text-slate-700 hover:bg-slate-100"
+                          : "text-white/85 hover:bg-white/10"
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            </details>
+            <div className={`text-[11px] ${isLight ? "text-slate-500" : "text-white/55"}`}>Learn before you risk capital.</div>
+          </div>
         </div>
 
         <section className={`${cardClass} mb-6`}>
