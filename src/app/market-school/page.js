@@ -347,7 +347,7 @@ export default function MarketSchoolPage() {
   const pageClass = isCherry
     ? "cherry-mode min-h-screen relative overflow-hidden bg-[#fffefc] text-[#3a2530]"
     : isAzula
-      ? "azula-mode min-h-screen relative overflow-hidden bg-[#f4f7fb] text-slate-900"
+      ? "azula-mode min-h-screen relative overflow-hidden bg-[#09090b] text-[#e7e1c5]"
       : isLight
         ? "min-h-screen relative overflow-hidden bg-gradient-to-br from-white via-blue-50 to-cyan-50 text-slate-900"
         : "min-h-screen relative overflow-hidden bg-slate-950 text-white";
@@ -355,7 +355,7 @@ export default function MarketSchoolPage() {
   const cardClass = isCherry
     ? "rounded-2xl border border-rose-200/60 bg-white/90 backdrop-blur-sm p-5 shadow-[0_10px_34px_rgba(190,24,93,0.1)]"
     : isAzula
-      ? "rounded-2xl border border-sky-200/70 bg-white/92 backdrop-blur-sm p-5 shadow-[0_10px_34px_rgba(14,116,144,0.12)]"
+      ? "app-card rounded-2xl border border-[#c5a66a]/40 bg-[#111116]/92 backdrop-blur-sm p-5 shadow-[0_14px_34px_rgba(0,0,0,0.42)]"
       : isLight
         ? "rounded-2xl border border-blue-200/80 bg-white/90 backdrop-blur-sm p-5 shadow-[0_10px_34px_rgba(59,130,246,0.1)]"
         : "rounded-2xl border border-white/12 bg-slate-900/55 p-5";
