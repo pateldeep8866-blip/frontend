@@ -2,6 +2,21 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { Cormorant_Garamond, IBM_Plex_Mono, Syne } from "next/font/google";
+
+const simSerif = Cormorant_Garamond({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  style: ["normal", "italic"],
+});
+const simMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["300", "400", "500"],
+});
+const simSans = Syne({
+  subsets: ["latin"],
+  weight: ["600", "700", "800"],
+});
 
 const STARTING_CASH = 100000;
 const PROFILE_KEY = "simulator_portfolio_state_v1";
@@ -306,9 +321,24 @@ export default function SimulatorPage() {
         ? "min-h-screen relative overflow-hidden bg-gradient-to-br from-white via-blue-50 to-cyan-50 text-slate-900"
         : "min-h-screen relative overflow-hidden bg-slate-950 text-white";
   const cardClass = isLight
-    ? "rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-[0_10px_28px_rgba(15,23,42,0.08)]"
-    : "rounded-2xl border border-white/12 bg-slate-900/55 p-5";
+    ? "sim-card rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-[0_10px_28px_rgba(15,23,42,0.08)]"
+    : "sim-card rounded-2xl border border-white/12 bg-slate-900/55 p-5";
   const riskPolicy = useMemo(() => resolveRiskPolicy(riskLevel, customRisk), [riskLevel, customRisk]);
+  const agentProvider = useMemo(() => {
+    const raw = String(profile?.autoPilot?.agentState?.provider || "");
+    return ["QUANT_LAB", "fallback"].includes(raw) ? raw : "fallback";
+  }, [profile?.autoPilot?.agentState?.provider]);
+  const scannedInstruments = Number(profile?.autoPilot?.agentState?.scannedInstruments || 0);
+  const agentRegime = String(profile?.autoPilot?.agentState?.regime || "unknown").replaceAll("_", " ").toUpperCase();
+  const agentConfidence = Number(profile?.autoPilot?.agentState?.confidence || 0);
+  const THINK_STEPS = [
+    "Fetching prices",
+    "Scoring universe",
+    "Routing strategies",
+    "Sizing positions",
+    "Validating risk",
+    "Executing plan",
+  ];
 
   useEffect(() => {
     try {
@@ -824,6 +854,23 @@ export default function SimulatorPage() {
       { key: "bear", label: "Bear Survivor", unlocked: Boolean(achievementVault.bear || bearSurvivor) },
     ];
   }, [achievementVault, profile.transactions.length, holdingsArray, totalReturnPct, spyReturnFor, portfolioReturnFor]);
+
+  const transactionStats = useMemo(() => {
+    const tx = Array.isArray(profile.transactions) ? profile.transactions : [];
+    const sells = tx.filter((x) => String(x?.action || "").toUpperCase() === "SELL");
+    const realized = sells
+      .map((x) => Number(x?.realizedPnL))
+      .filter((x) => Number.isFinite(x));
+    const wins = realized.filter((x) => x > 0).length;
+    const totalRealized = realized.reduce((sum, v) => sum + v, 0);
+    const winRate = realized.length ? (wins / realized.length) * 100 : 0;
+    return {
+      trades: tx.length,
+      sells: sells.length,
+      winRate,
+      realizedPnL: totalRealized,
+    };
+  }, [profile.transactions]);
 
   useEffect(() => {
     setAchievementVault((prev) => {
@@ -1438,18 +1485,65 @@ export default function SimulatorPage() {
   };
 
   return (
-    <div className={pageClass}>
+    <div className={`${pageClass} sim-pro ${simMono.className}`}>
       <div className="relative z-10 mx-auto w-full max-w-7xl px-6 py-8 md:py-10">
+        <div className={`mb-4 rounded-xl border overflow-hidden ${isLight ? "border-slate-200 bg-white/90" : "border-white/12 bg-[#0d1117]/90"}`}>
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-px bg-black/5">
+            <div className={`px-3 py-2 ${isLight ? "bg-white" : "bg-[#121821]"}`}>
+              <div className={`text-[9px] tracking-[0.16em] uppercase ${isLight ? "text-slate-500" : "text-white/45"}`}>Portfolio</div>
+              <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{fmtMoney(portfolioTotal)}</div>
+            </div>
+            <div className={`px-3 py-2 ${isLight ? "bg-white" : "bg-[#121821]"}`}>
+              <div className={`text-[9px] tracking-[0.16em] uppercase ${isLight ? "text-slate-500" : "text-white/45"}`}>Return</div>
+              <div className={`text-sm font-semibold ${totalReturnPct >= 0 ? "text-emerald-500" : "text-rose-500"}`}>{fmtPct(totalReturnPct)}</div>
+            </div>
+            <div className={`px-3 py-2 ${isLight ? "bg-white" : "bg-[#121821]"}`}>
+              <div className={`text-[9px] tracking-[0.16em] uppercase ${isLight ? "text-slate-500" : "text-white/45"}`}>Provider</div>
+              <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-[#f0a500]"}`}>{agentProvider}</div>
+            </div>
+            <div className={`px-3 py-2 ${isLight ? "bg-white" : "bg-[#121821]"}`}>
+              <div className={`text-[9px] tracking-[0.16em] uppercase ${isLight ? "text-slate-500" : "text-white/45"}`}>Scanned</div>
+              <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{scannedInstruments}</div>
+            </div>
+            <div className={`px-3 py-2 ${isLight ? "bg-white" : "bg-[#121821]"}`}>
+              <div className={`text-[9px] tracking-[0.16em] uppercase ${isLight ? "text-slate-500" : "text-white/45"}`}>Regime</div>
+              <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-[#f0a500]"}`}>{agentRegime}</div>
+            </div>
+            <div className={`px-3 py-2 flex items-end justify-between ${isLight ? "bg-white" : "bg-[#121821]"}`}>
+              <div>
+                <div className={`text-[9px] tracking-[0.16em] uppercase ${isLight ? "text-slate-500" : "text-white/45"}`}>Confidence</div>
+                <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{agentConfidence}%</div>
+              </div>
+              <span className={`h-2 w-2 rounded-full ${autoRunning ? "bg-amber-500 animate-pulse" : autoPilotEnabled ? "bg-emerald-500" : "bg-rose-500"}`} />
+            </div>
+          </div>
+          {autoRunning && (
+            <div className={`px-3 py-1.5 text-[10px] tracking-[0.12em] uppercase border-t ${isLight ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-[#f0a500]/10 text-[#f0a500] border-[#f0a500]/25"}`}>
+              <div className="flex flex-wrap gap-3">
+                <span>ASTRA analyzing</span>
+                {THINK_STEPS.map((step, idx) => (
+                  <span key={step} className={idx < 2 ? (isLight ? "text-emerald-700" : "text-emerald-400") : ""}>
+                    {idx < 2 ? "✓" : "·"} {step}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="flex items-center justify-between gap-3 mb-6">
-          <Link
-            href="/"
-            className={`px-3 py-1.5 rounded-lg border text-xs ${
-              isLight ? "border-slate-300 bg-white/90 text-slate-700 hover:bg-slate-100" : "border-white/15 bg-slate-900/60 text-white/85 hover:bg-slate-800/70"
-            }`}
-          >
-            Back Home
-          </Link>
-          <div className={`text-xs ${isLight ? "text-slate-500" : "text-white/60"}`}>Trading Simulator</div>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/"
+              className={`px-3 py-1.5 rounded-lg border text-xs ${
+                isLight ? "border-slate-300 bg-white/90 text-slate-700 hover:bg-slate-100" : "border-white/15 bg-slate-900/60 text-white/85 hover:bg-slate-800/70"
+              }`}
+            >
+              Back Home
+            </Link>
+            <div className={`text-xs ${isLight ? "text-slate-500" : "text-white/60"} ${simSans.className}`}>Trading Simulator</div>
+          </div>
+          <div className={`text-[11px] ${isLight ? "text-slate-500" : "text-white/55"}`}>Learn before you risk capital.</div>
         </div>
 
         <section className={`${cardClass} mb-6`}>
@@ -1613,7 +1707,7 @@ export default function SimulatorPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               <div className="lg:col-span-2">
                 <div className="flex items-center justify-between gap-2 mb-3">
-                  <h2 className={`text-xl font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>ASTRA Decision Log</h2>
+                  <h2 className={`text-2xl font-semibold ${isLight ? "text-slate-900" : "text-white"} ${simSerif.className}`}>ASTRA Decision Log</h2>
                   <button
                     onClick={runAutoPilotCycle}
                     disabled={!autoPilotEnabled || autoRunning}
@@ -1643,11 +1737,20 @@ export default function SimulatorPage() {
                     <div className={`mt-2 text-xs ${isLight ? "text-slate-700" : "text-white/80"}`}>{profile?.autoPilot?.runSummary || "ASTRA will generate a mission summary after the next run."}</div>
                     <div className="mt-2">
                       <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-500" : "text-white/60"}`}>Execution Plan</div>
-                      <div className="mt-1 space-y-1">
+                      <div className="mt-1 space-y-1.5">
                         {(profile?.autoPilot?.executionPlan || []).slice(0, 4).map((step, idx) => (
-                          <div key={`${step?.task || "task"}-${idx}`} className={`rounded-md border px-2 py-1.5 text-xs ${isLight ? "border-slate-200 bg-white text-slate-700" : "border-white/10 bg-white/5 text-white/80"}`}>
-                            <div className="font-semibold">Step {Number(step?.step || idx + 1)} · {step?.task || "Monitor market"}</div>
-                            <div className={`${isLight ? "text-slate-600" : "text-white/70"}`}>{step?.reason || "No reason provided."}</div>
+                          <div key={`${step?.task || "task"}-${idx}`} className={`rounded-md border px-2 py-2 text-xs ${isLight ? "border-slate-200 bg-white text-slate-700" : "border-white/10 bg-white/5 text-white/80"}`}>
+                            <div className="flex items-start gap-2">
+                              <span className={`mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold ${
+                                isLight ? "border border-slate-300 bg-slate-50 text-slate-700" : "border border-[#f0a500]/35 bg-[#f0a500]/15 text-[#f0a500]"
+                              }`}>
+                                {Number(step?.step || idx + 1)}
+                              </span>
+                              <div className="min-w-0">
+                                <div className="font-semibold tracking-wide">{step?.task || "Monitor market"}</div>
+                                <div className={`${isLight ? "text-slate-600" : "text-white/70"}`}>{step?.reason || "No reason provided."}</div>
+                              </div>
+                            </div>
                           </div>
                         ))}
                         {(profile?.autoPilot?.executionPlan || []).length === 0 && (
@@ -1657,7 +1760,13 @@ export default function SimulatorPage() {
                     </div>
                   </div>
                   {(profile?.autoPilot?.decisionLog || []).slice(0, 30).map((d) => (
-                    <article key={d.id} className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/[0.03]"}`}>
+                    <article key={d.id} className={`sim-decision rounded-lg border p-3 ${
+                      d.action === "BUY"
+                        ? isLight ? "border-emerald-200 bg-white" : "border-emerald-400/20 bg-white/[0.03]"
+                        : d.action === "SELL"
+                          ? isLight ? "border-rose-200 bg-white" : "border-rose-400/20 bg-white/[0.03]"
+                          : isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/[0.03]"
+                    }`}>
                       <div className="flex flex-wrap items-center gap-2 mb-1">
                         <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold border ${
                           d.action === "BUY"
@@ -1668,7 +1777,7 @@ export default function SimulatorPage() {
                         }`}>
                           {d.action}
                         </span>
-                        <span className="font-semibold">{d.symbol}</span>
+                        <span className={`font-semibold text-lg leading-none ${simSerif.className}`}>{d.symbol}</span>
                         <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold border ${isLight ? getStrategyBadge(d.strategy).light : getStrategyBadge(d.strategy).dark}`}>{getStrategyBadge(d.strategy).label}</span>
                         <span className={`text-xs ${isLight ? "text-slate-500" : "text-white/60"}`}>{new Date(Number(d.ts)).toLocaleString()}</span>
                       </div>
@@ -1680,10 +1789,34 @@ export default function SimulatorPage() {
                           Stop: {fmtMoney(d.stopLoss)} | Target: {fmtMoney(d.takeProfit)} | Hold: {Number(d.holdDays || 0)} days
                         </div>
                       )}
+                      {Number.isFinite(Number(d.score)) && (
+                        <div className="mt-2">
+                          <div className={`flex items-center justify-between text-[11px] ${isLight ? "text-slate-600" : "text-white/65"}`}>
+                            <span>QUANT score</span>
+                            <span className={`font-semibold ${isLight ? "text-slate-800" : "text-white"}`}>{Number(d.score)}/100</span>
+                          </div>
+                          <div className={`mt-1 h-1.5 rounded-full overflow-hidden ${isLight ? "bg-slate-200" : "bg-white/10"}`}>
+                            <div
+                              className="h-full rounded-full transition-all"
+                              style={{
+                                width: `${Math.max(2, Math.min(100, Number(d.score)))}%`,
+                                background:
+                                  Number(d.score) >= 80
+                                    ? "#f0a500"
+                                    : Number(d.score) >= 65
+                                      ? "#22c55e"
+                                      : Number(d.score) >= 45
+                                        ? "#f59e0b"
+                                        : "#ef4444",
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
                       <div className={`mt-1 text-xs ${isLight ? "text-slate-600" : "text-white/70"}`}>
                         {d.reasoning}
                       </div>
-                      <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+                      <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-1.5 text-[11px]">
                         <span className={`rounded-full border px-2 py-0.5 ${isLight ? "border-slate-300 bg-slate-50 text-slate-700" : "border-white/20 bg-white/10 text-white/80"}`}>
                           Confidence: {Number(d.confidence || 0)}%
                         </span>
@@ -1696,12 +1829,14 @@ export default function SimulatorPage() {
                         }`}>
                           Risk: {d.risk}
                         </span>
-                        <button
-                          onClick={() => setExpandedDecisionId((prev) => (prev === d.id ? "" : d.id))}
-                          className={`px-2 py-0.5 rounded-md border ${isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/20 bg-white/10 text-white/85"}`}
-                        >
-                          {expandedDecisionId === d.id ? "Hide" : "Expand"}
-                        </button>
+                        <div>
+                          <button
+                            onClick={() => setExpandedDecisionId((prev) => (prev === d.id ? "" : d.id))}
+                            className={`px-2 py-0.5 rounded-md border ${isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/20 bg-white/10 text-white/85"}`}
+                          >
+                            {expandedDecisionId === d.id ? "Hide" : "Expand"}
+                          </button>
+                        </div>
                       </div>
                       <div className={`mt-2 text-xs ${isLight ? "text-indigo-700" : "text-cyan-100"}`}>💡 Lesson: {d.lesson}</div>
                       {expandedDecisionId === d.id && (
@@ -1817,7 +1952,7 @@ export default function SimulatorPage() {
         </section>
 
         <section className={`${cardClass} mb-6`}>
-          <h2 className={`text-xl font-semibold mb-3 ${isLight ? "text-slate-900" : "text-white"}`}>Portfolio Holdings</h2>
+          <h2 className={`text-2xl font-semibold mb-3 ${isLight ? "text-slate-900" : "text-white"} ${simSerif.className}`}>Portfolio Holdings</h2>
           {holdingsArray.length === 0 ? (
             <div className={`text-sm ${isLight ? "text-slate-600" : "text-white/75"}`}>You have {fmtMoney(profile.cash)} ready to invest.</div>
           ) : (
@@ -1908,9 +2043,12 @@ export default function SimulatorPage() {
           <div className={`mt-3 text-sm ${isLight ? "text-slate-700" : "text-white/85"}`}>Cash Remaining: <span className="font-semibold">{fmtMoney(profile.cash)}</span></div>
         </section>
 
-        <section className={`${cardClass} mb-6`}>
-          <h2 className={`text-xl font-semibold mb-3 ${isLight ? "text-slate-900" : "text-white"}`}>Trade</h2>
-          <div className="mb-3 inline-flex rounded-lg overflow-hidden border border-white/15">
+        <section className={`${cardClass} mb-6 sim-trade-shell`}>
+          <h2 className={`text-2xl font-semibold mb-3 ${isLight ? "text-slate-900" : "text-white"} ${simSerif.className}`}>Trade</h2>
+          <div className={`mb-2 text-[11px] ${isLight ? "text-slate-600" : "text-white/65"}`}>
+            Manual execution desk • Live quote, order sizing, and risk checks before submit.
+          </div>
+          <div className={`mb-3 inline-flex rounded-lg overflow-hidden border ${isLight ? "border-slate-300" : "border-white/15"}`}>
             <button
               onClick={() => {
                 setSelectedAssetType("stock");
@@ -1934,6 +2072,9 @@ export default function SimulatorPage() {
             >
               Crypto
             </button>
+          </div>
+          <div className={`mb-3 rounded-lg border px-3 py-2 text-[11px] ${isLight ? "border-slate-200 bg-slate-50 text-slate-600" : "border-white/10 bg-white/[0.03] text-white/70"}`}>
+            Cash: <span className="font-semibold">{fmtMoney(profile.cash)}</span> • Asset: <span className="font-semibold uppercase">{selectedAssetType}</span> • Mode: <span className="font-semibold uppercase">{tradeInputMode === "dollars" ? "Dollar Notional" : "Units"}</span>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="lg:col-span-2">
@@ -1989,7 +2130,7 @@ export default function SimulatorPage() {
               <div className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-slate-50" : "border-white/10 bg-white/[0.03]"}`}>
                 <div className="flex flex-wrap items-center gap-3 mb-2">
                   <div className="font-semibold">{selectedTicker || "—"} {selectedCompany ? `• ${selectedCompany}` : ""}</div>
-                  <div>{fmtMoney(selectedPrice)}</div>
+                  <div className={`${simSerif.className} text-lg`}>{fmtMoney(selectedPrice)}</div>
                   <div className={`${Number(selectedQuote?.percentChange) >= 0 ? "text-emerald-500" : "text-rose-500"}`}>{fmtPct(selectedQuote?.percentChange)}</div>
                 </div>
                 {selectedAssetType === "crypto" && (
@@ -2085,7 +2226,7 @@ export default function SimulatorPage() {
 
         <section className={`${cardClass} mb-6`}>
           <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-            <h2 className={`text-xl font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>Performance</h2>
+            <h2 className={`text-2xl font-semibold ${isLight ? "text-slate-900" : "text-white"} ${simSerif.className}`}>Performance</h2>
             <div className="flex gap-2">
               {CHART_FILTERS.map((f) => (
                 <button
@@ -2115,10 +2256,16 @@ export default function SimulatorPage() {
           </div>
         </section>
 
-        <section className={`${cardClass} mb-6`}>
-          <h2 className={`text-xl font-semibold mb-3 ${isLight ? "text-slate-900" : "text-white"}`}>Transaction History</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
+        <section className={`${cardClass} mb-6 sim-tx-shell`}>
+          <h2 className={`text-2xl font-semibold mb-3 ${isLight ? "text-slate-900" : "text-white"} ${simSerif.className}`}>Transaction History</h2>
+          <div className={`mb-3 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs`}>
+            <div className={`rounded-md border px-2.5 py-2 ${isLight ? "border-slate-200 bg-slate-50 text-slate-700" : "border-white/10 bg-white/[0.03] text-white/80"}`}>Trades: <span className="font-semibold">{transactionStats.trades}</span></div>
+            <div className={`rounded-md border px-2.5 py-2 ${isLight ? "border-slate-200 bg-slate-50 text-slate-700" : "border-white/10 bg-white/[0.03] text-white/80"}`}>Closed Sells: <span className="font-semibold">{transactionStats.sells}</span></div>
+            <div className={`rounded-md border px-2.5 py-2 ${isLight ? "border-slate-200 bg-slate-50 text-slate-700" : "border-white/10 bg-white/[0.03] text-white/80"}`}>Win Rate: <span className="font-semibold">{transactionStats.sells ? `${transactionStats.winRate.toFixed(0)}%` : "—"}</span></div>
+            <div className={`rounded-md border px-2.5 py-2 ${isLight ? "border-slate-200 bg-slate-50" : "border-white/10 bg-white/[0.03]"} ${transactionStats.realizedPnL >= 0 ? "text-emerald-500" : "text-rose-500"}`}>Realized: <span className="font-semibold">{fmtMoney(transactionStats.realizedPnL)}</span></div>
+          </div>
+          <div className="overflow-x-auto sim-tx-table-wrap">
+            <table className="w-full text-xs sim-tx-table">
               <thead className={isLight ? "text-slate-500" : "text-white/60"}>
                 <tr className={isLight ? "border-b border-slate-200 text-left" : "border-b border-white/10 text-left"}>
                   <th className="py-2 pr-2">Date</th>
@@ -2168,7 +2315,7 @@ export default function SimulatorPage() {
 
         <section className={cardClass}>
           <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-            <h2 className={`text-xl font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>Leaderboard</h2>
+            <h2 className={`text-2xl font-semibold ${isLight ? "text-slate-900" : "text-white"} ${simSerif.className}`}>Leaderboard</h2>
             <div className="flex gap-2">
               {LEADERBOARD_FILTERS.map((f) => (
                 <button
@@ -2215,6 +2362,96 @@ export default function SimulatorPage() {
           <div className={`mt-2 text-xs ${isLight ? "text-slate-600" : "text-white/70"}`}>Your current rank: #{selfRank}</div>
         </section>
       </div>
+
+      <style jsx global>{`
+        .sim-pro {
+          --sim-gold: #f0a500;
+          --sim-border: rgba(255, 255, 255, 0.08);
+        }
+        .sim-pro:not(.light-mode):not(.cherry-mode):not(.azula-mode) {
+          background-image:
+            linear-gradient(rgba(240, 165, 0, 0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(240, 165, 0, 0.03) 1px, transparent 1px);
+          background-size: 48px 48px;
+        }
+        .sim-pro .sim-card {
+          position: relative;
+          overflow: hidden;
+        }
+        .sim-pro .sim-card::before {
+          content: "";
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 0;
+          height: 1px;
+          background: linear-gradient(90deg, transparent, rgba(240, 165, 0, 0.45), transparent);
+          pointer-events: none;
+        }
+        .sim-pro .sim-card table thead th {
+          letter-spacing: 0.12em;
+        }
+        .sim-pro .sim-card article {
+          transition: transform 0.16s ease, border-color 0.16s ease;
+        }
+        .sim-pro .sim-card article:hover {
+          transform: translateY(-1px);
+        }
+        .sim-pro .sim-decision {
+          position: relative;
+          overflow: hidden;
+        }
+        .sim-pro .sim-decision::before {
+          content: "";
+          position: absolute;
+          left: 0;
+          top: 0;
+          bottom: 0;
+          width: 2px;
+          background: linear-gradient(180deg, rgba(240, 165, 0, 0.65), rgba(240, 165, 0, 0.08));
+        }
+        .sim-pro .sim-card button {
+          transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .sim-pro .sim-card button:hover:not(:disabled) {
+          transform: translateY(-1px);
+        }
+        .sim-pro .sim-trade-shell,
+        .sim-pro .sim-tx-shell {
+          backdrop-filter: blur(6px);
+        }
+        .sim-pro .sim-trade-shell input,
+        .sim-pro .sim-trade-shell select {
+          letter-spacing: 0.01em;
+        }
+        .sim-pro .sim-tx-table-wrap {
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 10px;
+          overflow: auto;
+        }
+        .sim-pro.light-mode .sim-tx-table-wrap,
+        .sim-pro.cherry-mode .sim-tx-table-wrap,
+        .sim-pro.azula-mode .sim-tx-table-wrap {
+          border-color: rgba(148, 163, 184, 0.35);
+        }
+        .sim-pro .sim-tx-table thead th {
+          position: sticky;
+          top: 0;
+          z-index: 1;
+          background: rgba(2, 6, 23, 0.92);
+        }
+        .sim-pro.light-mode .sim-tx-table thead th,
+        .sim-pro.cherry-mode .sim-tx-table thead th,
+        .sim-pro.azula-mode .sim-tx-table thead th {
+          background: rgba(248, 250, 252, 0.96);
+        }
+        .sim-pro .sim-tx-table tbody tr {
+          transition: background 0.12s ease;
+        }
+        .sim-pro .sim-tx-table tbody tr:hover {
+          background: rgba(240, 165, 0, 0.08);
+        }
+      `}</style>
 
 
       {deepResearchOpen && (
