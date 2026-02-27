@@ -62,6 +62,7 @@ function getRiskPolicy(rawLevel, custom) {
       maxCryptoPct: 0,
       minCashReservePct: 0.2,
       allowCrypto: false,
+      targetInvestedPct: 0.65,
       target: "8-15%",
     };
   }
@@ -72,6 +73,7 @@ function getRiskPolicy(rawLevel, custom) {
       maxCryptoPct: 0.2,
       minCashReservePct: 0.08,
       allowCrypto: true,
+      targetInvestedPct: 0.9,
       target: "25%+",
     };
   }
@@ -79,12 +81,14 @@ function getRiskPolicy(rawLevel, custom) {
     const maxPositionPct = Math.max(0.01, Math.min(0.3, Number(custom?.maxPositionPct || 0.12)));
     const maxCryptoPct = Math.max(0, Math.min(0.3, Number(custom?.maxCryptoPct || 0.1)));
     const minCashReservePct = Math.max(0.02, Math.min(0.4, Number(custom?.minCashReservePct || 0.1)));
+    const targetInvestedPct = Math.max(0.45, Math.min(0.95, 1 - minCashReservePct - 0.03));
     return {
       level,
       maxPositionPct,
       maxCryptoPct,
       minCashReservePct,
       allowCrypto: maxCryptoPct > 0,
+      targetInvestedPct,
       target: String(custom?.target || "Custom"),
     };
   }
@@ -94,6 +98,7 @@ function getRiskPolicy(rawLevel, custom) {
     maxCryptoPct: 0.08,
     minCashReservePct: 0.12,
     allowCrypto: true,
+    targetInvestedPct: 0.78,
     target: "15-25%",
   };
 }
@@ -684,6 +689,35 @@ function ensureActionableDecisions(decisions, { cash, holdings, context, riskPol
   const reserveCash = portfolioValue * Number(riskPolicy?.minCashReservePct || 0.1);
   const maxPositionPct = Number(riskPolicy?.maxPositionPct || 0.2);
   const maxCryptoPct = Number(riskPolicy?.maxCryptoPct || 0.2);
+  const targetInvestedPct = Math.max(0.45, Math.min(0.95, Number(riskPolicy?.targetInvestedPct || 0.75)));
+  const currentInvestedValue = totalHoldingsValue;
+  const desiredInvestedValue = portfolioValue * targetInvestedPct;
+  const deployGapValue = Math.max(0, desiredInvestedValue - currentInvestedValue);
+  const maxDeployableCash = Math.max(0, cashNum - reserveCash);
+  let deployBudget = Math.max(
+    0,
+    Math.min(
+      maxDeployableCash,
+      deployGapValue > 0 ? deployGapValue : maxDeployableCash * (tradingStyle === "day_trading" ? 0.6 : 0.35)
+    )
+  );
+
+  const stockHoldingsValue = (Array.isArray(holdings) ? holdings : []).reduce((sum, h) => {
+    if (normalizeAssetType(h?.assetType) !== "stock") return sum;
+    const px = Number(h?.currentPrice);
+    const shares = Number(h?.shares || 0);
+    if (!Number.isFinite(px) || px <= 0 || !Number.isFinite(shares) || shares <= 0) return sum;
+    return sum + px * shares;
+  }, 0);
+  const cryptoHoldingsValue = (Array.isArray(holdings) ? holdings : []).reduce((sum, h) => {
+    if (normalizeAssetType(h?.assetType) !== "crypto") return sum;
+    const px = Number(h?.currentPrice);
+    const shares = Number(h?.shares || 0);
+    if (!Number.isFinite(px) || px <= 0 || !Number.isFinite(shares) || shares <= 0) return sum;
+    return sum + px * shares;
+  }, 0);
+  const maxCryptoValue = portfolioValue * maxCryptoPct;
+  let cryptoRoomValue = Math.max(0, maxCryptoValue - cryptoHoldingsValue);
 
   // Force share quantities when model outputs BUY/SELL with 0 shares.
   for (let i = 0; i < normalized.length; i += 1) {
@@ -706,57 +740,109 @@ function ensureActionableDecisions(decisions, { cash, holdings, context, riskPol
       continue;
     }
 
-    const buyBudget = Math.max(0, Math.min(cashNum - reserveCash, portfolioValue * maxPositionPct));
+    const isCrypto = assetType === "crypto";
+    if (isCrypto && (!riskPolicy?.allowCrypto || maxCryptoPct <= 0 || cryptoRoomValue <= 0)) {
+      normalized[i] = { ...d, action: "HOLD", shares: 0 };
+      continue;
+    }
+    const buyBudget = Math.max(0, Math.min(deployBudget, portfolioValue * maxPositionPct));
     const composite = Number(d?.composite_score || d?.compositeScore || 70);
     const convictionMultiplier = Math.max(0.35, Math.min(1, composite / 100));
     const rr = Math.max(0.5, Number(d?.risk_reward_ratio || d?.riskReward || 2));
     const quantMultiplier = Math.min(rr / 3, 1);
-    const finalBudget = buyBudget * convictionMultiplier * quantMultiplier;
+    let finalBudget = buyBudget * convictionMultiplier * quantMultiplier;
+    if (isCrypto) finalBudget = Math.min(finalBudget, cryptoRoomValue);
+    if (finalBudget <= 0) {
+      normalized[i] = { ...d, shares: 0 };
+      continue;
+    }
+    const filledShares = px > 0
+      ? isCrypto
+        ? Math.max(0.0001, finalBudget / px)
+        : Math.max(1, Math.floor(finalBudget / px))
+      : 0;
     normalized[i] = {
       ...d,
-      shares: px > 0
-        ? assetType === "crypto"
-          ? Math.max(0.0001, finalBudget / px)
-          : Math.max(1, Math.floor(finalBudget / px))
-        : 0,
+      shares: filledShares,
     };
+    const spent = px > 0 ? filledShares * px : 0;
+    deployBudget = Math.max(0, deployBudget - spent);
+    if (isCrypto) cryptoRoomValue = Math.max(0, cryptoRoomValue - spent);
   }
 
   const hasPosition = (Array.isArray(holdings) ? holdings : []).some((h) => Number(h?.shares || 0) > 0);
   const hasActionableBuy = normalized.some((d) => String(d?.action || "").toUpperCase() === "BUY" && Number(d?.shares || 0) > 0);
 
-  // If portfolio is empty and model only HOLDs, force a starter BUY.
-  if (allowStarterBuy && !hasPosition && !hasActionableBuy && cashNum > 100) {
-    const best = (context?.topCandidates || []).find((c) => {
-      if (normalizeAssetType(c?.assetType) === "crypto" && Number(maxCryptoPct) <= 0) return false;
-      return Number(c?.total || c?.score || 0) >= (tradingStyle === "day_trading" ? 58 : 65);
-    }) || context?.topCandidates?.[0];
-    const stockCandidate = String(best?.symbol || context?.todayPick?.symbol || "AAPL").toUpperCase();
-    const stockPrice = Number(best?.price) || Number((context?.movers || []).find((m) => String(m?.symbol || "").toUpperCase() === stockCandidate)?.price) || 100;
-    const starterBudget = Math.max(0, Math.min(cashNum - reserveCash, portfolioValue * maxPositionPct));
-    const starterShares = Math.max(1, Math.floor(starterBudget / stockPrice));
-    normalized.unshift({
-      action: "BUY",
-      ticker: stockCandidate,
-      assetType: normalizeAssetType(best?.assetType),
-      cryptoId: String(best?.cryptoId || ""),
-      shares: starterShares,
-      entry_price: Number(best?.quant?.entry_price || stockPrice),
-      stop_loss: Number(best?.quant?.stop_loss || stockPrice * (1 - (riskPolicy?.level === "CONSERVATIVE" ? 0.05 : riskPolicy?.level === "AGGRESSIVE" ? 0.12 : 0.08))),
-      take_profit: Number(Array.isArray(best?.quant?.take_profit) ? best.quant.take_profit[0] : stockPrice * 1.12),
-      composite_score: Number(best?.total || 70),
-      quant_signal: String(best?.quant?.signal || "BUY"),
-      quant_breakdown: {
-        rsi: String(best?.quant?.indicators?.rsi?.value ?? "n/a"),
-        macd: String(best?.quant?.indicators?.macd?.signal || "n/a"),
-        vwap: String(best?.quant?.indicators?.vwap?.price_vs_vwap || "n/a"),
-      },
-      reasoning:
-        "Portfolio is currently all cash. Initiating a starter position based on the top composite score while respecting risk limits and cash reserve policy.",
-      confidence: 67,
-      risk: normalizeAssetType(best?.assetType) === "crypto" ? "HIGH" : "MEDIUM",
-      lesson: "This demonstrates phased capital deployment instead of remaining inactive in cash.",
+  const buyThreshold = tradingStyle === "day_trading" ? 58 : (context?.vixRegime === "risk_off" ? 72 : 64);
+  const heldKeys = new Set(
+    (Array.isArray(holdings) ? holdings : [])
+      .filter((h) => Number(h?.shares || 0) > 0)
+      .map((h) => `${normalizeAssetType(h?.assetType)}:${String(h?.symbol || "").toUpperCase()}`)
+  );
+  const existingDecisionKeys = new Set(
+    normalized
+      .filter((d) => String(d?.action || "").toUpperCase() === "BUY")
+      .map((d) => `${normalizeAssetType(d?.assetType)}:${String(d?.ticker || "").toUpperCase()}`)
+  );
+
+  // Portfolio takeover: if idle cash is above target and no actionable BUYs, inject ranked buys.
+  if (allowStarterBuy && cashNum > 100 && deployBudget > 0) {
+    const candidatePool = (context?.topCandidates || []).filter((c) => {
+      const assetType = normalizeAssetType(c?.assetType);
+      const key = `${assetType}:${String(c?.symbol || "").toUpperCase()}`;
+      if (!String(c?.symbol || "").trim()) return false;
+      if (heldKeys.has(key) || existingDecisionKeys.has(key)) return false;
+      if (assetType === "crypto" && (!riskPolicy?.allowCrypto || maxCryptoPct <= 0 || cryptoRoomValue <= 0)) return false;
+      return Number(c?.total || c?.score || 0) >= buyThreshold;
     });
+
+    const maxInject = tradingStyle === "day_trading" ? 3 : 2;
+    let injected = 0;
+    for (const best of candidatePool) {
+      if (deployBudget <= 0 || injected >= maxInject) break;
+      const assetType = normalizeAssetType(best?.assetType);
+      const isCrypto = assetType === "crypto";
+      const symbol = String(best?.symbol || context?.todayPick?.symbol || "AAPL").toUpperCase();
+      const px =
+        Number(best?.price) ||
+        Number(best?.entryPrice) ||
+        Number((isCrypto ? context?.cryptoMovers : context?.movers || []).find((m) => String(m?.symbol || "").toUpperCase() === symbol)?.price) ||
+        0;
+      if (px <= 0) continue;
+      const composite = Number(best?.total || best?.score || 70);
+      const convictionMultiplier = Math.max(0.4, Math.min(1, composite / 100));
+      let slotBudget = Math.min(deployBudget, portfolioValue * maxPositionPct * convictionMultiplier);
+      if (isCrypto) slotBudget = Math.min(slotBudget, cryptoRoomValue);
+      if (slotBudget <= 0) continue;
+      const shares = isCrypto ? Math.max(0.0001, slotBudget / px) : Math.max(1, Math.floor(slotBudget / px));
+      const spent = shares * px;
+      if (spent <= 0) continue;
+      normalized.unshift({
+        action: "BUY",
+        ticker: symbol,
+        assetType,
+        cryptoId: String(best?.cryptoId || ""),
+        shares,
+        entry_price: Number(best?.quant?.entry_price || best?.entryPrice || px),
+        stop_loss: Number(best?.quant?.stop_loss || best?.stopLoss || px * (1 - (riskPolicy?.level === "CONSERVATIVE" ? 0.05 : riskPolicy?.level === "AGGRESSIVE" ? 0.12 : 0.08))),
+        take_profit: Number(Array.isArray(best?.quant?.take_profit) ? best.quant.take_profit[0] : best?.takeProfit || px * 1.12),
+        composite_score: composite,
+        quant_signal: String(best?.quant?.signal || best?.quantSignal || "BUY"),
+        quant_breakdown: {
+          rsi: String(best?.quant?.indicators?.rsi?.value ?? "n/a"),
+          macd: String(best?.quant?.indicators?.macd?.signal || "n/a"),
+          vwap: String(best?.quant?.indicators?.vwap?.price_vs_vwap || "n/a"),
+        },
+        reasoning:
+          "Auto-Pilot takeover allocated idle cash into top-ranked opportunities while enforcing risk profile reserve and position limits.",
+        confidence: Math.max(60, Math.min(92, Math.round(composite))),
+        risk: isCrypto ? "HIGH" : "MEDIUM",
+        lesson: "Capital is being deployed systematically from available cash, not randomly.",
+      });
+      deployBudget = Math.max(0, deployBudget - spent);
+      if (isCrypto) cryptoRoomValue = Math.max(0, cryptoRoomValue - spent);
+      injected += 1;
+    }
   }
 
   // In day-trading mode, reduce passive HOLD states when a valid setup exists.
@@ -767,7 +853,7 @@ function ensureActionableDecisions(decisions, { cash, holdings, context, riskPol
       if (best) {
         const ticker = String(best?.symbol || "AAPL").toUpperCase();
         const price = Number(best?.price || 0) || 100;
-        const budget = Math.max(0, Math.min(cashNum - reserveCash, portfolioValue * Math.max(0.06, maxPositionPct * 0.8)));
+        const budget = Math.max(0, Math.min(deployBudget || (cashNum - reserveCash), portfolioValue * Math.max(0.06, maxPositionPct * 0.8)));
         const shares = Math.max(1, Math.floor(budget / price));
         normalized.unshift({
           action: "BUY",
@@ -1298,6 +1384,9 @@ export async function POST(req) {
     const totalHoldingsValue = holdings.reduce((sum, h) => sum + Number(h?.currentPrice || 0) * Number(h?.shares || 0), 0);
     const totalValue = Math.max(1, cash + totalHoldingsValue);
     const availableCash = cash;
+    const investedPct = Math.max(0, Math.min(1, totalHoldingsValue / totalValue));
+    const idleCashPct = Math.max(0, Math.min(1, availableCash / totalValue));
+    const targetDeploymentPct = Math.max(0.45, Math.min(0.95, Number(riskPolicy?.targetInvestedPct || 0.75)));
 
     // SELL priority order (before buys): stop loss, take profit, signal reversal, time stop.
     const prioritySells = buildPrioritySellDecisions({
@@ -1445,6 +1534,7 @@ export async function POST(req) {
 
     const agentState = {
       mode: "autopilot",
+      takeoverMode: true,
       tradingStyle,
       cycleStatus: buyCount + sellCount > 0 ? "actionable" : "monitoring",
       provider,
@@ -1465,12 +1555,15 @@ export async function POST(req) {
       drawdownPct: Number(drawdownPct.toFixed(2)),
       capitalPreservationMode,
       cashReserveTargetPct: Number(riskPolicy?.minCashReservePct || 0),
+      targetDeploymentPct,
+      currentDeploymentPct: Number((investedPct * 100).toFixed(2)),
+      idleCashPct: Number((idleCashPct * 100).toFixed(2)),
       generatedAt: new Date().toISOString(),
     };
 
     const runSummary = buyCount + sellCount > 0
-      ? `Generated ${buyCount} buy and ${sellCount} sell actions with ${avgConfidence}% average confidence in ${marketRegime} regime.`
-      : `No trade actions triggered. Monitoring regime ${marketRegime} with ${avgConfidence}% confidence.`;
+      ? `Generated ${buyCount} buy and ${sellCount} sell actions with ${avgConfidence}% confidence. Deployment ${(investedPct * 100).toFixed(1)}% vs target ${(targetDeploymentPct * 100).toFixed(1)}% in ${marketRegime} regime.`
+      : `No trade actions triggered. Monitoring regime ${marketRegime} with ${avgConfidence}% confidence. Deployment ${(investedPct * 100).toFixed(1)}% vs target ${(targetDeploymentPct * 100).toFixed(1)}%.`;
 
     let loggedTrades = 0;
     for (const decision of decisions) {
