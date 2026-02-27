@@ -69,6 +69,8 @@ const SIM_RISK_LEVEL_KEY = "simulator_risk_level_v1";
 const SIM_RISK_CUSTOM_KEY = "simulator_risk_custom_v1";
 const SIM_TRADING_STYLE_KEY = "simulator_trading_style_v1";
 const ACHIEVEMENTS_KEY = "simulator_achievements_v1";
+const ASTRA_CHAT_KEY = "simulator_astra_chat_v1";
+const MAX_CHAT_MESSAGES = 30;
 const RISK_PRESETS = {
   CONSERVATIVE: { maxPositionPct: 0.05, maxCryptoPct: 0, minCashReservePct: 0.2, allowCrypto: false, target: "8-15%" },
   MODERATE: { maxPositionPct: 0.15, maxCryptoPct: 0.08, minCashReservePct: 0.12, allowCrypto: true, target: "15-25%" },
@@ -127,6 +129,8 @@ function createDefaultProfile() {
     snapshots: [{ ts: now, total: STARTING_CASH }],
     manualSnapshots: [{ ts: now, total: STARTING_CASH }],
     autoPilotSnapshots: [{ ts: now, total: STARTING_CASH }],
+    priceAlerts: [],
+    dcaPlans: [],
     autoPilot: {
       enabled: false,
       lastRunAt: 0,
@@ -167,6 +171,34 @@ function readProfile() {
             .map((x) => ({ ts: Number(x?.ts), total: toNum(x?.total) }))
             .filter((x) => Number.isFinite(x.ts) && x.total != null)
         : [{ ts: Date.now(), total: STARTING_CASH }],
+      priceAlerts: Array.isArray(parsed.priceAlerts)
+        ? parsed.priceAlerts
+            .map((a) => ({
+              id: String(a?.id || ""),
+              symbol: String(a?.symbol || "").toUpperCase(),
+              assetType: normalizeAssetType(a?.assetType),
+              direction: String(a?.direction || "above").toLowerCase() === "below" ? "below" : "above",
+              target: Number(a?.target || 0),
+              active: a?.active !== false,
+              triggeredAt: Number(a?.triggeredAt || 0),
+              createdAt: Number(a?.createdAt || Date.now()),
+            }))
+            .filter((a) => a.symbol && Number.isFinite(a.target) && a.target > 0)
+        : [],
+      dcaPlans: Array.isArray(parsed.dcaPlans)
+        ? parsed.dcaPlans
+            .map((p) => ({
+              id: String(p?.id || ""),
+              symbol: String(p?.symbol || "").toUpperCase(),
+              assetType: normalizeAssetType(p?.assetType),
+              amountUsd: Number(p?.amountUsd || 0),
+              interval: String(p?.interval || "weekly"),
+              active: p?.active !== false,
+              nextRunAt: Number(p?.nextRunAt || Date.now()),
+              createdAt: Number(p?.createdAt || Date.now()),
+            }))
+            .filter((p) => p.symbol && Number.isFinite(p.amountUsd) && p.amountUsd > 0)
+        : [],
       autoPilot: parsed.autoPilot && typeof parsed.autoPilot === "object"
         ? {
             enabled: Boolean(parsed.autoPilot.enabled),
@@ -271,6 +303,13 @@ function getStrategyBadge(strategy) {
   return { label: "ASTRA", light: "border-slate-300 bg-slate-50 text-slate-700", dark: "border-white/20 bg-white/10 text-white/80" };
 }
 
+function nextDcaRun(interval, fromTs = Date.now()) {
+  const base = Number(fromTs || Date.now());
+  if (interval === "daily") return base + 24 * 60 * 60 * 1000;
+  if (interval === "monthly") return base + 30 * 24 * 60 * 60 * 1000;
+  return base + 7 * 24 * 60 * 60 * 1000;
+}
+
 export default function SimulatorPage() {
   const [theme, setTheme] = useState("dark");
   const [profile, setProfile] = useState(createDefaultProfile());
@@ -309,6 +348,19 @@ export default function SimulatorPage() {
   const [customRisk, setCustomRisk] = useState({ maxPositionPct: 0.12, maxCryptoPct: 0.1, minCashReservePct: 0.1, target: "Custom" });
   const [tradingStyle, setTradingStyle] = useState("swing");
   const [thinkStepIndex, setThinkStepIndex] = useState(0);
+  const [tradeFlash, setTradeFlash] = useState(null);
+  const [alertSymbolInput, setAlertSymbolInput] = useState("AAPL");
+  const [alertTargetInput, setAlertTargetInput] = useState("");
+  const [alertDirection, setAlertDirection] = useState("above");
+  const [dcaSymbolInput, setDcaSymbolInput] = useState("SPY");
+  const [dcaAmountInput, setDcaAmountInput] = useState("250");
+  const [dcaInterval, setDcaInterval] = useState("weekly");
+  const [askInput, setAskInput] = useState("");
+  const [askLoading, setAskLoading] = useState(false);
+  const [askMessages, setAskMessages] = useState([
+    { role: "assistant", text: "I am ASTRA. Ask me about a ticker, your risk, or portfolio strategy." },
+  ]);
+  const [chartHoverIndex, setChartHoverIndex] = useState(null);
   const autoExitLockRef = useRef(false);
 
   const isCherry = theme === "cherry";
@@ -384,6 +436,16 @@ export default function SimulatorPage() {
       }
       const savedStyle = localStorage.getItem(SIM_TRADING_STYLE_KEY);
       if (savedStyle === "day_trading" || savedStyle === "swing") setTradingStyle(savedStyle);
+      const savedChat = localStorage.getItem(ASTRA_CHAT_KEY);
+      if (savedChat) {
+        const parsed = JSON.parse(savedChat);
+        if (Array.isArray(parsed) && parsed.length) {
+          const cleaned = parsed
+            .map((m) => ({ role: String(m?.role || "assistant"), text: String(m?.text || "") }))
+            .filter((m) => m.text);
+          if (cleaned.length) setAskMessages(cleaned.slice(-MAX_CHAT_MESSAGES));
+        }
+      }
     } catch {}
     const loaded = readProfile();
     try {
@@ -403,6 +465,12 @@ export default function SimulatorPage() {
       }
     } catch {}
   }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(ASTRA_CHAT_KEY, JSON.stringify(askMessages.slice(-MAX_CHAT_MESSAGES)));
+    } catch {}
+  }, [askMessages]);
 
   const setThemeMode = useCallback((mode) => {
     const next = String(mode || "").toLowerCase();
@@ -464,6 +532,13 @@ export default function SimulatorPage() {
   }, [holdingsArray, quoteFor]);
 
   const holdingsMarketValue = holdingsBreakdown.stocks + holdingsBreakdown.crypto;
+  const unrealizedPnL = useMemo(() => {
+    return holdingsArray.reduce((sum, h) => {
+      const live = Number(quoteFor(h.assetType, h.symbol)?.price);
+      const px = Number.isFinite(live) && live > 0 ? live : Number(h.avgBuy || 0);
+      return sum + (px - Number(h.avgBuy || 0)) * Number(h.shares || 0);
+    }, 0);
+  }, [holdingsArray, quoteFor]);
 
   const portfolioTotal = Number(profile.cash || 0) + holdingsMarketValue;
   const totalReturnDollar = portfolioTotal - Number(profile.startingCash || STARTING_CASH);
@@ -680,6 +755,51 @@ export default function SimulatorPage() {
     return "";
   }, [selectedTicker, selectedPrice, sharesFromInput, tradeMode, estimatedTradeValue, profile.cash, ownedForSelected, isCryptoTrade]);
 
+  const tickerTapeItems = useMemo(() => {
+    const map = new Map();
+    for (const q of Object.values(quotes || {})) {
+      const symbol = String(q?.symbol || "").toUpperCase();
+      if (!symbol) continue;
+      map.set(symbol, {
+        symbol,
+        price: Number(q?.price || 0),
+        pct: Number(q?.percentChange || 0),
+      });
+    }
+    if (selectedTicker) {
+      const sym = String(selectedTicker).toUpperCase();
+      if (!map.has(sym) && Number.isFinite(Number(selectedQuote?.price))) {
+        map.set(sym, { symbol: sym, price: Number(selectedQuote?.price || 0), pct: Number(selectedQuote?.percentChange || 0) });
+      }
+    }
+    if (!map.has("SPY")) map.set("SPY", { symbol: "SPY", price: 0, pct: 0 });
+    return Array.from(map.values()).slice(0, 16);
+  }, [quotes, selectedTicker, selectedQuote]);
+
+  const latestDecisionResearch = useMemo(() => {
+    if (!latestDecision) return null;
+    const confidence = Number(latestDecision.confidence || 0);
+    const score = Number(latestDecision.score || 0);
+    return {
+      summary:
+        String(latestDecision.reasoning || "").trim() ||
+        "ASTRA is balancing regime context, momentum, and portfolio risk constraints.",
+      bull:
+        String(latestDecision.bullThesis || "") ||
+        `Momentum + regime alignment support ${latestDecision.symbol} while respecting ${riskPolicy.level} risk limits.`,
+      bear:
+        String(latestDecision.bearThesis || "") ||
+        `Volatility or macro reversal can invalidate this setup quickly; stop-loss discipline remains mandatory.`,
+      riskScore: Math.max(1, Math.min(100, Math.round((100 - confidence) * 0.45 + (100 - score) * 0.55))),
+    };
+  }, [latestDecision, riskPolicy.level]);
+
+  useEffect(() => {
+    if (!tradeFlash) return;
+    const t = setTimeout(() => setTradeFlash(null), 2800);
+    return () => clearTimeout(t);
+  }, [tradeFlash]);
+
   useEffect(() => {
     if (autoExitLockRef.current) return;
     const now = Date.now();
@@ -765,6 +885,98 @@ export default function SimulatorPage() {
     return () => clearTimeout(timer);
   }, [holdingsArray, quoteFor]);
 
+  useEffect(() => {
+    const alerts = Array.isArray(profile?.priceAlerts) ? profile.priceAlerts : [];
+    if (!alerts.length) return;
+    let fired = [];
+    for (const alert of alerts) {
+      if (!alert?.active || Number(alert?.triggeredAt || 0) > 0) continue;
+      const symbol = String(alert.symbol || "").toUpperCase();
+      const key = holdingKey(alert.assetType || "stock", symbol);
+      const px = Number(quotes[key]?.price);
+      const target = Number(alert.target || 0);
+      if (!Number.isFinite(px) || !Number.isFinite(target) || target <= 0) continue;
+      const hit =
+        String(alert.direction || "above") === "below"
+          ? px <= target
+          : px >= target;
+      if (hit) fired.push({ id: alert.id, symbol, px, target, direction: alert.direction || "above" });
+    }
+    if (!fired.length) return;
+    const stamp = Date.now();
+    setProfile((prev) => {
+      const nextAlerts = (prev.priceAlerts || []).map((a) =>
+        fired.some((f) => f.id === a.id) ? { ...a, triggeredAt: stamp } : a
+      );
+      return { ...prev, priceAlerts: nextAlerts };
+    });
+    const first = fired[0];
+    setTradeFlash({
+      tone: "amber",
+      title: "Price Alert Triggered",
+      body: `${first.symbol} ${first.direction === "below" ? "fell to" : "reached"} ${fmtMoney(first.px)} (target ${fmtMoney(first.target)}).`,
+    });
+  }, [quotes, profile?.priceAlerts]);
+
+  const addPriceAlert = () => {
+    const symbol = String(alertSymbolInput || "").trim().toUpperCase();
+    const target = Number(alertTargetInput || 0);
+    if (!symbol || !Number.isFinite(target) || target <= 0) return;
+    const assetType = CRYPTO_SYMBOL_TO_ID[symbol] ? "crypto" : "stock";
+    const row = {
+      id: `alert-${Date.now()}-${symbol}`,
+      symbol,
+      assetType,
+      direction: alertDirection === "below" ? "below" : "above",
+      target,
+      active: true,
+      triggeredAt: 0,
+      createdAt: Date.now(),
+    };
+    setProfile((prev) => ({ ...prev, priceAlerts: [row, ...(prev.priceAlerts || [])].slice(0, 50) }));
+    setAlertTargetInput("");
+  };
+
+  const addDcaPlan = () => {
+    const symbol = String(dcaSymbolInput || "").trim().toUpperCase();
+    const amount = Number(dcaAmountInput || 0);
+    if (!symbol || !Number.isFinite(amount) || amount <= 0) return;
+    const assetType = CRYPTO_SYMBOL_TO_ID[symbol] ? "crypto" : "stock";
+    const row = {
+      id: `dca-${Date.now()}-${symbol}`,
+      symbol,
+      assetType,
+      amountUsd: amount,
+      interval: dcaInterval,
+      active: true,
+      nextRunAt: nextDcaRun(dcaInterval, Date.now()),
+      createdAt: Date.now(),
+    };
+    setProfile((prev) => ({ ...prev, dcaPlans: [row, ...(prev.dcaPlans || [])].slice(0, 30) }));
+  };
+
+  const askAstra = async (question) => {
+    const q = String(question || askInput || "").trim();
+    if (!q || askLoading) return;
+    setAskInput("");
+    setAskMessages((prev) => [...prev, { role: "user", text: q }].slice(-MAX_CHAT_MESSAGES));
+    setAskLoading(true);
+    try {
+      const market = selectedAssetType === "crypto" ? "crypto" : "stock";
+      const res = await fetch(
+        `/api/ai?mode=chat&market=${market}&symbol=${encodeURIComponent(selectedTicker || "SPY")}&question=${encodeURIComponent(q)}`,
+        { cache: "no-store" }
+      );
+      const data = await res.json().catch(() => ({}));
+      const answer = String(data?.answer || data?.raw || data?.message || "No answer right now. Try again.");
+      setAskMessages((prev) => [...prev, { role: "assistant", text: answer }].slice(-MAX_CHAT_MESSAGES));
+    } catch {
+      setAskMessages((prev) => [...prev, { role: "assistant", text: "Connection issue while reaching ASTRA. Please retry." }].slice(-MAX_CHAT_MESSAGES));
+    } finally {
+      setAskLoading(false);
+    }
+  };
+
   const getSpyCloseAt = useCallback(
     (ts) => {
       if (!spyHistory.length) return null;
@@ -821,6 +1033,35 @@ export default function SimulatorPage() {
   const manualPolyline = toPolyline(manualLinePoints);
   const autoPolyline = toPolyline(autoLinePoints);
   const spyPolyline = toPolyline(spyLinePoints);
+  const chartSeriesValues = useMemo(
+    () =>
+      [...portfolioLinePoints, ...manualLinePoints, ...autoLinePoints, ...spyLinePoints]
+        .map((p) => Number(p.value))
+        .filter((v) => Number.isFinite(v)),
+    [portfolioLinePoints, manualLinePoints, autoLinePoints, spyLinePoints]
+  );
+  const chartMin = chartSeriesValues.length ? Math.min(...chartSeriesValues) : 0;
+  const chartMax = chartSeriesValues.length ? Math.max(...chartSeriesValues) : 1;
+  const chartPad = 18;
+  const chartW = 820;
+  const chartH = 240;
+  const hoverPoint = useMemo(() => {
+    if (!Number.isInteger(chartHoverIndex) || chartHoverIndex < 0 || chartHoverIndex >= portfolioLinePoints.length) return null;
+    const p = portfolioLinePoints[chartHoverIndex];
+    if (!p) return null;
+    const minTs = Math.min(...portfolioLinePoints.map((x) => Number(x.ts)));
+    const maxTs = Math.max(...portfolioLinePoints.map((x) => Number(x.ts)));
+    const tSpan = Math.max(1, maxTs - minTs);
+    const ySpan = Math.max(1, chartMax - chartMin);
+    const x = chartPad + ((Number(p.ts) - minTs) / tSpan) * (chartW - chartPad * 2);
+    const y = chartPad + (1 - (Number(p.value) - chartMin) / ySpan) * (chartH - chartPad * 2);
+    return {
+      ...p,
+      x,
+      y,
+      label: new Date(Number(p.ts)).toLocaleDateString(),
+    };
+  }, [chartHoverIndex, portfolioLinePoints, chartMax, chartMin]);
 
   const portfolioRiskScore = useMemo(() => {
     const total = holdingsMarketValue;
@@ -1097,6 +1338,63 @@ export default function SimulatorPage() {
     };
   }, [quotes, riskPolicy]);
 
+  useEffect(() => {
+    const plans = Array.isArray(profile?.dcaPlans) ? profile.dcaPlans : [];
+    if (!plans.length) return;
+    const now = Date.now();
+    const due = plans.filter((p) => p?.active && Number(p?.nextRunAt || 0) <= now);
+    if (!due.length) return;
+    let message = "";
+    setProfile((prev) => {
+      let draft = { ...prev };
+      let executedCount = 0;
+      const nextPlans = (prev.dcaPlans || []).map((plan) => {
+        const dueNow = due.find((d) => d.id === plan.id);
+        if (!dueNow) return plan;
+        const symbol = String(plan.symbol || "").toUpperCase();
+        const assetType = normalizeAssetType(plan.assetType);
+        const px = Number(quotes[holdingKey(assetType, symbol)]?.price);
+        const amount = Number(plan.amountUsd || 0);
+        if (!Number.isFinite(px) || px <= 0 || !Number.isFinite(amount) || amount <= 0) {
+          return { ...plan, nextRunAt: nextDcaRun(plan.interval, now) };
+        }
+        const allocationPct = portfolioTotal > 0 ? (amount / portfolioTotal) * 100 : 1;
+        const decision = {
+          action: "BUY",
+          ticker: symbol,
+          assetType,
+          confidence: 72,
+          strategy: "momentum",
+          entry_price: px,
+          allocation_pct: Math.max(0.2, allocationPct),
+          reasoning: `DCA recurring buy (${plan.interval}) for ${symbol}.`,
+          lesson: "Dollar-cost averaging builds exposure gradually and reduces timing risk.",
+        };
+        const applied = applySingleTrade(draft, decision);
+        if (applied?.executed?.action === "BUY") {
+          draft = applied.profile;
+          executedCount += 1;
+        }
+        return { ...plan, nextRunAt: nextDcaRun(plan.interval, now) };
+      });
+      if (executedCount > 0) {
+        const holdingsValue = Object.values(draft.holdings || {}).reduce((sum, h) => {
+          const live = Number(quotes[holdingKey(h?.assetType, h?.symbol)]?.price);
+          const usePx = Number.isFinite(live) && live > 0 ? live : Number(h?.avgBuy || 0);
+          return sum + usePx * Number(h?.shares || 0);
+        }, 0);
+        draft = appendModeSnapshot(draft, Number(draft.cash || 0) + holdingsValue, "manual");
+      }
+      draft.dcaPlans = nextPlans;
+      message = executedCount > 0 ? `DCA executed ${executedCount} recurring buy${executedCount > 1 ? "s" : ""}.` : "";
+      return draft;
+    });
+    if (message) {
+      setTradeMessage(message);
+      setTradeFlash({ tone: "green", title: "DCA Executed", body: message });
+    }
+  }, [nowTick, profile?.dcaPlans, quotes, applySingleTrade, appendModeSnapshot, portfolioTotal]);
+
   const runAutoPilotCycle = useCallback(async () => {
     if (!autoPilotEnabled || autoRunning) return;
     setAutoRunning(true);
@@ -1162,6 +1460,9 @@ export default function SimulatorPage() {
           takeProfit: Number(decision?.take_profit || decision?.takeProfit || 0),
           strategy: String(decision?.strategy || "").toLowerCase(),
           holdDays: Number(decision?.holdDays || 0),
+          bullThesis: String(decision?.bull_thesis || decision?.bullThesis || ""),
+          bearThesis: String(decision?.bear_thesis || decision?.bearThesis || ""),
+          researchSummary: String(decision?.research_summary || decision?.researchSummary || ""),
         };
         decisionLogEntries.push(logEntry);
         if (executed.action === "BUY" || executed.action === "SELL") didTrade = true;
@@ -1192,6 +1493,11 @@ export default function SimulatorPage() {
         const first = decisionLogEntries[0];
         const units = normalizeAssetType(first.assetType) === "crypto" ? first.symbol : "shares";
         setAutoMessage(`ASTRA ${first.action} ${first.symbol} (${first.shares.toFixed(normalizeAssetType(first.assetType) === "crypto" ? 6 : 3)} ${units}).`);
+        setTradeFlash({
+          tone: first.action === "BUY" ? "green" : first.action === "SELL" ? "red" : "amber",
+          title: `ASTRA ${first.action}`,
+          body: `${first.symbol} • ${first.confidence || 0}% confidence • ${first.risk || "MEDIUM"} risk`,
+        });
       } else if (!didTrade) {
         setAutoMessage("ASTRA reviewed the market and held positions.");
       }
@@ -1432,6 +1738,11 @@ export default function SimulatorPage() {
           assetType === "stock" && !nyse.open ? " — Market Closed: using last close price." : ""
         }`
       );
+      setTradeFlash({
+        tone: tradeMode === "BUY" ? "green" : "red",
+        title: `${tradeMode} Executed`,
+        body: `${tradeMode} ${symbol} at ${fmtMoney(px)} (${fmtMoney(value)}).`,
+      });
       try {
         const [vixRes, dxyRes] = await Promise.all([
           fetch("/api/quote?symbol=%5EVIX", { cache: "no-store" }),
@@ -1620,6 +1931,23 @@ export default function SimulatorPage() {
               </div>
             </div>
           )}
+        </div>
+
+        <div className={`mb-4 rounded-xl border overflow-hidden ${isLight ? "border-slate-200 bg-white/90" : "border-white/12 bg-[#0d1117]/90"}`}>
+          <div className={`px-3 py-1 text-[10px] uppercase tracking-[0.18em] border-b ${isLight ? "text-slate-500 border-slate-200 bg-slate-50" : "text-white/60 border-white/10 bg-white/[0.03]"}`}>
+            Live Ticker Tape
+          </div>
+          <div className="sim-ticker-tape">
+            <div className="sim-ticker-track">
+              {[...tickerTapeItems, ...tickerTapeItems].map((item, idx) => (
+                <span key={`${item.symbol}-${idx}`} className="sim-ticker-chip">
+                  <span className="font-semibold">{item.symbol}</span>
+                  <span>{Number.isFinite(item.price) && item.price > 0 ? fmtMoney(item.price) : "—"}</span>
+                  <span className={Number(item.pct || 0) >= 0 ? "text-emerald-500" : "text-rose-500"}>{fmtPct(item.pct)}</span>
+                </span>
+              ))}
+            </div>
+          </div>
         </div>
 
         <section className={`${cardClass} mb-6`}>
@@ -1836,7 +2164,7 @@ export default function SimulatorPage() {
                     </div>
                   </div>
                   {(profile?.autoPilot?.decisionLog || []).slice(0, 30).map((d) => (
-                    <article key={d.id} className={`sim-decision rounded-lg border p-3 ${
+                    <article key={d.id} className={`sim-decision sim-decision-${String(d.action || "HOLD").toLowerCase()} rounded-lg border p-3 ${
                       d.action === "BUY"
                         ? isLight ? "border-emerald-200 bg-white" : "border-emerald-400/20 bg-white/[0.03]"
                         : d.action === "SELL"
@@ -1949,6 +2277,92 @@ export default function SimulatorPage() {
                 <div className={`mt-3 text-xs ${isLight ? "text-slate-700" : "text-white/80"}`}>Portfolio risk score: <span className="font-semibold">{portfolioRiskScore}</span></div>
                 <div className={`mt-2 text-xs ${isLight ? "text-slate-700" : "text-white/80"}`}>{profile?.autoPilot?.outlook || "ASTRA outlook will populate after first decision run."}</div>
                 <div className={`mt-2 text-xs ${isLight ? "text-slate-500" : "text-white/60"}`}>Next scheduled decision: {profile?.autoPilot?.nextDecisionAt ? new Date(Number(profile.autoPilot.nextDecisionAt)).toLocaleString() : "Not scheduled"}</div>
+
+                <div className={`mt-3 rounded-md border p-2.5 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/[0.02]"}`}>
+                  <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-500" : "text-white/60"}`}>ASTRA Analysis Panel</div>
+                  {latestDecisionResearch ? (
+                    <div className="mt-2 space-y-2 text-xs">
+                      <div className={isLight ? "text-slate-700" : "text-white/80"}>{latestDecisionResearch.summary}</div>
+                      <div className="rounded-md border border-emerald-300/40 bg-emerald-500/10 px-2 py-1.5">
+                        <div className="font-semibold text-emerald-500">Bull Thesis</div>
+                        <div className={isLight ? "text-slate-700" : "text-white/80"}>{latestDecisionResearch.bull}</div>
+                      </div>
+                      <div className="rounded-md border border-rose-300/40 bg-rose-500/10 px-2 py-1.5">
+                        <div className="font-semibold text-rose-500">Bear Thesis</div>
+                        <div className={isLight ? "text-slate-700" : "text-white/80"}>{latestDecisionResearch.bear}</div>
+                      </div>
+                      <div>
+                        <div className={`flex items-center justify-between text-[11px] ${isLight ? "text-slate-600" : "text-white/65"}`}>
+                          <span>Risk score</span>
+                          <span className="font-semibold">{latestDecisionResearch.riskScore}/100</span>
+                        </div>
+                        <div className={`mt-1 h-1.5 rounded-full overflow-hidden ${isLight ? "bg-slate-200" : "bg-white/10"}`}>
+                          <div
+                            className="h-full rounded-full"
+                            style={{
+                              width: `${Math.max(3, Math.min(100, latestDecisionResearch.riskScore))}%`,
+                              background: latestDecisionResearch.riskScore >= 70 ? "#ef4444" : latestDecisionResearch.riskScore >= 45 ? "#f59e0b" : "#22c55e",
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className={`mt-2 text-xs ${isLight ? "text-slate-500" : "text-white/60"}`}>Run Auto-Pilot to generate ASTRA research context.</div>
+                  )}
+                </div>
+
+                <div className={`mt-3 rounded-md border p-2.5 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/[0.02]"}`}>
+                  <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-500" : "text-white/60"}`}>Ask ASTRA</div>
+                  <div className="mt-2 max-h-44 overflow-y-auto space-y-1 pr-1">
+                    {askMessages.slice(-8).map((m, idx) => (
+                      <div
+                        key={`ask-${idx}`}
+                        className={`rounded-md border px-2 py-1.5 text-xs ${
+                          m.role === "user"
+                            ? isLight
+                              ? "border-blue-300 bg-blue-50 text-blue-800"
+                              : "border-blue-400/35 bg-blue-500/15 text-blue-100"
+                            : isLight
+                              ? "border-slate-200 bg-slate-50 text-slate-700"
+                              : "border-white/10 bg-white/[0.03] text-white/80"
+                        }`}
+                      >
+                        {m.text}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {[
+                      `What is the key risk in ${selectedTicker || "SPY"} today?`,
+                      "Should I reduce concentration risk?",
+                      "Summarize my current portfolio in 3 bullets.",
+                    ].map((q) => (
+                      <button
+                        key={q}
+                        onClick={() => askAstra(q)}
+                        className={`rounded-md border px-2 py-1 text-[10px] ${isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/15 bg-white/10 text-white/80"}`}
+                      >
+                        {q}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="mt-2 flex gap-1.5">
+                    <input
+                      value={askInput}
+                      onChange={(e) => setAskInput(e.target.value)}
+                      placeholder="Ask ASTRA..."
+                      className={`w-full rounded-md border px-2 py-1.5 text-xs ${isLight ? "border-slate-300 bg-white text-slate-800" : "border-white/15 bg-white/10 text-white"}`}
+                    />
+                    <button
+                      onClick={() => askAstra(askInput)}
+                      disabled={askLoading}
+                      className="rounded-md bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-2.5 py-1.5 disabled:opacity-50"
+                    >
+                      {askLoading ? "..." : "Ask"}
+                    </button>
+                  </div>
+                </div>
               </aside>
             </div>
           </section>
@@ -1998,6 +2412,12 @@ export default function SimulatorPage() {
               {isCryptoTrader && <div className="text-[11px] mt-1 text-violet-500 font-semibold">Crypto Trader</div>}
             </div>
             <div className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/[0.03]"}`}>
+              <div className={`text-[11px] ${isLight ? "text-slate-500" : "text-white/60"}`}>Unrealized P&L</div>
+              <div className={`text-lg font-semibold ${unrealizedPnL >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
+                {fmtMoney(unrealizedPnL)}
+              </div>
+            </div>
+            <div className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/[0.03]"}`}>
               <div className={`text-[11px] ${isLight ? "text-slate-500" : "text-white/60"}`}>ASTRA Risk Score</div>
               <div className="text-lg font-semibold">{portfolioRiskScore}</div>
             </div>
@@ -2044,6 +2464,7 @@ export default function SimulatorPage() {
                     <th className="py-2 pr-2">Current</th>
                     <th className="py-2 pr-2">Total Value</th>
                     <th className="py-2 pr-2">Gain/Loss</th>
+                    <th className="py-2 pr-2">Risk Meter</th>
                     <th className="py-2 pr-2">Deep Research</th>
                     <th className="py-2 pr-2">Sell</th>
                   </tr>
@@ -2056,6 +2477,10 @@ export default function SimulatorPage() {
                     const cost = Number(h.avgBuy || 0) * h.shares;
                     const pnl = total - cost;
                     const pnlPct = cost > 0 ? (pnl / cost) * 100 : 0;
+                    const weightPct = portfolioTotal > 0 ? (total / portfolioTotal) * 100 : 0;
+                    const stopLoss = Number(h?.stopLoss || 0);
+                    const stopDistancePct = Number.isFinite(stopLoss) && stopLoss > 0 && px > 0 ? Math.max(0, (1 - stopLoss / px) * 100) : 8;
+                    const positionRisk = Math.max(4, Math.min(100, Math.round(stopDistancePct * 5 + weightPct * 1.2)));
                     return (
                       <tr key={holdingKey(h.assetType, h.symbol)} className={isLight ? "border-b border-slate-100" : "border-b border-white/5"}>
                         <td className="py-2 pr-2 font-semibold">{h.symbol}</td>
@@ -2083,6 +2508,20 @@ export default function SimulatorPage() {
                         <td className="py-2 pr-2">{fmtMoney(total)}</td>
                         <td className={`py-2 pr-2 ${pnl >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
                           {fmtMoney(pnl)} ({fmtPct(pnlPct)})
+                        </td>
+                        <td className="py-2 pr-2 min-w-[160px]">
+                          <div className={`text-[10px] mb-1 ${isLight ? "text-slate-600" : "text-white/65"}`}>
+                            {positionRisk}/100 • wt {weightPct.toFixed(1)}%
+                          </div>
+                          <div className={`h-1.5 rounded-full overflow-hidden ${isLight ? "bg-slate-200" : "bg-white/10"}`}>
+                            <div
+                              className="h-full rounded-full"
+                              style={{
+                                width: `${positionRisk}%`,
+                                background: positionRisk >= 70 ? "#ef4444" : positionRisk >= 45 ? "#f59e0b" : "#22c55e",
+                              }}
+                            />
+                          </div>
                         </td>
                         <td className="py-2 pr-2">
                           <button
@@ -2296,6 +2735,85 @@ export default function SimulatorPage() {
               <div className={`mt-3 text-xs ${isLight ? "text-slate-600" : "text-white/70"}`}>
                 Weekly summary: Portfolio {fmtPct(portfolioReturnFor(7))} vs S&P 500 {fmtPct(spyReturnFor(7))}.
               </div>
+
+              <div className={`mt-3 rounded-lg border p-2.5 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/[0.03]"}`}>
+                <div className={`text-[11px] uppercase tracking-wide mb-2 ${isLight ? "text-slate-500" : "text-white/60"}`}>Price Alerts</div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+                  <input
+                    value={alertSymbolInput}
+                    onChange={(e) => setAlertSymbolInput(e.target.value.toUpperCase())}
+                    placeholder="Ticker"
+                    className={`px-2 py-1.5 rounded-md border text-xs ${isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/15 bg-white/10 text-white"}`}
+                  />
+                  <select
+                    value={alertDirection}
+                    onChange={(e) => setAlertDirection(e.target.value)}
+                    className={`px-2 py-1.5 rounded-md border text-xs ${isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/15 bg-white/10 text-white"}`}
+                  >
+                    <option value="above">Above</option>
+                    <option value="below">Below</option>
+                  </select>
+                  <input
+                    value={alertTargetInput}
+                    onChange={(e) => setAlertTargetInput(e.target.value)}
+                    placeholder="Target price"
+                    className={`px-2 py-1.5 rounded-md border text-xs ${isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/15 bg-white/10 text-white"}`}
+                  />
+                </div>
+                <button onClick={addPriceAlert} className="mt-2 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-2.5 py-1.5">
+                  Add Alert
+                </button>
+                <div className="mt-2 space-y-1 max-h-28 overflow-y-auto pr-1">
+                  {(profile.priceAlerts || []).slice(0, 8).map((a) => (
+                    <div key={a.id} className={`rounded-md border px-2 py-1 text-[11px] flex items-center justify-between ${isLight ? "border-slate-200 bg-slate-50 text-slate-700" : "border-white/10 bg-white/[0.02] text-white/80"}`}>
+                      <span>{a.symbol} {a.direction === "below" ? "≤" : "≥"} {fmtMoney(a.target)}</span>
+                      <span className={a.triggeredAt ? "text-amber-500" : a.active ? "text-emerald-500" : "text-slate-500"}>
+                        {a.triggeredAt ? "hit" : a.active ? "active" : "off"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className={`mt-3 rounded-lg border p-2.5 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/[0.03]"}`}>
+                <div className={`text-[11px] uppercase tracking-wide mb-2 ${isLight ? "text-slate-500" : "text-white/60"}`}>Dollar-Cost Averaging</div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+                  <input
+                    value={dcaSymbolInput}
+                    onChange={(e) => setDcaSymbolInput(e.target.value.toUpperCase())}
+                    placeholder="Ticker"
+                    className={`px-2 py-1.5 rounded-md border text-xs ${isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/15 bg-white/10 text-white"}`}
+                  />
+                  <input
+                    value={dcaAmountInput}
+                    onChange={(e) => setDcaAmountInput(e.target.value)}
+                    placeholder="USD amount"
+                    className={`px-2 py-1.5 rounded-md border text-xs ${isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/15 bg-white/10 text-white"}`}
+                  />
+                  <select
+                    value={dcaInterval}
+                    onChange={(e) => setDcaInterval(e.target.value)}
+                    className={`px-2 py-1.5 rounded-md border text-xs ${isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/15 bg-white/10 text-white"}`}
+                  >
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                  </select>
+                </div>
+                <button onClick={addDcaPlan} className="mt-2 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-2.5 py-1.5">
+                  Add DCA Plan
+                </button>
+                <div className="mt-2 space-y-1 max-h-28 overflow-y-auto pr-1">
+                  {(profile.dcaPlans || []).slice(0, 8).map((p) => (
+                    <div key={p.id} className={`rounded-md border px-2 py-1 text-[11px] flex items-center justify-between ${isLight ? "border-slate-200 bg-slate-50 text-slate-700" : "border-white/10 bg-white/[0.02] text-white/80"}`}>
+                      <span>{p.symbol} • {fmtMoney(p.amountUsd)} • {p.interval}</span>
+                      <span className={p.active ? "text-emerald-500" : "text-slate-500"}>
+                        {p.active ? "active" : "off"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -2316,12 +2834,58 @@ export default function SimulatorPage() {
             </div>
           </div>
           <div className={`rounded-lg border p-2 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-slate-900/50"}`}>
-            <svg viewBox="0 0 820 240" className="w-full h-[240px]">
+            <svg
+              viewBox="0 0 820 240"
+              className="w-full h-[240px]"
+              onMouseMove={(e) => {
+                if (!portfolioLinePoints.length) return;
+                const rect = e.currentTarget.getBoundingClientRect();
+                const relX = ((e.clientX - rect.left) / Math.max(1, rect.width)) * chartW;
+                const minTs = Math.min(...portfolioLinePoints.map((x) => Number(x.ts)));
+                const maxTs = Math.max(...portfolioLinePoints.map((x) => Number(x.ts)));
+                const tSpan = Math.max(1, maxTs - minTs);
+                const ts = minTs + ((relX - chartPad) / Math.max(1, chartW - chartPad * 2)) * tSpan;
+                let nearest = 0;
+                let best = Number.POSITIVE_INFINITY;
+                for (let i = 0; i < portfolioLinePoints.length; i += 1) {
+                  const d = Math.abs(Number(portfolioLinePoints[i].ts) - ts);
+                  if (d < best) {
+                    best = d;
+                    nearest = i;
+                  }
+                }
+                setChartHoverIndex(nearest);
+              }}
+              onMouseLeave={() => setChartHoverIndex(null)}
+            >
+              {[0, 1, 2, 3, 4].map((tick) => {
+                const y = chartPad + ((chartH - chartPad * 2) * tick) / 4;
+                const val = chartMax - ((chartMax - chartMin) * tick) / 4;
+                return (
+                  <g key={`y-${tick}`}>
+                    <line x1={chartPad} x2={chartW - chartPad} y1={y} y2={y} stroke={isLight ? "#e2e8f0" : "rgba(255,255,255,0.08)"} strokeWidth="1" />
+                    <text x={4} y={y + 3} fontSize="10" fill={isLight ? "#64748b" : "rgba(255,255,255,0.55)"}>{Math.round(val).toLocaleString()}</text>
+                  </g>
+                );
+              })}
               {spyPolyline && <polyline fill="none" stroke="#94a3b8" strokeWidth="2" points={spyPolyline} />}
               {manualPolyline && <polyline fill="none" stroke="#22c55e" strokeWidth="2.5" points={manualPolyline} />}
               {autoPolyline && <polyline fill="none" stroke="#3b82f6" strokeWidth="2.5" points={autoPolyline} />}
               {!manualPolyline && !autoPolyline && portfolioPolyline && (
                 <polyline fill="none" stroke="#22c55e" strokeWidth="2.5" points={portfolioPolyline} />
+              )}
+              {hoverPoint && (
+                <g>
+                  <line x1={hoverPoint.x} x2={hoverPoint.x} y1={chartPad} y2={chartH - chartPad} stroke={isLight ? "#1e293b" : "rgba(255,255,255,0.35)"} strokeDasharray="4 3" />
+                  <line x1={chartPad} x2={chartW - chartPad} y1={hoverPoint.y} y2={hoverPoint.y} stroke={isLight ? "#1e293b" : "rgba(255,255,255,0.2)"} strokeDasharray="4 3" />
+                  <circle cx={hoverPoint.x} cy={hoverPoint.y} r="4" fill="#f0a500" />
+                  <g transform={`translate(${Math.min(chartW - 220, hoverPoint.x + 10)},${Math.max(12, hoverPoint.y - 34)})`}>
+                    <rect width="205" height="30" rx="6" fill={isLight ? "rgba(15,23,42,0.92)" : "rgba(2,6,23,0.9)"} />
+                    <text x="8" y="12" fontSize="10" fill="#e2e8f0">{hoverPoint.label}</text>
+                    <text x="8" y="24" fontSize="11" fill="#f0a500">Portfolio: {fmtMoney(hoverPoint.value)}</text>
+                    <text x="140" y="24" fontSize="10" fill="#94a3b8">Vol: n/a</text>
+                  </g>
+                </g>
               )}
             </svg>
           </div>
@@ -2491,6 +3055,15 @@ export default function SimulatorPage() {
           width: 2px;
           background: linear-gradient(180deg, rgba(240, 165, 0, 0.65), rgba(240, 165, 0, 0.08));
         }
+        .sim-pro .sim-decision-buy {
+          box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.12), 0 0 22px rgba(34, 197, 94, 0.08);
+        }
+        .sim-pro .sim-decision-sell {
+          box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.12), 0 0 22px rgba(239, 68, 68, 0.08);
+        }
+        .sim-pro .sim-decision-hold {
+          box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.12), 0 0 22px rgba(245, 158, 11, 0.06);
+        }
         .sim-pro .sim-card button {
           transition: transform 0.15s ease, box-shadow 0.15s ease;
         }
@@ -2509,6 +3082,28 @@ export default function SimulatorPage() {
         }
         .sim-pro .sim-card .text-xs.uppercase {
           letter-spacing: 0.14em;
+        }
+        .sim-pro .sim-ticker-tape {
+          overflow: hidden;
+          white-space: nowrap;
+        }
+        .sim-pro .sim-ticker-track {
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          padding: 8px 10px;
+          animation: simTickerScroll 30s linear infinite;
+          min-width: max-content;
+        }
+        .sim-pro .sim-ticker-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          border-radius: 999px;
+          padding: 4px 10px;
+          border: 1px solid rgba(148, 163, 184, 0.35);
+          background: rgba(255, 255, 255, 0.03);
+          font-size: 11px;
         }
         .sim-pro .sim-trade-shell,
         .sim-pro .sim-tx-shell {
@@ -2545,7 +3140,45 @@ export default function SimulatorPage() {
         .sim-pro .sim-tx-table tbody tr:hover {
           background: rgba(240, 165, 0, 0.08);
         }
+        .sim-pro .sim-flash {
+          position: fixed;
+          right: 18px;
+          bottom: 18px;
+          z-index: 80;
+          min-width: 260px;
+          border-radius: 12px;
+          padding: 10px 12px;
+          border: 1px solid rgba(255, 255, 255, 0.18);
+          background: rgba(2, 6, 23, 0.92);
+          color: #f8fafc;
+          box-shadow: 0 12px 30px rgba(2, 6, 23, 0.4);
+          animation: simPopIn 0.35s ease;
+        }
+        .sim-pro .sim-flash.green {
+          border-color: rgba(34, 197, 94, 0.45);
+        }
+        .sim-pro .sim-flash.red {
+          border-color: rgba(239, 68, 68, 0.45);
+        }
+        .sim-pro .sim-flash.amber {
+          border-color: rgba(245, 158, 11, 0.45);
+        }
+        @keyframes simTickerScroll {
+          from { transform: translateX(0); }
+          to { transform: translateX(-50%); }
+        }
+        @keyframes simPopIn {
+          from { opacity: 0; transform: translateY(12px) scale(0.98); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
       `}</style>
+
+      {tradeFlash && (
+        <div className={`sim-flash ${tradeFlash.tone || "amber"}`}>
+          <div className="text-[11px] uppercase tracking-[0.14em] opacity-80">{tradeFlash.title || "Update"}</div>
+          <div className="mt-1 text-sm">{tradeFlash.body || ""}</div>
+        </div>
+      )}
 
 
       {deepResearchOpen && (
