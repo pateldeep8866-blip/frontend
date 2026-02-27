@@ -1190,13 +1190,31 @@ export async function POST(req) {
     const scoredCandidates = scoredCandidatesRaw.sort((a, b) => Number(b.total || 0) - Number(a.total || 0));
     const topCandidates = scoredCandidates.slice(0, 5);
 
-    const marketRegime = quantResult?.regime ||
-      (Number(macro.vix) < 15 ? "risk_on" :
-       Number(macro.vix) < 20 ? "neutral" : "risk_off");
+    const vixRegimeRaw = String(macro?.vixRegime || "").toUpperCase();
+    const marketRegime =
+      vixRegimeRaw === "RISK_ON"
+        ? "risk_on"
+        : vixRegimeRaw === "NEUTRAL"
+          ? "neutral"
+          : vixRegimeRaw === "CAUTION"
+            ? "caution"
+            : vixRegimeRaw === "FEAR" || vixRegimeRaw === "RISK_OFF"
+              ? "risk_off"
+              : (quantResult?.regime ||
+                (Number(macro.vix) < 15 ? "risk_on" :
+                 Number(macro.vix) < 20 ? "neutral" :
+                 Number(macro.vix) <= 25 ? "caution" : "risk_off"));
     const stockCoverage =
       candidateStocks.length > 0 ? candidateStockQuotes.length / candidateStocks.length : 0;
+    const cryptoCoverage =
+      candidateCryptos.length > 0 ? candidateCryptoQuotes.length / candidateCryptos.length : 0;
     const severeDrawdown = drawdownPct <= -15;
-    const weakDataMode = !quantLabConnected && stockCoverage < 0.25;
+    const scoredCoverage = candidates.length > 0 ? scoredCandidatesRaw.length / candidates.length : 0;
+    const weakDataMode =
+      !quantLabConnected &&
+      stockCoverage < 0.25 &&
+      cryptoCoverage < 0.25 &&
+      scoredCoverage < 0.35;
     const capitalPreservationMode = severeDrawdown || weakDataMode;
     const allowNewBuysBase =
       !dailyKillSwitchTriggered &&
@@ -1591,6 +1609,7 @@ export async function POST(req) {
               ...d,
               action: "HOLD",
               shares: 0,
+              composite_score: Math.max(35, Number(d?.composite_score || d?.score || 0)),
               reasoning:
                 "Capital-preservation mode is active due to drawdown or weak data quality. ASTRA is pausing new buys until conditions improve.",
               confidence: Math.max(60, Number(d?.confidence || 0)),
@@ -1745,8 +1764,14 @@ export async function POST(req) {
     const publicDecisions = decisions.map((d) => ({
       action: String(d?.action || "HOLD").toUpperCase(),
       ticker: String(d?.ticker || "").toUpperCase(),
+      assetType: normalizeAssetType(d?.assetType),
+      cryptoId: String(d?.cryptoId || ""),
       shares: Number(d?.shares || 0),
       price: Number(d?.entry_price || 0),
+      composite_score: Number(d?.composite_score ?? d?.score ?? 0),
+      score: Number(d?.composite_score ?? d?.score ?? 0),
+      quant_signal: String(d?.quant_signal || "NEUTRAL"),
+      quant_breakdown: d?.quant_breakdown || null,
       reasoning: sanitizePublicReasoning(d?.reasoning, d?.entry_price, d?.stop_loss, d?.take_profit),
       confidence: Math.max(0, Math.min(100, Number(d?.confidence || 0))),
       risk: String(d?.risk || "MEDIUM").toUpperCase(),
