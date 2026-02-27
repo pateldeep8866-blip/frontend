@@ -27,6 +27,7 @@ const LEADERBOARD_FILTERS = [
   { key: "month", label: "This Month" },
   { key: "week", label: "This Week" },
 ];
+const SHOW_LEADERBOARD = false;
 const CHART_FILTERS = [
   { key: "1D", label: "1D" },
   { key: "1W", label: "1W" },
@@ -307,6 +308,7 @@ export default function SimulatorPage() {
   const [riskLevel, setRiskLevel] = useState("MODERATE");
   const [customRisk, setCustomRisk] = useState({ maxPositionPct: 0.12, maxCryptoPct: 0.1, minCashReservePct: 0.1, target: "Custom" });
   const [tradingStyle, setTradingStyle] = useState("swing");
+  const [thinkStepIndex, setThinkStepIndex] = useState(0);
   const autoExitLockRef = useRef(false);
 
   const isCherry = theme === "cherry";
@@ -316,13 +318,13 @@ export default function SimulatorPage() {
   const pageClass = isCherry
     ? "cherry-mode min-h-screen relative overflow-hidden bg-[#fffefc] text-[#3a2530]"
     : isAzula
-      ? "azula-mode min-h-screen relative overflow-hidden bg-[#f4f7fb] text-slate-900"
+      ? "azula-mode min-h-screen relative overflow-hidden bg-[#09090b] text-[#e7e1c5]"
       : isLight
-        ? "min-h-screen relative overflow-hidden bg-gradient-to-br from-white via-blue-50 to-cyan-50 text-slate-900"
-        : "min-h-screen relative overflow-hidden bg-slate-950 text-white";
+        ? "light-mode min-h-screen relative overflow-hidden bg-[#fbfdff] text-slate-900"
+        : "dark-mode min-h-screen relative overflow-hidden bg-slate-950 text-white";
   const cardClass = isLight
-    ? "sim-card rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-[0_10px_28px_rgba(15,23,42,0.08)]"
-    : "sim-card rounded-2xl border border-white/12 bg-slate-900/55 p-5";
+    ? "sim-card app-card rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-[0_10px_28px_rgba(15,23,42,0.08)]"
+    : "sim-card app-card rounded-2xl border border-white/12 bg-slate-900/55 p-5";
   const riskPolicy = useMemo(() => resolveRiskPolicy(riskLevel, customRisk), [riskLevel, customRisk]);
   const agentProvider = useMemo(() => {
     const raw = String(profile?.autoPilot?.agentState?.provider || "");
@@ -339,6 +341,17 @@ export default function SimulatorPage() {
     "Validating risk",
     "Executing plan",
   ];
+
+  useEffect(() => {
+    if (!autoRunning) {
+      setThinkStepIndex(0);
+      return;
+    }
+    const timer = setInterval(() => {
+      setThinkStepIndex((prev) => (prev + 1) % THINK_STEPS.length);
+    }, 700);
+    return () => clearInterval(timer);
+  }, [autoRunning, THINK_STEPS.length]);
 
   useEffect(() => {
     try {
@@ -1497,51 +1510,8 @@ export default function SimulatorPage() {
   return (
     <div className={`${pageClass} sim-pro ${simMono.className}`}>
       <div className="relative z-10 mx-auto w-full max-w-7xl px-6 py-8 md:py-10">
-        <div className={`mb-4 rounded-xl border overflow-hidden ${isLight ? "border-slate-200 bg-white/90" : "border-white/12 bg-[#0d1117]/90"}`}>
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-px bg-black/5">
-            <div className={`px-3 py-2 ${isLight ? "bg-white" : "bg-[#121821]"}`}>
-              <div className={`text-[9px] tracking-[0.16em] uppercase ${isLight ? "text-slate-500" : "text-white/45"}`}>Portfolio</div>
-              <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{fmtMoney(portfolioTotal)}</div>
-            </div>
-            <div className={`px-3 py-2 ${isLight ? "bg-white" : "bg-[#121821]"}`}>
-              <div className={`text-[9px] tracking-[0.16em] uppercase ${isLight ? "text-slate-500" : "text-white/45"}`}>Return</div>
-              <div className={`text-sm font-semibold ${totalReturnPct >= 0 ? "text-emerald-500" : "text-rose-500"}`}>{fmtPct(totalReturnPct)}</div>
-            </div>
-            <div className={`px-3 py-2 ${isLight ? "bg-white" : "bg-[#121821]"}`}>
-              <div className={`text-[9px] tracking-[0.16em] uppercase ${isLight ? "text-slate-500" : "text-white/45"}`}>Provider</div>
-              <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-[#f0a500]"}`}>{agentProvider}</div>
-            </div>
-            <div className={`px-3 py-2 ${isLight ? "bg-white" : "bg-[#121821]"}`}>
-              <div className={`text-[9px] tracking-[0.16em] uppercase ${isLight ? "text-slate-500" : "text-white/45"}`}>Scanned</div>
-              <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{scannedInstruments}</div>
-            </div>
-            <div className={`px-3 py-2 ${isLight ? "bg-white" : "bg-[#121821]"}`}>
-              <div className={`text-[9px] tracking-[0.16em] uppercase ${isLight ? "text-slate-500" : "text-white/45"}`}>Regime</div>
-              <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-[#f0a500]"}`}>{agentRegime}</div>
-            </div>
-            <div className={`px-3 py-2 flex items-end justify-between ${isLight ? "bg-white" : "bg-[#121821]"}`}>
-              <div>
-                <div className={`text-[9px] tracking-[0.16em] uppercase ${isLight ? "text-slate-500" : "text-white/45"}`}>Confidence</div>
-                <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{agentConfidence}%</div>
-              </div>
-              <span className={`h-2 w-2 rounded-full ${autoRunning ? "bg-amber-500 animate-pulse" : autoPilotEnabled ? "bg-emerald-500" : "bg-rose-500"}`} />
-            </div>
-          </div>
-          {autoRunning && (
-            <div className={`px-3 py-1.5 text-[10px] tracking-[0.12em] uppercase border-t ${isLight ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-[#f0a500]/10 text-[#f0a500] border-[#f0a500]/25"}`}>
-              <div className="flex flex-wrap gap-3">
-                <span>ASTRA analyzing</span>
-                {THINK_STEPS.map((step, idx) => (
-                  <span key={step} className={idx < 2 ? (isLight ? "text-emerald-700" : "text-emerald-400") : ""}>
-                    {idx < 2 ? "✓" : "·"} {step}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-center justify-between gap-3 mb-6">
+        <div className={`sticky top-2 z-40 mb-4 rounded-xl border px-3 py-2 backdrop-blur ${isLight ? "border-slate-200 bg-white/95" : "border-white/12 bg-[#0d1117]/90"}`}>
+          <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Link
               href="/"
@@ -1592,6 +1562,64 @@ export default function SimulatorPage() {
             </details>
             <div className={`text-[11px] ${isLight ? "text-slate-500" : "text-white/55"}`}>Learn before you risk capital.</div>
           </div>
+          </div>
+        </div>
+
+        <div className={`mb-4 rounded-xl border overflow-hidden ${isLight ? "border-slate-200 bg-white/90" : "border-white/12 bg-[#0d1117]/90"}`}>
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-px bg-black/5">
+            <div className={`px-3 py-2 ${isLight ? "bg-white" : "bg-[#121821]"}`}>
+              <div className={`text-[9px] tracking-[0.16em] uppercase ${isLight ? "text-slate-500" : "text-white/45"}`}>Portfolio</div>
+              <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{fmtMoney(portfolioTotal)}</div>
+            </div>
+            <div className={`px-3 py-2 ${isLight ? "bg-white" : "bg-[#121821]"}`}>
+              <div className={`text-[9px] tracking-[0.16em] uppercase ${isLight ? "text-slate-500" : "text-white/45"}`}>Return</div>
+              <div className={`text-sm font-semibold ${totalReturnPct >= 0 ? "text-emerald-500" : "text-rose-500"}`}>{fmtPct(totalReturnPct)}</div>
+            </div>
+            <div className={`px-3 py-2 ${isLight ? "bg-white" : "bg-[#121821]"}`}>
+              <div className={`text-[9px] tracking-[0.16em] uppercase ${isLight ? "text-slate-500" : "text-white/45"}`}>Provider</div>
+              <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-[#f0a500]"}`}>{agentProvider}</div>
+            </div>
+            <div className={`px-3 py-2 ${isLight ? "bg-white" : "bg-[#121821]"}`}>
+              <div className={`text-[9px] tracking-[0.16em] uppercase ${isLight ? "text-slate-500" : "text-white/45"}`}>Scanned</div>
+              <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{scannedInstruments}</div>
+            </div>
+            <div className={`px-3 py-2 ${isLight ? "bg-white" : "bg-[#121821]"}`}>
+              <div className={`text-[9px] tracking-[0.16em] uppercase ${isLight ? "text-slate-500" : "text-white/45"}`}>Regime</div>
+              <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-[#f0a500]"}`}>{agentRegime}</div>
+            </div>
+            <div className={`px-3 py-2 flex items-end justify-between ${isLight ? "bg-white" : "bg-[#121821]"}`}>
+              <div>
+                <div className={`text-[9px] tracking-[0.16em] uppercase ${isLight ? "text-slate-500" : "text-white/45"}`}>Confidence</div>
+                <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{agentConfidence}%</div>
+              </div>
+              <span className={`h-2 w-2 rounded-full ${autoRunning ? "bg-amber-500 animate-pulse" : autoPilotEnabled ? "bg-emerald-500" : "bg-rose-500"}`} />
+            </div>
+          </div>
+          {autoRunning && (
+            <div className={`px-3 py-1.5 text-[10px] tracking-[0.12em] uppercase border-t ${isLight ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-[#f0a500]/10 text-[#f0a500] border-[#f0a500]/25"}`}>
+              <div className="flex flex-wrap gap-3">
+                <span>ASTRA analyzing</span>
+                {THINK_STEPS.map((step, idx) => (
+                  <span
+                    key={step}
+                    className={
+                      idx < thinkStepIndex
+                        ? isLight
+                          ? "text-emerald-700"
+                          : "text-emerald-400"
+                        : idx === thinkStepIndex
+                          ? isLight
+                            ? "text-amber-800"
+                            : "text-[#ffd277]"
+                          : ""
+                    }
+                  >
+                    {idx < thinkStepIndex ? "✓" : idx === thinkStepIndex ? "→" : "·"} {step}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <section className={`${cardClass} mb-6`}>
@@ -2361,6 +2389,7 @@ export default function SimulatorPage() {
           </div>
         </section>
 
+        {SHOW_LEADERBOARD && (
         <section className={cardClass}>
           <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
             <h2 className={`text-2xl font-semibold ${isLight ? "text-slate-900" : "text-white"} ${simSerif.className}`}>Leaderboard</h2>
@@ -2409,6 +2438,7 @@ export default function SimulatorPage() {
           </div>
           <div className={`mt-2 text-xs ${isLight ? "text-slate-600" : "text-white/70"}`}>Your current rank: #{selfRank}</div>
         </section>
+        )}
       </div>
 
       <style jsx global>{`
@@ -2425,6 +2455,9 @@ export default function SimulatorPage() {
         .sim-pro .sim-card {
           position: relative;
           overflow: hidden;
+        }
+        .sim-pro:not(.light-mode):not(.cherry-mode):not(.azula-mode) .sim-card {
+          background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.015), rgba(255, 255, 255, 0));
         }
         .sim-pro .sim-card::before {
           content: "";
@@ -2463,6 +2496,19 @@ export default function SimulatorPage() {
         }
         .sim-pro .sim-card button:hover:not(:disabled) {
           transform: translateY(-1px);
+        }
+        .sim-pro .sim-card input:focus,
+        .sim-pro .sim-card select:focus {
+          outline: none;
+          box-shadow: 0 0 0 2px rgba(240, 165, 0, 0.18);
+          border-color: rgba(240, 165, 0, 0.55) !important;
+        }
+        .sim-pro .sim-card h1,
+        .sim-pro .sim-card h2 {
+          letter-spacing: 0.01em;
+        }
+        .sim-pro .sim-card .text-xs.uppercase {
+          letter-spacing: 0.14em;
         }
         .sim-pro .sim-trade-shell,
         .sim-pro .sim-tx-shell {
