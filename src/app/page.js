@@ -3942,6 +3942,40 @@ export default function Home() {
       riskCount,
     };
   }, [globalCountryQuotes.length, globalCountryNews.length, marketsOpenNow, selectedCountryRelationStats]);
+  const globalMacroMap = useMemo(() => {
+    const out = new Map();
+    for (const row of globalMacroRows) out.set(String(row?.key || ""), row);
+    return out;
+  }, [globalMacroRows]);
+  const globalRegime = useMemo(() => {
+    const vix = Number(globalMacroMap.get("vix")?.value);
+    const dxy = Number(globalMacroMap.get("dxy")?.value);
+    const tenYearRaw = Number(globalMacroMap.get("tnx")?.value);
+    const tenYear = Number.isFinite(tenYearRaw) ? tenYearRaw / 10 : null;
+
+    let label = "Neutral";
+    if (Number.isFinite(vix)) {
+      if (vix >= 25) label = "Risk-Off";
+      else if (vix >= 20) label = "Caution";
+      else if (vix <= 15) label = "Risk-On";
+    }
+
+    const summaryParts = [];
+    if (Number.isFinite(vix)) summaryParts.push(`VIX ${vix.toFixed(2)}`);
+    if (Number.isFinite(tenYear)) summaryParts.push(`10Y ${tenYear.toFixed(2)}%`);
+    if (Number.isFinite(dxy)) summaryParts.push(`DXY ${dxy.toFixed(2)}`);
+
+    return {
+      label,
+      summary: summaryParts.length ? summaryParts.join(" • ") : "Macro strip still loading",
+    };
+  }, [globalMacroMap]);
+  const globalSessionHeadline = useMemo(() => {
+    const open = marketsOpenNow.filter((x) => x.isOpen);
+    if (!open.length) return "All major sessions are currently closed.";
+    const names = open.slice(0, 3).map((x) => x.name.split(" (")[0]);
+    return `Open now: ${names.join(", ")}${open.length > 3 ? ` +${open.length - 3} more` : ""}.`;
+  }, [marketsOpenNow]);
   useEffect(() => {
     if (!isGlobalMarketMode) return;
     const key = selectedGlobalCountry.code;
@@ -6229,6 +6263,47 @@ export default function Home() {
                 </button>
               }
             >
+              <div
+                className={`mb-4 rounded-xl border p-3 md:p-4 ${
+                  isLight ? "border-slate-200 bg-slate-50/80" : "border-white/12 bg-white/[0.03]"
+                }`}
+              >
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                  <div className={`rounded-lg border px-3 py-2 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-slate-900/50"}`}>
+                    <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-500" : "text-cyan-200/75"}`}>Global Regime</div>
+                    <div
+                      className={`text-lg font-semibold ${
+                        globalRegime.label === "Risk-On"
+                          ? "text-emerald-500"
+                          : globalRegime.label === "Risk-Off"
+                            ? "text-rose-500"
+                            : globalRegime.label === "Caution"
+                              ? "text-amber-500"
+                              : isLight
+                                ? "text-slate-900"
+                                : "text-white"
+                      }`}
+                    >
+                      {globalRegime.label}
+                    </div>
+                    <div className={`text-[11px] ${isLight ? "text-slate-600" : "text-white/70"}`}>{globalRegime.summary}</div>
+                  </div>
+                  <div className={`rounded-lg border px-3 py-2 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-slate-900/50"}`}>
+                    <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-500" : "text-cyan-200/75"}`}>Sessions Pulse</div>
+                    <div className={`text-lg font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{globalMarketStats.openSessions} Open</div>
+                    <div className={`text-[11px] ${isLight ? "text-slate-600" : "text-white/70"}`}>{globalSessionHeadline}</div>
+                  </div>
+                  <div className={`rounded-lg border px-3 py-2 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-slate-900/50"}`}>
+                    <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-500" : "text-cyan-200/75"}`}>Country Focus Risk</div>
+                    <div className={`text-lg font-semibold ${globalMarketStats.riskCount > 0 ? "text-rose-500" : isLight ? "text-slate-900" : "text-white"}`}>
+                      {globalMarketStats.riskCount > 0 ? "Elevated" : "Stable"}
+                    </div>
+                    <div className={`text-[11px] ${isLight ? "text-slate-600" : "text-white/70"}`}>
+                      {selectedGlobalCountry.name}: {selectedCountryRelationStats.tensions} tensions, {selectedCountryRelationStats.conflicts} conflicts.
+                    </div>
+                  </div>
+                </div>
+              </div>
               <div
                 className={`sticky top-2 z-20 mb-4 rounded-xl border px-2 py-2 backdrop-blur-md ${
                   isLight
