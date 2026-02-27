@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Cormorant_Garamond, IBM_Plex_Mono, Syne } from "next/font/google";
+import AutopilotPanel from "@/components/AutopilotPanel";
 
 const simSerif = Cormorant_Garamond({
   subsets: ["latin"],
@@ -68,6 +69,8 @@ const RESEARCH_ENGINE_API_URL =
 const SIM_RISK_LEVEL_KEY = "simulator_risk_level_v1";
 const SIM_RISK_CUSTOM_KEY = "simulator_risk_custom_v1";
 const SIM_TRADING_STYLE_KEY = "simulator_trading_style_v1";
+const SIM_PLAYBOOK_KEY = "simulator_playbook_v1";
+const SIM_GUARDRAILS_KEY = "simulator_guardrails_v1";
 const ACHIEVEMENTS_KEY = "simulator_achievements_v1";
 const ASTRA_CHAT_KEY = "simulator_astra_chat_v1";
 const MAX_CHAT_MESSAGES = 30;
@@ -80,6 +83,32 @@ const RISK_EXECUTION_PRESETS = {
   CONSERVATIVE: { trailingStopPct: 0.04, dailyDrawdownKillPct: 2.5 },
   MODERATE: { trailingStopPct: 0.07, dailyDrawdownKillPct: 4.0 },
   AGGRESSIVE: { trailingStopPct: 0.1, dailyDrawdownKillPct: 6.5 },
+};
+const PLAYBOOKS = {
+  PRESERVE: {
+    label: "Capital Preservation",
+    riskLevel: "CONSERVATIVE",
+    tradingStyle: "swing",
+    guardrails: { maxTradesPerDay: 4, maxTurnoverPctPerDay: 20, maxConcurrentPositions: 6 },
+  },
+  BALANCED: {
+    label: "Balanced Growth",
+    riskLevel: "MODERATE",
+    tradingStyle: "swing",
+    guardrails: { maxTradesPerDay: 8, maxTurnoverPctPerDay: 40, maxConcurrentPositions: 10 },
+  },
+  TREND: {
+    label: "Trend Hunter",
+    riskLevel: "AGGRESSIVE",
+    tradingStyle: "day_trading",
+    guardrails: { maxTradesPerDay: 12, maxTurnoverPctPerDay: 70, maxConcurrentPositions: 12 },
+  },
+  CRYPTO: {
+    label: "Crypto Rotation",
+    riskLevel: "AGGRESSIVE",
+    tradingStyle: "day_trading",
+    guardrails: { maxTradesPerDay: 14, maxTurnoverPctPerDay: 85, maxConcurrentPositions: 10 },
+  },
 };
 
 function toNum(v) {
@@ -368,6 +397,8 @@ export default function SimulatorPage() {
   const [riskLevel, setRiskLevel] = useState("MODERATE");
   const [customRisk, setCustomRisk] = useState({ maxPositionPct: 0.12, maxCryptoPct: 0.1, minCashReservePct: 0.1, target: "Custom" });
   const [tradingStyle, setTradingStyle] = useState("swing");
+  const [playbookMode, setPlaybookMode] = useState("BALANCED");
+  const [guardrails, setGuardrails] = useState({ maxTradesPerDay: 8, maxTurnoverPctPerDay: 40, maxConcurrentPositions: 10 });
   const [thinkStepIndex, setThinkStepIndex] = useState(0);
   const [tradeFlash, setTradeFlash] = useState(null);
   const [alertSymbolInput, setAlertSymbolInput] = useState("AAPL");
@@ -403,6 +434,18 @@ export default function SimulatorPage() {
     () => resolveRiskExecutionPolicy(riskLevel, customRisk),
     [riskLevel, customRisk]
   );
+  const applyPlaybookMode = useCallback((modeKey) => {
+    const key = String(modeKey || "BALANCED").toUpperCase();
+    const preset = PLAYBOOKS[key] || PLAYBOOKS.BALANCED;
+    setPlaybookMode(key);
+    setRiskLevel(String(preset.riskLevel || "MODERATE").toUpperCase());
+    setTradingStyle(preset.tradingStyle === "day_trading" ? "day_trading" : "swing");
+    setGuardrails({
+      maxTradesPerDay: Number(preset.guardrails?.maxTradesPerDay || 8),
+      maxTurnoverPctPerDay: Number(preset.guardrails?.maxTurnoverPctPerDay || 40),
+      maxConcurrentPositions: Number(preset.guardrails?.maxConcurrentPositions || 10),
+    });
+  }, []);
   const agentProvider = useMemo(() => {
     const raw = String(profile?.autoPilot?.agentState?.provider || "");
     return ["QUANT_LAB", "fallback"].includes(raw) ? raw : "fallback";
@@ -450,6 +493,18 @@ export default function SimulatorPage() {
 
   useEffect(() => {
     try {
+      localStorage.setItem(SIM_PLAYBOOK_KEY, String(playbookMode || "BALANCED").toUpperCase());
+    } catch {}
+  }, [playbookMode]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SIM_GUARDRAILS_KEY, JSON.stringify(guardrails));
+    } catch {}
+  }, [guardrails]);
+
+  useEffect(() => {
+    try {
       const saved = localStorage.getItem("theme_mode");
       if (saved === "dark" || saved === "light" || saved === "cherry" || saved === "azula") setTheme(saved);
       const savedRisk = localStorage.getItem(SIM_RISK_LEVEL_KEY);
@@ -461,6 +516,31 @@ export default function SimulatorPage() {
       }
       const savedStyle = localStorage.getItem(SIM_TRADING_STYLE_KEY);
       if (savedStyle === "day_trading" || savedStyle === "swing") setTradingStyle(savedStyle);
+      const savedPlaybook = localStorage.getItem(SIM_PLAYBOOK_KEY);
+      if (savedPlaybook && PLAYBOOKS[String(savedPlaybook).toUpperCase()]) {
+        const pb = String(savedPlaybook).toUpperCase();
+        setPlaybookMode(pb);
+        const preset = PLAYBOOKS[pb];
+        setRiskLevel(String(preset.riskLevel || "MODERATE").toUpperCase());
+        setTradingStyle(preset.tradingStyle === "day_trading" ? "day_trading" : "swing");
+        setGuardrails({
+          maxTradesPerDay: Number(preset.guardrails?.maxTradesPerDay || 8),
+          maxTurnoverPctPerDay: Number(preset.guardrails?.maxTurnoverPctPerDay || 40),
+          maxConcurrentPositions: Number(preset.guardrails?.maxConcurrentPositions || 10),
+        });
+      }
+      const savedGuardrails = localStorage.getItem(SIM_GUARDRAILS_KEY);
+      if (savedGuardrails) {
+        const parsedGuardrails = JSON.parse(savedGuardrails);
+        if (parsedGuardrails && typeof parsedGuardrails === "object") {
+          setGuardrails((prev) => ({
+            ...prev,
+            maxTradesPerDay: Math.max(1, Math.min(40, Number(parsedGuardrails.maxTradesPerDay || prev.maxTradesPerDay))),
+            maxTurnoverPctPerDay: Math.max(5, Math.min(200, Number(parsedGuardrails.maxTurnoverPctPerDay || prev.maxTurnoverPctPerDay))),
+            maxConcurrentPositions: Math.max(1, Math.min(30, Number(parsedGuardrails.maxConcurrentPositions || prev.maxConcurrentPositions))),
+          }));
+        }
+      }
       const savedChat = localStorage.getItem(ASTRA_CHAT_KEY);
       if (savedChat) {
         const parsed = JSON.parse(savedChat);
@@ -791,6 +871,30 @@ export default function SimulatorPage() {
     if (tradeMode === "SELL" && sharesFromInput > ownedForSelected + 1e-8) return "Cannot sell more shares than owned.";
     return "";
   }, [selectedTicker, selectedPrice, sharesFromInput, tradeMode, estimatedTradeValue, profile.cash, ownedForSelected, isCryptoTrade]);
+
+  const autopilotPanelPortfolio = useMemo(() => {
+    const holdings = holdingsArray.map((h) => {
+      const px = Number(quoteFor(h?.assetType, h?.symbol)?.price);
+      const currentPrice = Number.isFinite(px) && px > 0 ? px : Number(h?.avgBuy || 0);
+      return {
+        symbol: String(h?.symbol || "").toUpperCase(),
+        ticker: String(h?.symbol || "").toUpperCase(),
+        assetType: normalizeAssetType(h?.assetType),
+        shares: Number(h?.shares || 0),
+        avgBuy: Number(h?.avgBuy || 0),
+        currentPrice,
+        stopLoss: Number(h?.stopLoss || 0),
+        takeProfit: Number(h?.takeProfit || 0),
+        strategy: String(h?.strategy || "momentum"),
+        buyDate: h?.firstBuyAt ? new Date(Number(h.firstBuyAt)).toISOString() : null,
+      };
+    });
+    return {
+      cash: Number(profile?.cash || 0),
+      startingValue: Number(profile?.startingCash || STARTING_CASH),
+      holdings,
+    };
+  }, [holdingsArray, profile?.cash, profile?.startingCash, quoteFor]);
 
   const tickerTapeItems = useMemo(() => {
     const map = new Map();
@@ -1504,12 +1608,56 @@ export default function SimulatorPage() {
       const data = await res.json().catch(() => ({}));
       const decisions = Array.isArray(data?.decisions) ? data.decisions : [];
       const now = Date.now();
+      const todayKey = new Date(now).toISOString().slice(0, 10);
       let draft = { ...profile, autoPilot: { ...(profile.autoPilot || {}) } };
       let didTrade = false;
       const decisionLogEntries = [];
+      let tradesToday = (Array.isArray(draft.transactions) ? draft.transactions : []).filter((t) => {
+        const ts = Number(t?.ts || 0);
+        if (!ts) return false;
+        return new Date(ts).toISOString().slice(0, 10) === todayKey && ["BUY", "SELL"].includes(String(t?.action || "").toUpperCase());
+      }).length;
+      let turnoverToday = (Array.isArray(draft.transactions) ? draft.transactions : []).reduce((sum, t) => {
+        const ts = Number(t?.ts || 0);
+        if (!ts) return sum;
+        if (new Date(ts).toISOString().slice(0, 10) !== todayKey) return sum;
+        return sum + Math.max(0, Number(t?.totalValue || 0));
+      }, 0);
+      const maxTradesPerDay = Math.max(1, Number(guardrails?.maxTradesPerDay || 8));
+      const maxTurnoverValue = Math.max(1000, Number(portfolioTotal || 0) * (Math.max(5, Number(guardrails?.maxTurnoverPctPerDay || 40)) / 100));
+      const maxConcurrentPositions = Math.max(1, Number(guardrails?.maxConcurrentPositions || 10));
 
       for (const decision of decisions) {
-        const { profile: nextDraft, executed } = applySingleTrade(draft, decision);
+        const rawAction = String(decision?.action || "HOLD").toUpperCase();
+        const symbol = String(decision?.ticker || "").toUpperCase();
+        const assetType = normalizeAssetType(decision?.assetType);
+        const key = holdingKey(assetType, symbol);
+        const isOpeningBuy = rawAction === "BUY" && !draft.holdings?.[key];
+        const estimatedTurnover = Math.max(0, Number(decision?.shares || 0) * Number(decision?.entry_price || decision?.price || 0));
+        let guardedDecision = decision;
+        let guardrailReason = "";
+        if (rawAction === "BUY" || rawAction === "SELL") {
+          if (tradesToday >= maxTradesPerDay) {
+            guardrailReason = `Guardrail active: max trades/day (${maxTradesPerDay}) reached.`;
+          } else if (turnoverToday + estimatedTurnover > maxTurnoverValue) {
+            guardrailReason = `Guardrail active: max turnover/day (${Math.round((Number(guardrails?.maxTurnoverPctPerDay || 40)))}%) reached.`;
+          } else if (isOpeningBuy && Object.keys(draft.holdings || {}).length >= maxConcurrentPositions) {
+            guardrailReason = `Guardrail active: max concurrent positions (${maxConcurrentPositions}) reached.`;
+          }
+        }
+        if (guardrailReason) {
+          guardedDecision = {
+            ...decision,
+            action: "HOLD",
+            shares: 0,
+            reasoning: guardrailReason,
+            confidence: Math.max(55, Number(decision?.confidence || 0)),
+            risk: "LOW",
+            lesson: "Guardrails reduce overtrading and keep risk within your selected profile.",
+          };
+        }
+
+        const { profile: nextDraft, executed } = applySingleTrade(draft, guardedDecision);
         if (!executed) continue;
         draft = nextDraft;
         const logEntry = {
@@ -1522,21 +1670,34 @@ export default function SimulatorPage() {
           price: executed.price,
           totalValue: executed.totalValue,
           realizedPnL: executed.realizedPnL,
-          reasoning: String(decision?.reasoning || "").trim() || "ASTRA adjusted risk based on market context.",
-          confidence: Math.max(0, Math.min(100, Number(decision?.confidence || 0))),
-          risk: String(decision?.risk || "MEDIUM").toUpperCase(),
-          lesson: String(decision?.lesson || "Risk management is the core edge in volatile markets."),
-          entryPrice: Number(decision?.entry_price || decision?.entryPrice || executed.price || 0),
-          stopLoss: Number(decision?.stop_loss || decision?.stopLoss || 0),
-          takeProfit: Number(decision?.take_profit || decision?.takeProfit || 0),
-          strategy: String(decision?.strategy || "").toLowerCase(),
-          holdDays: Number(decision?.holdDays || 0),
-          bullThesis: String(decision?.bull_thesis || decision?.bullThesis || ""),
-          bearThesis: String(decision?.bear_thesis || decision?.bearThesis || ""),
-          researchSummary: String(decision?.research_summary || decision?.researchSummary || ""),
+          reasoning: String(guardedDecision?.reasoning || "").trim() || "ASTRA adjusted risk based on market context.",
+          confidence: Math.max(0, Math.min(100, Number(guardedDecision?.confidence || 0))),
+          risk: String(guardedDecision?.risk || "MEDIUM").toUpperCase(),
+          lesson: String(guardedDecision?.lesson || "Risk management is the core edge in volatile markets."),
+          entryPrice: Number(guardedDecision?.entry_price || guardedDecision?.entryPrice || executed.price || 0),
+          stopLoss: Number(guardedDecision?.stop_loss || guardedDecision?.stopLoss || 0),
+          takeProfit: Number(guardedDecision?.take_profit || guardedDecision?.takeProfit || 0),
+          strategy: String(guardedDecision?.strategy || "").toLowerCase(),
+          holdDays: Number(guardedDecision?.holdDays || 0),
+          score: Number(guardedDecision?.composite_score || guardedDecision?.score || 0),
+          whyNow: String(guardedDecision?.reasoning || "").trim() || "Signal and regime alignment crossed execution threshold now.",
+          sizeWhy: `Position sized under ${riskPolicy.level} policy and guardrails (max ${Math.round((riskPolicy.maxPositionPct || 0.2) * 100)}% per position).`,
+          invalidation: Number(guardedDecision?.stop_loss || guardedDecision?.stopLoss || 0) > 0
+            ? `Trade invalidates below ${fmtMoney(Number(guardedDecision?.stop_loss || guardedDecision?.stopLoss || 0))}.`
+            : "Trade invalidates if signal confidence and regime alignment deteriorate.",
+          expectedHold: Number(guardedDecision?.holdDays || 0) > 0
+            ? `${Number(guardedDecision?.holdDays || 0)} days target hold.`
+            : tradingStyle === "day_trading" ? "Intraday tactical hold." : "Monitor daily until thesis changes.",
+          bullThesis: String(guardedDecision?.bull_thesis || guardedDecision?.bullThesis || ""),
+          bearThesis: String(guardedDecision?.bear_thesis || guardedDecision?.bearThesis || ""),
+          researchSummary: String(guardedDecision?.research_summary || guardedDecision?.researchSummary || ""),
         };
         decisionLogEntries.push(logEntry);
-        if (executed.action === "BUY" || executed.action === "SELL") didTrade = true;
+        if (executed.action === "BUY" || executed.action === "SELL") {
+          didTrade = true;
+          tradesToday += 1;
+          turnoverToday += Math.max(0, Number(executed.totalValue || 0));
+        }
       }
 
       const holdingsValue = Object.values(draft.holdings || {}).reduce((sum, h) => {
@@ -1558,6 +1719,13 @@ export default function SimulatorPage() {
         agentState: data?.agentState && typeof data.agentState === "object" ? data.agentState : null,
         executionPlan: Array.isArray(data?.executionPlan) ? data.executionPlan : [],
         decisionLog: [...decisionLogEntries, ...(Array.isArray(draft.autoPilot?.decisionLog) ? draft.autoPilot.decisionLog : [])].slice(0, 200),
+        guardrails: {
+          maxTradesPerDay,
+          maxTurnoverPctPerDay: Number(guardrails?.maxTurnoverPctPerDay || 40),
+          maxConcurrentPositions,
+          tradesToday,
+          turnoverToday,
+        },
       };
       setProfile(draft);
       if (decisionLogEntries.length) {
@@ -1577,7 +1745,7 @@ export default function SimulatorPage() {
     } finally {
       setAutoRunning(false);
     }
-  }, [appendModeSnapshot, applySingleTrade, autoPilotEnabled, autoRunning, profile, quotes, riskLevel, customRisk, tradingStyle, portfolioTotal, dailyDrawdownPct, riskExecutionPolicy]);
+  }, [appendModeSnapshot, applySingleTrade, autoPilotEnabled, autoRunning, profile, quotes, riskLevel, customRisk, tradingStyle, portfolioTotal, dailyDrawdownPct, riskExecutionPolicy, guardrails, riskPolicy.level, riskPolicy.maxPositionPct]);
 
   const enableAutoPilot = () => {
     setProfile((prev) => ({
@@ -2101,6 +2269,62 @@ export default function SimulatorPage() {
             </div>
           </div>
 
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className={`text-xs uppercase tracking-wide ${isLight ? "text-slate-500" : "text-white/60"}`}>Auto-Pilot Playbook</div>
+              <div className={`text-xs ${isLight ? "text-slate-600" : "text-white/70"}`}>
+                Preset strategy pack for risk, style, and execution guardrails.
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {Object.entries(PLAYBOOKS).map(([key, pb]) => (
+                <button
+                  key={key}
+                  onClick={() => applyPlaybookMode(key)}
+                  className={`px-2.5 py-1.5 rounded-lg border text-xs ${playbookMode === key ? "bg-blue-600 text-white border-blue-500" : isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/15 bg-white/10 text-white/85"}`}
+                >
+                  {pb.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-2">
+            <label className="text-xs">
+              <span className={`${isLight ? "text-slate-600" : "text-white/70"}`}>Max Trades / Day</span>
+              <input
+                type="number"
+                min="1"
+                max="40"
+                value={Number(guardrails.maxTradesPerDay || 8)}
+                onChange={(e) => setGuardrails((prev) => ({ ...prev, maxTradesPerDay: Math.max(1, Math.min(40, Number(e.target.value || 8))) }))}
+                className={`mt-1 w-full px-2 py-1 rounded-md border ${isLight ? "border-slate-300 bg-white text-slate-800" : "border-white/15 bg-white/10 text-white"}`}
+              />
+            </label>
+            <label className="text-xs">
+              <span className={`${isLight ? "text-slate-600" : "text-white/70"}`}>Max Turnover / Day %</span>
+              <input
+                type="number"
+                min="5"
+                max="200"
+                value={Number(guardrails.maxTurnoverPctPerDay || 40)}
+                onChange={(e) => setGuardrails((prev) => ({ ...prev, maxTurnoverPctPerDay: Math.max(5, Math.min(200, Number(e.target.value || 40))) }))}
+                className={`mt-1 w-full px-2 py-1 rounded-md border ${isLight ? "border-slate-300 bg-white text-slate-800" : "border-white/15 bg-white/10 text-white"}`}
+              />
+            </label>
+            <label className="text-xs">
+              <span className={`${isLight ? "text-slate-600" : "text-white/70"}`}>Max Open Positions</span>
+              <input
+                type="number"
+                min="1"
+                max="30"
+                value={Number(guardrails.maxConcurrentPositions || 10)}
+                onChange={(e) => setGuardrails((prev) => ({ ...prev, maxConcurrentPositions: Math.max(1, Math.min(30, Number(e.target.value || 10))) }))}
+                className={`mt-1 w-full px-2 py-1 rounded-md border ${isLight ? "border-slate-300 bg-white text-slate-800" : "border-white/15 bg-white/10 text-white"}`}
+              />
+            </label>
+          </div>
+
           {riskLevel === "CUSTOM" && (
             <div className="mt-3 grid grid-cols-1 md:grid-cols-4 gap-2">
               <label className="text-xs">
@@ -2184,6 +2408,7 @@ export default function SimulatorPage() {
               <span>ASTRA is managing your portfolio • Last action: {relativeTime(profile?.autoPilot?.lastActionAt)}</span>
               <span className={`rounded-full border px-2 py-0.5 ${isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/20 bg-white/10 text-white/85"}`}>Risk: {riskPolicy.level}</span>
               <span className={`rounded-full border px-2 py-0.5 ${isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/20 bg-white/10 text-white/85"}`}>Style: {tradingStyle === "day_trading" ? "DAY" : "SWING"}</span>
+              <span className={`rounded-full border px-2 py-0.5 ${isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/20 bg-white/10 text-white/85"}`}>Playbook: {PLAYBOOKS[playbookMode]?.label || "Balanced Growth"}</span>
               <span className={`rounded-full border px-2 py-0.5 ${isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/20 bg-white/10 text-white/85"}`}>Daily kill: -{Number(riskExecutionPolicy?.dailyDrawdownKillPct || 4).toFixed(1)}%</span>
               <span className={`rounded-full border px-2 py-0.5 ${isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/20 bg-white/10 text-white/85"}`}>Trailing stop: {(Number(riskExecutionPolicy?.trailingStopPct || 0.07) * 100).toFixed(1)}%</span>
               <button
@@ -2210,6 +2435,19 @@ export default function SimulatorPage() {
 
         {simTab === "autopilot" && (
           <section id="autopilot-log" className={`${cardClass} mb-6`}>
+            <div className="mb-4">
+              <AutopilotPanel
+                portfolio={autopilotPanelPortfolio}
+                riskProfile={String(riskLevel || "MODERATE").toLowerCase()}
+                onUpdate={(snap) => {
+                  if (!snap) return;
+                  const total = Number(snap.totalValue || 0);
+                  if (Number.isFinite(total) && total > 0) {
+                    setAutoMessage(`V2 Autopilot update • Value: ${fmtMoney(total)} • Return: ${fmtPct(Number(snap.totalReturn || 0))}`);
+                  }
+                }}
+              />
+            </div>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               <div className="lg:col-span-2">
                 <div className="flex items-center justify-between gap-2 mb-3">
@@ -2241,6 +2479,8 @@ export default function SimulatorPage() {
                       <div className={`${isLight ? "text-slate-700" : "text-white/80"}`}>High Risk: <span className="font-semibold">{Number(profile?.autoPilot?.agentState?.highRiskCount || 0)}</span></div>
                       <div className={`${isLight ? "text-slate-700" : "text-white/80"}`}>Daily DD: <span className={`font-semibold ${dailyDrawdownPct <= 0 ? "text-rose-500" : "text-emerald-500"}`}>{fmtPct(dailyDrawdownPct)}</span></div>
                       <div className={`${isLight ? "text-slate-700" : "text-white/80"}`}>Kill Limit: <span className="font-semibold">-{Number(riskExecutionPolicy?.dailyDrawdownKillPct || 4).toFixed(1)}%</span></div>
+                      <div className={`${isLight ? "text-slate-700" : "text-white/80"}`}>Trades Today: <span className="font-semibold">{Number(profile?.autoPilot?.guardrails?.tradesToday || 0)}/{Number(guardrails?.maxTradesPerDay || 8)}</span></div>
+                      <div className={`${isLight ? "text-slate-700" : "text-white/80"}`}>Turnover Today: <span className="font-semibold">{fmtMoney(Number(profile?.autoPilot?.guardrails?.turnoverToday || 0))}</span></div>
                     </div>
                     <div className={`mt-2 text-xs ${isLight ? "text-slate-700" : "text-white/80"}`}>{profile?.autoPilot?.runSummary || "ASTRA will generate a mission summary after the next run."}</div>
                     <div className="mt-2">
@@ -2324,6 +2564,24 @@ export default function SimulatorPage() {
                       <div className={`mt-1 text-xs ${isLight ? "text-slate-600" : "text-white/70"}`}>
                         {d.reasoning}
                       </div>
+                      <div className={`mt-2 grid grid-cols-1 md:grid-cols-2 gap-1.5 text-[11px] ${isLight ? "text-slate-700" : "text-white/75"}`}>
+                        <div className={`rounded-md border px-2 py-1 ${isLight ? "border-slate-200 bg-slate-50" : "border-white/10 bg-white/5"}`}>
+                          <div className={`text-[10px] uppercase tracking-wide ${isLight ? "text-slate-500" : "text-white/55"}`}>Why Now</div>
+                          <div>{d.whyNow || d.reasoning}</div>
+                        </div>
+                        <div className={`rounded-md border px-2 py-1 ${isLight ? "border-slate-200 bg-slate-50" : "border-white/10 bg-white/5"}`}>
+                          <div className={`text-[10px] uppercase tracking-wide ${isLight ? "text-slate-500" : "text-white/55"}`}>Sizing Logic</div>
+                          <div>{d.sizeWhy || "Sized under active risk profile and guardrails."}</div>
+                        </div>
+                        <div className={`rounded-md border px-2 py-1 ${isLight ? "border-slate-200 bg-slate-50" : "border-white/10 bg-white/5"}`}>
+                          <div className={`text-[10px] uppercase tracking-wide ${isLight ? "text-slate-500" : "text-white/55"}`}>Invalidation</div>
+                          <div>{d.invalidation || "Invalidates if thesis weakens materially."}</div>
+                        </div>
+                        <div className={`rounded-md border px-2 py-1 ${isLight ? "border-slate-200 bg-slate-50" : "border-white/10 bg-white/5"}`}>
+                          <div className={`text-[10px] uppercase tracking-wide ${isLight ? "text-slate-500" : "text-white/55"}`}>Expected Hold</div>
+                          <div>{d.expectedHold || "Monitor until risk/reward shifts."}</div>
+                        </div>
+                      </div>
                       <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-1.5 text-[11px]">
                         <span className={`rounded-full border px-2 py-0.5 ${isLight ? "border-slate-300 bg-slate-50 text-slate-700" : "border-white/20 bg-white/10 text-white/80"}`}>
                           Confidence: {Number(d.confidence || 0)}%
@@ -2344,6 +2602,23 @@ export default function SimulatorPage() {
                           >
                             {expandedDecisionId === d.id ? "Hide" : "Expand"}
                           </button>
+                        </div>
+                      </div>
+                      <div className="mt-2">
+                        <div className={`flex items-center justify-between text-[11px] ${isLight ? "text-slate-600" : "text-white/65"}`}>
+                          <span>Confidence Breakdown</span>
+                          <span className="font-semibold">
+                            Q {Math.round((Number(d.score || 0) * 0.5))}% · R {Math.round((Number(d.confidence || 0) * 0.3))}% · G {Math.round((Number(d.confidence || 0) * 0.2))}%
+                          </span>
+                        </div>
+                        <div className={`mt-1 h-1.5 rounded-full overflow-hidden ${isLight ? "bg-slate-200" : "bg-white/10"}`}>
+                          <div
+                            className="h-full rounded-full"
+                            style={{
+                              width: `${Math.max(4, Math.min(100, Math.round(Number(d.confidence || 0))))}%`,
+                              background: Number(d.confidence || 0) >= 75 ? "#22c55e" : Number(d.confidence || 0) >= 55 ? "#f59e0b" : "#ef4444",
+                            }}
+                          />
                         </div>
                       </div>
                       <div className={`mt-2 text-xs ${isLight ? "text-indigo-700" : "text-cyan-100"}`}>💡 Lesson: {d.lesson}</div>

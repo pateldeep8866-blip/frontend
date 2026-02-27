@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { insertTrade } from "../_lib/trade-db";
+import { createRequire } from "module";
+
+const require = createRequire(import.meta.url);
+const { handleAutopilotRequest } = require("../../../lib/autopilot-engine-v2.js");
 
 export const dynamic = "force-dynamic";
 
@@ -929,9 +933,100 @@ function nextMarketOpenTs() {
   return Date.now() + 24 * 60 * 60 * 1000;
 }
 
+function normalizePortfolioFromBody(body) {
+  const cash = Math.max(0, Number(body?.cash ?? body?.portfolio?.cash ?? 100000));
+  const startingValue = Math.max(1, Number(body?.startingCash ?? body?.startingValue ?? body?.portfolio?.startingValue ?? 100000));
+  const sourceHoldings = Array.isArray(body?.portfolio?.holdings)
+    ? body.portfolio.holdings
+    : Array.isArray(body?.holdings)
+      ? body.holdings
+      : [];
+  const holdings = sourceHoldings
+    .map((h) => {
+      const symbol = String(h?.symbol || h?.ticker || "").toUpperCase();
+      if (!symbol) return null;
+      return {
+        symbol,
+        ticker: symbol,
+        assetType: normalizeAssetType(h?.assetType),
+        shares: Number(h?.shares || 0),
+        avgBuy: Number(h?.avgBuy ?? h?.entry_price ?? 0),
+        currentPrice: Number(h?.currentPrice ?? h?.price ?? h?.avgBuy ?? 0),
+        stopLoss: Number(h?.stopLoss ?? h?.stop_loss ?? 0),
+        takeProfit: Number(h?.takeProfit ?? h?.take_profit ?? 0),
+        strategy: String(h?.strategy || "momentum"),
+        buyDate: h?.buyDate || h?.created_utc || null,
+        daysHeld: Number(h?.daysHeld || 0),
+      };
+    })
+    .filter(Boolean);
+  return { cash, startingValue, holdings };
+}
+
+function buildTradeExecutor(riskLevel, macro) {
+  return async (decisions = [], portfolioSnapshot = null) => {
+    const regime = String(macro?.marketRegime || macro?.regime || "unknown");
+    const vix = Number(macro?.vix ?? 0);
+    const dxy = Number(macro?.dxy ?? 0);
+    for (const d of Array.isArray(decisions) ? decisions : []) {
+      const action = String(d?.action || "").toUpperCase();
+      const ticker = String(d?.ticker || "").toUpperCase();
+      const shares = Number(d?.shares || 0);
+      const price = Number(d?.price ?? d?.entry_price ?? 0);
+      if (!ticker || !["BUY", "SELL", "HOLD"].includes(action)) continue;
+      if ((action === "BUY" || action === "SELL") && (shares <= 0 || price <= 0)) continue;
+      try {
+        insertTrade({
+          source: "astra_autopilot",
+          ticker,
+          action,
+          shares,
+          entry_price: price,
+          total_value: shares * price,
+          quant_composite_score: Number(d?.score ?? d?.composite_score ?? 0),
+          quant_signal: String(d?.quant_signal || "NEUTRAL"),
+          quant_momentum: Number(d?.quant_momentum || 0),
+          quant_mean_reversion: Number(d?.quant_mean_reversion || 0),
+          market_regime: regime,
+          vix_at_entry: vix,
+          dxy_at_entry: dxy,
+          sector_performance: [],
+          weight_momentum: 0.55,
+          weight_mean_reversion: 0.35,
+          weight_volatility: 0.07,
+          weight_range: 0.03,
+          user_risk_level: String(riskLevel || "MODERATE"),
+          strategy_name: String(d?.strategy || "autopilot_v2"),
+          strategy_conviction: Math.max(0, Math.min(1, Number(d?.confidence || 0) / 100)),
+          hold_days_target: Number(d?.hold_days_target || d?.holdDays || 0),
+          reasoning: String(d?.reasoning || ""),
+          confidence: Number(d?.confidence || 0),
+          stop_loss: Number(d?.stop_loss || 0),
+          take_profit: Number(d?.take_profit || 0),
+        });
+      } catch (error) {
+        console.warn("[simulator-autopilot-v2] trade log insert failed", ticker, String(error?.message || error));
+      }
+    }
+    return portfolioSnapshot;
+  };
+}
+
 export async function POST(req) {
   try {
     const body = await req.json().catch(() => ({}));
+    const action = String(body?.action || "").toLowerCase();
+    if (["start", "stop", "status", "events", "update_risk", "cycle"].includes(action)) {
+      const portfolioSeed = normalizePortfolioFromBody(body);
+      const riskLevel = String(body?.riskLevel || "MODERATE").toUpperCase();
+      const macroSeed = body?.macro && typeof body.macro === "object" ? body.macro : {};
+      const result = await handleAutopilotRequest(
+        { json: async () => body },
+        async () => portfolioSeed,
+        buildTradeExecutor(riskLevel, macroSeed)
+      );
+      return NextResponse.json(result, { headers: { "cache-control": "no-store, max-age=0" } });
+    }
     const cash = toNum(body?.cash) ?? 0;
     const startingValue = Math.max(1, toNum(body?.startingCash) ?? toNum(body?.startingValue) ?? 100000);
     const riskPolicy = getRiskPolicy(body?.riskLevel, body?.customRisk);
