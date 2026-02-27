@@ -161,7 +161,13 @@ function buildPrioritySellDecisions({ holdings, quantResult, riskLevel, tradingS
   const decisions = [];
   const quantScores = Array.isArray(quantResult?.all_scores) ? quantResult.all_scores : [];
   const scoreByTicker = new Map(quantScores.map((s) => [String(s?.ticker || "").toUpperCase(), s]));
-  const maxHoldDays = tradingStyle === "day_trading" ? 1 : ({ conservative: 5, moderate: 15, aggressive: 30 }[String(riskLevel || "").toLowerCase()] || 15);
+  const riskKey = String(riskLevel || "").toLowerCase();
+  const sellProfile = {
+    conservative: { maxHoldDays: 5, takeProfitSellPct: 1.0, reversalExitBelow: 45, weakTrimBelow: 58, weakTrimPct: 0.7 },
+    moderate: { maxHoldDays: 15, takeProfitSellPct: 0.5, reversalExitBelow: 35, weakTrimBelow: 45, weakTrimPct: 0.5 },
+    aggressive: { maxHoldDays: 30, takeProfitSellPct: 0.35, reversalExitBelow: 28, weakTrimBelow: 38, weakTrimPct: 0.35 },
+  }[riskKey] || { maxHoldDays: 15, takeProfitSellPct: 0.5, reversalExitBelow: 35, weakTrimBelow: 45, weakTrimPct: 0.5 };
+  const maxHoldDays = tradingStyle === "day_trading" ? 1 : sellProfile.maxHoldDays;
 
   for (const holding of holdings) {
     const ticker = String(holding?.symbol || "").toUpperCase();
@@ -192,7 +198,7 @@ function buildPrioritySellDecisions({ holdings, quantResult, riskLevel, tradingS
 
     // SELL TYPE 2 — Take Profit
     if (holding?.takeProfit && currentPrice >= Number(holding.takeProfit)) {
-      const sellShares = Math.max(1, Math.floor(shares * 0.5));
+      const sellShares = Math.max(1, Math.floor(shares * sellProfile.takeProfitSellPct));
       decisions.push({
         action: "SELL",
         ticker,
@@ -211,7 +217,7 @@ function buildPrioritySellDecisions({ holdings, quantResult, riskLevel, tradingS
     const qs = scoreByTicker.get(ticker);
     if (qs) {
       const astraScore = quantScoreToAstraScore(Number(qs?.composite_score || 0));
-      if (astraScore < 35) {
+      if (astraScore < sellProfile.reversalExitBelow) {
         decisions.push({
           action: "SELL",
           ticker,
@@ -225,8 +231,8 @@ function buildPrioritySellDecisions({ holdings, quantResult, riskLevel, tradingS
         });
         continue;
       }
-      if (astraScore >= 35 && astraScore < 45) {
-        const sellShares = Math.max(1, Math.floor(shares * 0.5));
+      if (astraScore >= sellProfile.reversalExitBelow && astraScore < sellProfile.weakTrimBelow) {
+        const sellShares = Math.max(1, Math.floor(shares * sellProfile.weakTrimPct));
         decisions.push({
           action: "SELL",
           ticker,
@@ -981,6 +987,15 @@ export async function POST(req) {
     );
     const currentPortfolioValue = cash + holdingsNowValue;
     const drawdownPct = ((currentPortfolioValue - startingValue) / startingValue) * 100;
+    const dailyDrawdownPct = toNum(body?.dailyDrawdownPct);
+    const defaultDailyKillLimitPct =
+      String(riskPolicy?.level || "MODERATE").toUpperCase() === "CONSERVATIVE"
+        ? 2.5
+        : String(riskPolicy?.level || "MODERATE").toUpperCase() === "AGGRESSIVE"
+          ? 6.5
+          : 4.0;
+    const dailyKillLimitPct = Math.max(1, Math.min(20, Math.abs(toNum(body?.dailyKillLimitPct) ?? defaultDailyKillLimitPct)));
+    const dailyKillSwitchTriggered = Number.isFinite(dailyDrawdownPct) && Number(dailyDrawdownPct) <= -dailyKillLimitPct;
 
     const candidates = [
       ...candidateStocks.map((symbol) => ({ symbol, assetType: "stock", cryptoId: "" })),
@@ -1089,6 +1104,7 @@ export async function POST(req) {
     const weakDataMode = !quantLabConnected && stockCoverage < 0.25;
     const capitalPreservationMode = severeDrawdown || weakDataMode;
     const allowNewBuysBase =
+      !dailyKillSwitchTriggered &&
       !capitalPreservationMode &&
       (marketRegime !== "risk_off" || quantLabConnected) &&
       (Number(macro.marketChange ?? 0) > -1.5 || quantLabConnected);
@@ -1398,6 +1414,23 @@ export async function POST(req) {
     const sellReasonsOrder = { stop_loss: 1, take_profit: 2, signal_reversal: 3, signal_weakening: 3, time_stop: 4 };
     prioritySells.sort((a, b) => (sellReasonsOrder[a.reason] || 99) - (sellReasonsOrder[b.reason] || 99));
 
+    if (dailyKillSwitchTriggered) {
+      decisions = holdings
+        .filter((h) => Number(h?.shares || 0) > 0)
+        .map((h) => ({
+          action: "SELL",
+          ticker: String(h?.symbol || "").toUpperCase(),
+          assetType: normalizeAssetType(h?.assetType),
+          shares: Number(h?.shares || 0),
+          entry_price: Number(h?.currentPrice || 0),
+          reasoning: `Daily drawdown kill-switch triggered at ${Number(dailyDrawdownPct || 0).toFixed(2)}%. Exiting positions to protect capital.`,
+          confidence: 96,
+          risk: "LOW",
+          lesson: "A hard daily loss limit prevents emotional overtrading and protects long-term survival.",
+          reason: "daily_kill_switch",
+        }));
+    }
+
     // Bug fix 3: asset allocation by risk level.
     const riskKey = String(riskPolicy.level || "MODERATE").toLowerCase();
     const rules = ALLOCATION_RULES[riskKey] || ALLOCATION_RULES.moderate;
@@ -1536,7 +1569,7 @@ export async function POST(req) {
       mode: "autopilot",
       takeoverMode: true,
       tradingStyle,
-      cycleStatus: buyCount + sellCount > 0 ? "actionable" : "monitoring",
+      cycleStatus: dailyKillSwitchTriggered ? "killed" : (buyCount + sellCount > 0 ? "actionable" : "monitoring"),
       provider,
       regime: marketRegime,
       confidence: avgConfidence,
@@ -1554,6 +1587,9 @@ export async function POST(req) {
       highRiskCount,
       drawdownPct: Number(drawdownPct.toFixed(2)),
       capitalPreservationMode,
+      dailyKillSwitchTriggered,
+      dailyDrawdownPct: Number.isFinite(dailyDrawdownPct) ? Number(Number(dailyDrawdownPct).toFixed(2)) : null,
+      dailyKillLimitPct: Number(dailyKillLimitPct.toFixed(2)),
       cashReserveTargetPct: Number(riskPolicy?.minCashReservePct || 0),
       targetDeploymentPct,
       currentDeploymentPct: Number((investedPct * 100).toFixed(2)),
@@ -1564,6 +1600,9 @@ export async function POST(req) {
     const runSummary = buyCount + sellCount > 0
       ? `Generated ${buyCount} buy and ${sellCount} sell actions with ${avgConfidence}% confidence. Deployment ${(investedPct * 100).toFixed(1)}% vs target ${(targetDeploymentPct * 100).toFixed(1)}% in ${marketRegime} regime.`
       : `No trade actions triggered. Monitoring regime ${marketRegime} with ${avgConfidence}% confidence. Deployment ${(investedPct * 100).toFixed(1)}% vs target ${(targetDeploymentPct * 100).toFixed(1)}%.`;
+    const runSummaryWithKill = dailyKillSwitchTriggered
+      ? `Daily drawdown kill-switch triggered at ${Number(dailyDrawdownPct || 0).toFixed(2)}% (limit -${dailyKillLimitPct.toFixed(2)}%). Exiting risk and pausing new buys.`
+      : runSummary;
 
     let loggedTrades = 0;
     for (const decision of decisions) {
@@ -1631,7 +1670,7 @@ export async function POST(req) {
         riskPolicy,
         watchlist,
         outlook,
-        runSummary,
+        runSummary: runSummaryWithKill,
         agentState,
         executionPlan,
         loggedTrades,

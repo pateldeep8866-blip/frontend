@@ -76,6 +76,11 @@ const RISK_PRESETS = {
   MODERATE: { maxPositionPct: 0.15, maxCryptoPct: 0.08, minCashReservePct: 0.12, allowCrypto: true, target: "15-25%" },
   AGGRESSIVE: { maxPositionPct: 0.2, maxCryptoPct: 0.2, minCashReservePct: 0.08, allowCrypto: true, target: "25%+" },
 };
+const RISK_EXECUTION_PRESETS = {
+  CONSERVATIVE: { trailingStopPct: 0.04, dailyDrawdownKillPct: 2.5 },
+  MODERATE: { trailingStopPct: 0.07, dailyDrawdownKillPct: 4.0 },
+  AGGRESSIVE: { trailingStopPct: 0.1, dailyDrawdownKillPct: 6.5 },
+};
 
 function toNum(v) {
   const n = Number(v);
@@ -119,6 +124,16 @@ function resolveRiskPolicy(level, custom) {
   return { level: k in RISK_PRESETS ? k : "MODERATE", ...preset };
 }
 
+function resolveRiskExecutionPolicy(level, custom) {
+  const k = String(level || "MODERATE").toUpperCase();
+  if (k === "CUSTOM") {
+    const trailingStopPct = Math.max(0.03, Math.min(0.18, Number(custom?.trailingStopPct || 0.08)));
+    const dailyDrawdownKillPct = Math.max(1, Math.min(20, Number(custom?.dailyDrawdownKillPct || 4)));
+    return { trailingStopPct, dailyDrawdownKillPct };
+  }
+  return RISK_EXECUTION_PRESETS[k] || RISK_EXECUTION_PRESETS.MODERATE;
+}
+
 function createDefaultProfile() {
   const now = Date.now();
   return {
@@ -136,6 +151,8 @@ function createDefaultProfile() {
       lastRunAt: 0,
       lastActionAt: 0,
       nextDecisionAt: 0,
+      killSwitchTriggeredAt: 0,
+      killSwitchReason: "",
       decisionLog: [],
       watchlist: [],
       outlook: "",
@@ -205,6 +222,8 @@ function readProfile() {
             lastRunAt: Number(parsed.autoPilot.lastRunAt || 0),
             lastActionAt: Number(parsed.autoPilot.lastActionAt || 0),
             nextDecisionAt: Number(parsed.autoPilot.nextDecisionAt || 0),
+            killSwitchTriggeredAt: Number(parsed.autoPilot.killSwitchTriggeredAt || 0),
+            killSwitchReason: String(parsed.autoPilot.killSwitchReason || ""),
             decisionLog: Array.isArray(parsed.autoPilot.decisionLog) ? parsed.autoPilot.decisionLog : [],
             watchlist: Array.isArray(parsed.autoPilot.watchlist) ? parsed.autoPilot.watchlist : [],
             outlook: String(parsed.autoPilot.outlook || ""),
@@ -217,6 +236,8 @@ function readProfile() {
             lastRunAt: 0,
             lastActionAt: 0,
             nextDecisionAt: 0,
+            killSwitchTriggeredAt: 0,
+            killSwitchReason: "",
             decisionLog: [],
             watchlist: [],
             outlook: "",
@@ -378,6 +399,10 @@ export default function SimulatorPage() {
     ? "sim-card app-card rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-[0_10px_28px_rgba(15,23,42,0.08)]"
     : "sim-card app-card rounded-2xl border border-white/12 bg-slate-900/55 p-5";
   const riskPolicy = useMemo(() => resolveRiskPolicy(riskLevel, customRisk), [riskLevel, customRisk]);
+  const riskExecutionPolicy = useMemo(
+    () => resolveRiskExecutionPolicy(riskLevel, customRisk),
+    [riskLevel, customRisk]
+  );
   const agentProvider = useMemo(() => {
     const raw = String(profile?.autoPilot?.agentState?.provider || "");
     return ["QUANT_LAB", "fallback"].includes(raw) ? raw : "fallback";
@@ -552,6 +577,18 @@ export default function SimulatorPage() {
   const dailyChangePct = previousSnapshot && Number(previousSnapshot.total) > 0
     ? (dailyChangeDollar / Number(previousSnapshot.total)) * 100
     : 0;
+  const dailyBaselineValue = useMemo(() => {
+    const dayStart = new Date(nowTick);
+    dayStart.setHours(0, 0, 0, 0);
+    const startTs = dayStart.getTime();
+    const snaps = Array.isArray(profile?.snapshots) ? profile.snapshots : [];
+    const base = [...snaps].reverse().find((s) => Number(s?.ts) <= startTs);
+    return Math.max(1, Number(base?.total || profile?.startingCash || STARTING_CASH));
+  }, [nowTick, profile?.snapshots, profile?.startingCash]);
+  const dailyDrawdownPct = useMemo(() => {
+    if (!Number.isFinite(dailyBaselineValue) || dailyBaselineValue <= 0) return 0;
+    return ((portfolioTotal - dailyBaselineValue) / dailyBaselineValue) * 100;
+  }, [portfolioTotal, dailyBaselineValue]);
 
   useEffect(() => {
     try {
@@ -799,6 +836,36 @@ export default function SimulatorPage() {
     const t = setTimeout(() => setTradeFlash(null), 2800);
     return () => clearTimeout(t);
   }, [tradeFlash]);
+
+  useEffect(() => {
+    if (!holdingsArray.length) return;
+    const trailingPct = Math.max(0.03, Math.min(0.18, Number(riskExecutionPolicy?.trailingStopPct || 0.07)));
+    setProfile((prev) => {
+      let changed = false;
+      const holdings = { ...(prev.holdings || {}) };
+      for (const h of Object.values(holdings)) {
+        const key = holdingKey(h?.assetType, h?.symbol);
+        const px = Number(quotes[key]?.price);
+        if (!Number.isFinite(px) || px <= 0 || Number(h?.shares || 0) <= 0) continue;
+        const priorHigh = Math.max(Number(h?.highestPrice || 0), Number(h?.avgBuy || 0));
+        const nextHigh = Math.max(priorHigh, px);
+        const priorStop = Number(h?.stopLoss || 0);
+        const candidateStop = nextHigh * (1 - trailingPct);
+        const nextStop = Math.max(priorStop, candidateStop);
+        const moveEnough = nextStop > priorStop + 0.005;
+        if (nextHigh > priorHigh || moveEnough) {
+          holdings[key] = {
+            ...h,
+            highestPrice: nextHigh,
+            trailingStopPct: trailingPct,
+            stopLoss: nextStop < px ? nextStop : priorStop,
+          };
+          changed = true;
+        }
+      }
+      return changed ? { ...prev, holdings } : prev;
+    });
+  }, [holdingsArray, quotes, riskExecutionPolicy]);
 
   useEffect(() => {
     if (autoExitLockRef.current) return;
@@ -1307,6 +1374,8 @@ export default function SimulatorPage() {
         avgBuy,
         stopLoss,
         takeProfit,
+        trailingStopPct: Number(riskExecutionPolicy?.trailingStopPct || 0.07),
+        highestPrice: Math.max(Number(existing?.highestPrice || 0), price),
         firstBuyAt: Number(existing.firstBuyAt || Date.now()),
       };
       cash -= execValue;
@@ -1336,7 +1405,7 @@ export default function SimulatorPage() {
       profile: baseProfile,
       executed: { action: "HOLD", symbol, assetType, shares: 0, price, totalValue: 0, realizedPnL: null },
     };
-  }, [quotes, riskPolicy]);
+  }, [quotes, riskPolicy, riskExecutionPolicy]);
 
   useEffect(() => {
     const plans = Array.isArray(profile?.dcaPlans) ? profile.dcaPlans : [];
@@ -1424,6 +1493,8 @@ export default function SimulatorPage() {
           cash: Number(profile.cash || 0),
           totalValue: Number(portfolioTotal || 0),
           startingCash: Number(profile.startingCash || STARTING_CASH),
+          dailyDrawdownPct: Number(dailyDrawdownPct || 0),
+          dailyKillLimitPct: Number(riskExecutionPolicy?.dailyDrawdownKillPct || 4),
           holdings: holdingsPayload,
           riskLevel,
           customRisk,
@@ -1506,7 +1577,7 @@ export default function SimulatorPage() {
     } finally {
       setAutoRunning(false);
     }
-  }, [appendModeSnapshot, applySingleTrade, autoPilotEnabled, autoRunning, profile, quotes, riskLevel, customRisk, tradingStyle]);
+  }, [appendModeSnapshot, applySingleTrade, autoPilotEnabled, autoRunning, profile, quotes, riskLevel, customRisk, tradingStyle, portfolioTotal, dailyDrawdownPct, riskExecutionPolicy]);
 
   const enableAutoPilot = () => {
     setProfile((prev) => ({
@@ -1514,6 +1585,8 @@ export default function SimulatorPage() {
       autoPilot: {
         ...(prev.autoPilot || {}),
         enabled: true,
+        killSwitchTriggeredAt: 0,
+        killSwitchReason: "",
         nextDecisionAt: Number(prev.autoPilot?.nextDecisionAt || Date.now()),
       },
     }));
@@ -1534,14 +1607,36 @@ export default function SimulatorPage() {
   };
 
   useEffect(() => {
-    if (!autoPilotEnabled || autoRunning) return;
+    if (!autoPilotEnabled) return;
+    const limit = Number(riskExecutionPolicy?.dailyDrawdownKillPct || 4);
+    if (Number(dailyDrawdownPct || 0) > -limit) return;
     const now = Date.now();
-    const dueAt = Number(profile?.autoPilot?.nextDecisionAt || 0);
+    const killReason = `Hard daily drawdown kill-switch hit (${fmtPct(dailyDrawdownPct)} <= -${limit.toFixed(1)}%). Auto-Pilot stopped to protect capital.`;
+    setProfile((prev) => ({
+      ...prev,
+      autoPilot: {
+        ...(prev.autoPilot || {}),
+        enabled: false,
+        killSwitchTriggeredAt: now,
+        killSwitchReason: killReason,
+      },
+    }));
+    setAutoMessage(killReason);
+    setTradeFlash({ tone: "red", title: "Kill-Switch Triggered", body: killReason });
+  }, [autoPilotEnabled, dailyDrawdownPct, riskExecutionPolicy]);
+
+  useEffect(() => {
+    if (!autoPilotEnabled) return;
+    const intervalMs = tradingStyle === "day_trading" ? 5 * 60 * 1000 : 20 * 60 * 1000;
     const lastRunAt = Number(profile?.autoPilot?.lastRunAt || 0);
-    const shouldRunOutsideHours = !nyse.open && (!lastRunAt || now - lastRunAt > 6 * 60 * 60 * 1000);
-    const shouldRun = !dueAt || now >= dueAt || shouldRunOutsideHours;
-    if (shouldRun) runAutoPilotCycle();
-  }, [autoPilotEnabled, autoRunning, nyse.open, profile?.autoPilot?.lastRunAt, profile?.autoPilot?.nextDecisionAt, runAutoPilotCycle]);
+    if (!lastRunAt || Date.now() - lastRunAt >= intervalMs) {
+      runAutoPilotCycle();
+    }
+    const timer = setInterval(() => {
+      runAutoPilotCycle();
+    }, intervalMs);
+    return () => clearInterval(timer);
+  }, [autoPilotEnabled, tradingStyle, profile?.autoPilot?.lastRunAt, runAutoPilotCycle]);
 
   const runDeepResearch = async (symbol, type = "full") => {
     const target = String(symbol || "").toUpperCase().trim();
@@ -1668,6 +1763,8 @@ export default function SimulatorPage() {
               firstBuyAt: Number(existing.firstBuyAt || now),
               stopLoss,
               takeProfit,
+              trailingStopPct: Number(riskExecutionPolicy?.trailingStopPct || 0.07),
+              highestPrice: Math.max(Number(existing?.highestPrice || 0), px),
             },
           },
           transactions: [
@@ -2078,7 +2175,7 @@ export default function SimulatorPage() {
                     : isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/15 bg-white/10 text-white/85"
                 }`}
               >
-                {autoPilotEnabled ? "Disable ASTRA Auto-Pilot" : "Enable ASTRA Auto-Pilot"}
+                {autoPilotEnabled ? "Stop ASTRA Auto-Pilot" : "Start ASTRA Auto-Pilot"}
               </button>
             </div>
           </div>
@@ -2087,6 +2184,8 @@ export default function SimulatorPage() {
               <span>ASTRA is managing your portfolio • Last action: {relativeTime(profile?.autoPilot?.lastActionAt)}</span>
               <span className={`rounded-full border px-2 py-0.5 ${isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/20 bg-white/10 text-white/85"}`}>Risk: {riskPolicy.level}</span>
               <span className={`rounded-full border px-2 py-0.5 ${isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/20 bg-white/10 text-white/85"}`}>Style: {tradingStyle === "day_trading" ? "DAY" : "SWING"}</span>
+              <span className={`rounded-full border px-2 py-0.5 ${isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/20 bg-white/10 text-white/85"}`}>Daily kill: -{Number(riskExecutionPolicy?.dailyDrawdownKillPct || 4).toFixed(1)}%</span>
+              <span className={`rounded-full border px-2 py-0.5 ${isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/20 bg-white/10 text-white/85"}`}>Trailing stop: {(Number(riskExecutionPolicy?.trailingStopPct || 0.07) * 100).toFixed(1)}%</span>
               <button
                 onClick={() => {
                   setSimTab("autopilot");
@@ -2102,6 +2201,9 @@ export default function SimulatorPage() {
           )}
           {autoMessage && (
             <div className={`mt-2 text-xs ${isLight ? "text-slate-700" : "text-white/80"}`}>{autoMessage}</div>
+          )}
+          {!autoPilotEnabled && profile?.autoPilot?.killSwitchReason && (
+            <div className={`mt-2 text-xs ${isLight ? "text-rose-700" : "text-rose-200"}`}>{profile.autoPilot.killSwitchReason}</div>
           )}
         </section>
         )}
@@ -2137,6 +2239,8 @@ export default function SimulatorPage() {
                       <div className={`${isLight ? "text-slate-700" : "text-white/80"}`}>Sells: <span className="font-semibold">{Number(profile?.autoPilot?.agentState?.sellCount || 0)}</span></div>
                       <div className={`${isLight ? "text-slate-700" : "text-white/80"}`}>Holds: <span className="font-semibold">{Number(profile?.autoPilot?.agentState?.holdCount || 0)}</span></div>
                       <div className={`${isLight ? "text-slate-700" : "text-white/80"}`}>High Risk: <span className="font-semibold">{Number(profile?.autoPilot?.agentState?.highRiskCount || 0)}</span></div>
+                      <div className={`${isLight ? "text-slate-700" : "text-white/80"}`}>Daily DD: <span className={`font-semibold ${dailyDrawdownPct <= 0 ? "text-rose-500" : "text-emerald-500"}`}>{fmtPct(dailyDrawdownPct)}</span></div>
+                      <div className={`${isLight ? "text-slate-700" : "text-white/80"}`}>Kill Limit: <span className="font-semibold">-{Number(riskExecutionPolicy?.dailyDrawdownKillPct || 4).toFixed(1)}%</span></div>
                     </div>
                     <div className={`mt-2 text-xs ${isLight ? "text-slate-700" : "text-white/80"}`}>{profile?.autoPilot?.runSummary || "ASTRA will generate a mission summary after the next run."}</div>
                     <div className="mt-2">
