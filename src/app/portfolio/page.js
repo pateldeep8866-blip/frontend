@@ -20,10 +20,10 @@ const AZULA_FLAME_IDS = Array.from({ length: 8 }, (_, index) => index + 1);
 const AZULA_LIGHTNING_IDS = Array.from({ length: 8 }, (_, index) => index + 1);
 
 const PORTFOLIO_TEXT = {
-  en: { backHome: "Back Home", dark: "Dark", light: "Light", sakura: "Sakura", azula: "Azula", portfolio: "Portfolio", loading: "Loading", checking: "Checking account...", loginRequired: "Login Required", loginMessage: "Please sign in from the home page to manage portfolio holdings (stocks, ETFs, funds, bonds, and crypto)." },
-  es: { backHome: "Inicio", dark: "Oscuro", light: "Claro", sakura: "Sakura", azula: "Azula", portfolio: "Portafolio", loading: "Cargando", checking: "Verificando cuenta...", loginRequired: "Inicio de sesion requerido", loginMessage: "Inicia sesion desde la pagina principal para administrar tu portafolio." },
-  fr: { backHome: "Accueil", dark: "Sombre", light: "Clair", sakura: "Sakura", azula: "Azula", portfolio: "Portefeuille", loading: "Chargement", checking: "Verification du compte...", loginRequired: "Connexion requise", loginMessage: "Connectez-vous depuis la page d'accueil pour gerer votre portefeuille." },
-  hi: { backHome: "होम", dark: "डार्क", light: "लाइट", sakura: "सकुरा", azula: "अज़ूला", portfolio: "पोर्टफोलियो", loading: "लोड हो रहा है", checking: "अकाउंट जांचा जा रहा है...", loginRequired: "लॉगिन आवश्यक", loginMessage: "पोर्टफोलियो प्रबंधित करने के लिए होम पेज से लॉगिन करें।" },
+  en: { backHome: "Back Home", dark: "Dark", light: "Light", sakura: "Sakura", azula: "Azula", alerik: "Alerik", portfolio: "Portfolio", loading: "Loading", checking: "Checking account...", loginRequired: "Login Required", loginMessage: "Please sign in from the home page to manage portfolio holdings (stocks, ETFs, funds, bonds, and crypto)." },
+  es: { backHome: "Inicio", dark: "Oscuro", light: "Claro", sakura: "Sakura", azula: "Azula", alerik: "Alerik", portfolio: "Portafolio", loading: "Cargando", checking: "Verificando cuenta...", loginRequired: "Inicio de sesion requerido", loginMessage: "Inicia sesion desde la pagina principal para administrar tu portafolio." },
+  fr: { backHome: "Accueil", dark: "Sombre", light: "Clair", sakura: "Sakura", azula: "Azula", alerik: "Alerik", portfolio: "Portefeuille", loading: "Chargement", checking: "Verification du compte...", loginRequired: "Connexion requise", loginMessage: "Connectez-vous depuis la page d'accueil pour gerer votre portefeuille." },
+  hi: { backHome: "होम", dark: "डार्क", light: "लाइट", sakura: "सकुरा", azula: "अज़ूला", alerik: "Alerik", portfolio: "पोर्टफोलियो", loading: "लोड हो रहा है", checking: "अकाउंट जांचा जा रहा है...", loginRequired: "लॉगिन आवश्यक", loginMessage: "पोर्टफोलियो प्रबंधित करने के लिए होम पेज से लॉगिन करें।" },
 };
 
 function canonicalTicker(input) {
@@ -184,6 +184,7 @@ function AllocationPie({ items = [], size = 208, stroke = 26 }) {
 function Card({ title, right, children, theme = "dark" }) {
   const isCherry = theme === "cherry";
   const isAzula = theme === "azula";
+  const isAlerik = theme === "alerik";
   const isLight = theme === "light" || isCherry || isAzula;
   return (
     <div
@@ -192,6 +193,8 @@ function Card({ title, right, children, theme = "dark" }) {
           ? "border border-rose-200/60 bg-white/90 shadow-[0_14px_34px_-22px_rgba(190,24,93,0.2)]"
           : isAzula
             ? "border border-sky-200/70 bg-white/92 shadow-[0_14px_34px_-22px_rgba(14,116,144,0.2)]"
+          : isAlerik
+            ? "app-card border border-[#c9a84c]/24 bg-[#11100d]/92 shadow-[0_18px_40px_-24px_rgba(0,0,0,0.82)]"
           : isLight
             ? "border border-slate-200 bg-white/90 shadow-[0_14px_34px_-22px_rgba(59,130,246,0.18)]"
             : "border border-white/12 bg-slate-900/55 shadow-[0_14px_40px_-22px_rgba(15,23,42,0.9)]"
@@ -238,7 +241,7 @@ export default function PortfolioPage() {
   useEffect(() => {
     try {
       const t = localStorage.getItem("theme_mode");
-      if (t === "light" || t === "dark" || t === "cherry" || t === "azula") setTheme(t);
+      if (t === "light" || t === "dark" || t === "cherry" || t === "azula" || t === "alerik") setTheme(t);
     } catch {}
     try {
       const lang = localStorage.getItem("site_language");
@@ -684,6 +687,7 @@ export default function PortfolioPage() {
 
   const isCherry = theme === "cherry";
   const isAzula = theme === "azula";
+  const isAlerik = theme === "alerik";
   const isLight = theme === "light" || isCherry || isAzula;
   const t = (key) => PORTFOLIO_TEXT[language]?.[key] || PORTFOLIO_TEXT.en[key] || key;
   const summary = useMemo(() => {
@@ -781,37 +785,43 @@ export default function PortfolioPage() {
           >
             {t("backHome")}
           </Link>
-          <div className={`inline-flex rounded-xl overflow-hidden border ${isLight ? "border-slate-300 bg-white/90" : "border-white/15 bg-slate-900/60"}`}>
+          <div className={`inline-flex rounded-xl overflow-hidden border ${isAlerik ? "border-[#c9a84c]/30 bg-[#0b0b0b]/90" : isLight ? "border-slate-300 bg-white/90" : "border-white/15 bg-slate-900/60"}`}>
             <button
               onClick={() => setTheme("dark")}
-              className={`px-3 py-1.5 text-xs font-semibold ${theme === "dark" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-800" : "bg-transparent text-white/85"}`}
+              className={`px-3 py-1.5 text-xs font-semibold ${theme === "dark" ? "bg-blue-600 text-white" : isAlerik ? "bg-transparent text-[#f5f0e8]" : isLight ? "bg-transparent text-slate-800" : "bg-transparent text-white/85"}`}
             >
               {t("dark")}
             </button>
             <button
               onClick={() => setTheme("light")}
-              className={`px-3 py-1.5 text-xs font-semibold ${theme === "light" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-800" : "bg-transparent text-white/85"}`}
+              className={`px-3 py-1.5 text-xs font-semibold ${theme === "light" ? "bg-blue-600 text-white" : isAlerik ? "bg-transparent text-[#f5f0e8]" : isLight ? "bg-transparent text-slate-800" : "bg-transparent text-white/85"}`}
             >
               {t("light")}
             </button>
             <button
               onClick={() => setTheme("cherry")}
-              className={`px-3 py-1.5 text-xs font-semibold ${theme === "cherry" ? "bg-rose-600 text-white" : isLight ? "bg-transparent text-rose-800" : "bg-transparent text-white/85"}`}
+              className={`px-3 py-1.5 text-xs font-semibold ${theme === "cherry" ? "bg-rose-600 text-white" : isAlerik ? "bg-transparent text-[#f5f0e8]" : isLight ? "bg-transparent text-rose-800" : "bg-transparent text-white/85"}`}
             >
               {t("sakura")}
             </button>
             <button
               onClick={() => setTheme("azula")}
-              className={`px-3 py-1.5 text-xs font-semibold ${theme === "azula" ? "bg-sky-600 text-white" : isLight ? "bg-transparent text-sky-800" : "bg-transparent text-white/85"}`}
+              className={`px-3 py-1.5 text-xs font-semibold ${theme === "azula" ? "bg-sky-600 text-white" : isAlerik ? "bg-transparent text-[#f5f0e8]" : isLight ? "bg-transparent text-sky-800" : "bg-transparent text-white/85"}`}
             >
               {t("azula")}
+            </button>
+            <button
+              onClick={() => setTheme("alerik")}
+              className={`px-3 py-1.5 text-xs font-semibold ${theme === "alerik" ? "bg-[#c9a84c] text-[#050505]" : isAlerik ? "bg-transparent text-[#f5f0e8]" : isLight ? "bg-transparent text-[#8a6a28]" : "bg-transparent text-white/85"}`}
+            >
+              {t("alerik")}
             </button>
           </div>
           <select
             value={language}
             onChange={(e) => setLanguage(e.target.value)}
             className={`px-2.5 py-1.5 rounded-lg border text-xs ${
-              isLight ? "border-slate-300 bg-white/90 text-slate-700" : "border-white/15 bg-slate-900/60 text-white/85"
+              isAlerik ? "border-[#c9a84c]/30 bg-[#0b0b0b]/90 text-[#f5f0e8]" : isLight ? "border-slate-300 bg-white/90 text-slate-700" : "border-white/15 bg-slate-900/60 text-white/85"
             }`}
           >
             {LANGUAGE_OPTIONS.map((option) => (
@@ -824,12 +834,12 @@ export default function PortfolioPage() {
 
         <div className="text-center mb-8">
           <h1 className="text-3xl md:text-4xl font-semibold tracking-tight">{t("portfolio")}</h1>
-          <p className={`mt-2 text-sm ${isLight ? "text-slate-600" : "text-white/70"}`}>{summary}</p>
+          <p className={`mt-2 text-sm ${isAlerik ? "text-[#f5f0e8]/72" : isLight ? "text-slate-600" : "text-white/70"}`}>{summary}</p>
         </div>
 
         {!authReady ? (
           <Card title={t("loading")} theme={theme}>
-            <div className={`text-sm ${isLight ? "text-slate-600" : "text-white/70"}`}>{t("checking")}</div>
+            <div className={`text-sm ${isAlerik ? "text-[#f5f0e8]/72" : isLight ? "text-slate-600" : "text-white/70"}`}>{t("checking")}</div>
           </Card>
         ) : !authUser ? (
           <Card title={t("loginRequired")} theme={theme}>

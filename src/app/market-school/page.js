@@ -54,7 +54,7 @@ const GLOSSARY_TERMS = [
   },
 ];
 
-const THEME_OPTIONS = ["dark", "light", "cherry", "azula"];
+const THEME_OPTIONS = ["dark", "light", "cherry", "azula", "alerik"];
 const DIFFICULTY_FILTERS = ["All", "Beginner", "Intermediate", "Advanced"];
 
 function toTitleDate(value) {
@@ -342,13 +342,16 @@ export default function MarketSchoolPage() {
 
   const isCherry = theme === "cherry";
   const isAzula = theme === "azula";
+  const isAlerik = theme === "alerik";
   const isLight = theme === "light" || isCherry || isAzula;
 
   const pageClass = isCherry
     ? "cherry-mode min-h-screen relative overflow-hidden bg-[#fffefc] text-[#3a2530]"
     : isAzula
       ? "azula-mode min-h-screen relative overflow-hidden bg-[#09090b] text-[#e7e1c5]"
-      : isLight
+      : isAlerik
+        ? "alerik-mode min-h-screen relative overflow-hidden bg-[#050505] text-[#f5f0e8]"
+        : isLight
         ? "min-h-screen relative overflow-hidden bg-gradient-to-br from-white via-blue-50 to-cyan-50 text-slate-900"
         : "min-h-screen relative overflow-hidden bg-slate-950 text-white";
 
@@ -356,7 +359,9 @@ export default function MarketSchoolPage() {
     ? "rounded-2xl border border-rose-200/60 bg-white/90 backdrop-blur-sm p-5 shadow-[0_10px_34px_rgba(190,24,93,0.1)]"
     : isAzula
       ? "app-card rounded-2xl border border-[#c5a66a]/40 bg-[#111116]/92 backdrop-blur-sm p-5 shadow-[0_14px_34px_rgba(0,0,0,0.42)]"
-      : isLight
+      : isAlerik
+        ? "app-card rounded-2xl border border-[#c9a84c]/26 bg-[#101010]/92 backdrop-blur-sm p-5 shadow-[0_18px_40px_rgba(0,0,0,0.46)]"
+        : isLight
         ? "rounded-2xl border border-blue-200/80 bg-white/90 backdrop-blur-sm p-5 shadow-[0_10px_34px_rgba(59,130,246,0.1)]"
         : "rounded-2xl border border-white/12 bg-slate-900/55 p-5";
 
@@ -584,7 +589,7 @@ export default function MarketSchoolPage() {
                       <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-wide ${isLight ? "border-sky-300 bg-sky-50 text-sky-700" : "border-sky-400/35 bg-sky-500/20 text-sky-200"}`}>
                         {lesson.trigger || "MARKET CONTEXT"}
                       </span>
-                      <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${difficultyClass(difficulty, isLight)}`}>
+                      <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${difficultyClass(difficulty, isLight || isAlerik)}`}>
                         {difficulty}
                       </span>
                       <span className={`text-[11px] ${isLight ? "text-slate-500" : "text-white/60"}`}>

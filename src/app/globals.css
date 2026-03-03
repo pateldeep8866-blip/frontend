@@ -118,6 +118,84 @@ body {
   display: none;
 }
 
+
+.alerik-mode {
+  background-color: #050505;
+  background-image:
+    radial-gradient(circle at 16% 12%, rgba(201, 168, 76, 0.14), transparent 34%),
+    radial-gradient(circle at 82% 74%, rgba(201, 168, 76, 0.08), transparent 38%),
+    linear-gradient(180deg, #040404 0%, #090909 42%, #050505 100%);
+  isolation: isolate;
+}
+
+.alerik-mode::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  opacity: 0.35;
+  z-index: 0;
+}
+
+.alerik-mode::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 12%, rgba(232, 201, 106, 0.08), transparent 34%),
+    linear-gradient(180deg, transparent 0%, rgba(201, 168, 76, 0.03) 100%);
+  z-index: 0;
+}
+
+.alerik-mode .app-card {
+  background: linear-gradient(180deg, rgba(18, 18, 18, 0.96), rgba(9, 9, 9, 0.94)) !important;
+  border-color: rgba(201, 168, 76, 0.26) !important;
+  box-shadow:
+    0 18px 40px -26px rgba(0, 0, 0, 0.9),
+    0 0 0 1px rgba(201, 168, 76, 0.1) inset,
+    0 1px 0 rgba(255, 255, 255, 0.03) inset;
+  color: #f5f0e8 !important;
+}
+
+.alerik-mode .app-card:hover {
+  border-color: rgba(232, 201, 106, 0.42) !important;
+}
+
+.alerik-mode .app-card-title {
+  color: #f5f0e8 !important;
+}
+
+.alerik-mode .app-card,
+.alerik-mode .app-card * {
+  color: #f5f0e8;
+  -webkit-text-fill-color: currentColor;
+}
+
+.alerik-mode .app-card [class*="text-green-"] {
+  color: #87c98b !important;
+  -webkit-text-fill-color: #87c98b !important;
+}
+
+.alerik-mode .app-card [class*="text-red-"] {
+  color: #d58d8d !important;
+  -webkit-text-fill-color: #d58d8d !important;
+}
+
+.alerik-mode .app-card [class*="text-blue-"] {
+  color: #d6bc77 !important;
+  -webkit-text-fill-color: #d6bc77 !important;
+}
+
+.alerik-mode .app-card [class*="bg-white/"] {
+  background-color: rgba(20, 18, 12, 0.72) !important;
+}
+
+.alerik-mode .app-card [class*="border-white/"] {
+  border-color: rgba(201, 168, 76, 0.22) !important;
+}
+
 .azula-mode .app-card {
   background: linear-gradient(180deg, rgba(17, 17, 22, 0.96), rgba(12, 12, 16, 0.96)) !important;
   border-color: rgba(189, 156, 95, 0.42) !important;

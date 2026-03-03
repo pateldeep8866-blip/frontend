@@ -417,13 +417,16 @@ export default function SimulatorPage() {
 
   const isCherry = theme === "cherry";
   const isAzula = theme === "azula";
+  const isAlerik = theme === "alerik";
   const isLight = theme === "light" || isCherry || isAzula;
 
   const pageClass = isCherry
     ? "cherry-mode min-h-screen relative overflow-hidden bg-[#fffefc] text-[#3a2530]"
     : isAzula
       ? "azula-mode min-h-screen relative overflow-hidden bg-[#09090b] text-[#e7e1c5]"
-      : isLight
+      : isAlerik
+        ? "alerik-mode min-h-screen relative overflow-hidden bg-[#050505] text-[#f5f0e8]"
+        : isLight
         ? "light-mode min-h-screen relative overflow-hidden bg-[#fbfdff] text-slate-900"
         : "dark-mode min-h-screen relative overflow-hidden bg-slate-950 text-white";
   const cardClass = isLight
@@ -506,7 +509,7 @@ export default function SimulatorPage() {
   useEffect(() => {
     try {
       const saved = localStorage.getItem("theme_mode");
-      if (saved === "dark" || saved === "light" || saved === "cherry" || saved === "azula") setTheme(saved);
+      if (saved === "dark" || saved === "light" || saved === "cherry" || saved === "azula" || saved === "alerik") setTheme(saved);
       const savedRisk = localStorage.getItem(SIM_RISK_LEVEL_KEY);
       if (savedRisk) setRiskLevel(String(savedRisk).toUpperCase());
       const savedCustom = localStorage.getItem(SIM_RISK_CUSTOM_KEY);
@@ -579,7 +582,7 @@ export default function SimulatorPage() {
 
   const setThemeMode = useCallback((mode) => {
     const next = String(mode || "").toLowerCase();
-    if (!["dark", "light", "cherry", "azula"].includes(next)) return;
+    if (!["dark", "light", "cherry", "azula", "alerik"].includes(next)) return;
     setTheme(next);
     try {
       localStorage.setItem("theme_mode", next);
@@ -2103,15 +2106,15 @@ export default function SimulatorPage() {
             <details className="relative">
               <summary
                 className={`list-none inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[11px] font-semibold cursor-pointer [&::-webkit-details-marker]:hidden ${
-                  isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/15 bg-white/5 text-white/85"
+                  isAlerik ? "border-[#c9a84c]/30 bg-[#0b0b0b]/90 text-[#f5f0e8]" : isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/15 bg-white/5 text-white/85"
                 }`}
               >
-                Theme: {theme === "cherry" ? "Sakura" : theme === "azula" ? "Azula" : theme === "light" ? "Light" : "Dark"}
+                Theme: {theme === "cherry" ? "Sakura" : theme === "azula" ? "Azula" : theme === "alerik" ? "Alerik" : theme === "light" ? "Light" : "Dark"}
                 <span className="text-[10px]">▼</span>
               </summary>
               <div
                 className={`absolute right-0 top-full mt-2 w-40 rounded-xl border p-1.5 shadow-2xl z-40 ${
-                  isLight ? "border-slate-300 bg-white" : "border-white/15 bg-slate-900"
+                  isAlerik ? "border-[#c9a84c]/30 bg-[#0b0b0b]" : isLight ? "border-slate-300 bg-white" : "border-white/15 bg-slate-900"
                 }`}
               >
                 {[
@@ -2119,16 +2122,19 @@ export default function SimulatorPage() {
                   { key: "light", label: "Light" },
                   { key: "cherry", label: "Sakura" },
                   { key: "azula", label: "Azula" },
+                  { key: "alerik", label: "Alerik" },
                 ].map((m) => (
                   <button
                     key={m.key}
                     onClick={() => setThemeMode(m.key)}
                     className={`mt-1 first:mt-0 w-full rounded-lg px-3 py-2 text-left text-xs font-semibold ${
                       theme === m.key
-                        ? "bg-blue-600 text-white"
-                        : isLight
-                          ? "text-slate-700 hover:bg-slate-100"
-                          : "text-white/85 hover:bg-white/10"
+                        ? (m.key === "alerik" ? "bg-[#c9a84c] text-[#050505]" : "bg-blue-600 text-white")
+                        : isAlerik
+                          ? "text-[#f5f0e8] hover:bg-[#15120d]"
+                          : isLight
+                            ? "text-slate-700 hover:bg-slate-100"
+                            : "text-white/85 hover:bg-white/10"
                     }`}
                   >
                     {m.label}
@@ -2136,12 +2142,12 @@ export default function SimulatorPage() {
                 ))}
               </div>
             </details>
-            <div className={`text-[11px] ${isLight ? "text-slate-500" : "text-white/55"}`}>Learn before you risk capital.</div>
+            <div className={`text-[11px] ${isAlerik ? "text-[#c9a84c]/70" : isLight ? "text-slate-500" : "text-white/55"}`}>Learn before you risk capital.</div>
           </div>
           </div>
         </div>
 
-        <div className={`mb-4 rounded-xl border overflow-hidden ${isLight ? "border-slate-200 bg-white/90" : "border-white/12 bg-[#0d1117]/90"}`}>
+        <div className={`mb-4 rounded-xl border overflow-hidden ${isAlerik ? "border-[#c9a84c]/24 bg-[#0c0b09]/92" : isLight ? "border-slate-200 bg-white/90" : "border-white/12 bg-[#0d1117]/90"}`}>
           <div className="grid grid-cols-2 md:grid-cols-6 gap-px bg-black/5">
             <div className={`px-3 py-2 ${isLight ? "bg-white" : "bg-[#121821]"}`}>
               <div className={`text-[9px] tracking-[0.16em] uppercase ${isLight ? "text-slate-500" : "text-white/45"}`}>Portfolio</div>
@@ -2198,7 +2204,7 @@ export default function SimulatorPage() {
           )}
         </div>
 
-        <div className={`mb-4 rounded-xl border overflow-hidden ${isLight ? "border-slate-200 bg-white/90" : "border-white/12 bg-[#0d1117]/90"}`}>
+        <div className={`mb-4 rounded-xl border overflow-hidden ${isAlerik ? "border-[#c9a84c]/24 bg-[#0c0b09]/92" : isLight ? "border-slate-200 bg-white/90" : "border-white/12 bg-[#0d1117]/90"}`}>
           <div className={`px-3 py-1 text-[10px] uppercase tracking-[0.18em] border-b ${isLight ? "text-slate-500 border-slate-200 bg-slate-50" : "text-white/60 border-white/10 bg-white/[0.03]"}`}>
             Live Ticker Tape
           </div>
@@ -2566,19 +2572,19 @@ export default function SimulatorPage() {
                       </div>
                       <div className={`mt-2 grid grid-cols-1 md:grid-cols-2 gap-1.5 text-[11px] ${isLight ? "text-slate-700" : "text-white/75"}`}>
                         <div className={`rounded-md border px-2 py-1 ${isLight ? "border-slate-200 bg-slate-50" : "border-white/10 bg-white/5"}`}>
-                          <div className={`text-[10px] uppercase tracking-wide ${isLight ? "text-slate-500" : "text-white/55"}`}>Why Now</div>
+                          <div className={`text-[10px] uppercase tracking-wide ${isAlerik ? "text-[#c9a84c]/70" : isLight ? "text-slate-500" : "text-white/55"}`}>Why Now</div>
                           <div>{d.whyNow || d.reasoning}</div>
                         </div>
                         <div className={`rounded-md border px-2 py-1 ${isLight ? "border-slate-200 bg-slate-50" : "border-white/10 bg-white/5"}`}>
-                          <div className={`text-[10px] uppercase tracking-wide ${isLight ? "text-slate-500" : "text-white/55"}`}>Sizing Logic</div>
+                          <div className={`text-[10px] uppercase tracking-wide ${isAlerik ? "text-[#c9a84c]/70" : isLight ? "text-slate-500" : "text-white/55"}`}>Sizing Logic</div>
                           <div>{d.sizeWhy || "Sized under active risk profile and guardrails."}</div>
                         </div>
                         <div className={`rounded-md border px-2 py-1 ${isLight ? "border-slate-200 bg-slate-50" : "border-white/10 bg-white/5"}`}>
-                          <div className={`text-[10px] uppercase tracking-wide ${isLight ? "text-slate-500" : "text-white/55"}`}>Invalidation</div>
+                          <div className={`text-[10px] uppercase tracking-wide ${isAlerik ? "text-[#c9a84c]/70" : isLight ? "text-slate-500" : "text-white/55"}`}>Invalidation</div>
                           <div>{d.invalidation || "Invalidates if thesis weakens materially."}</div>
                         </div>
                         <div className={`rounded-md border px-2 py-1 ${isLight ? "border-slate-200 bg-slate-50" : "border-white/10 bg-white/5"}`}>
-                          <div className={`text-[10px] uppercase tracking-wide ${isLight ? "text-slate-500" : "text-white/55"}`}>Expected Hold</div>
+                          <div className={`text-[10px] uppercase tracking-wide ${isAlerik ? "text-[#c9a84c]/70" : isLight ? "text-slate-500" : "text-white/55"}`}>Expected Hold</div>
                           <div>{d.expectedHold || "Monitor until risk/reward shifts."}</div>
                         </div>
                       </div>

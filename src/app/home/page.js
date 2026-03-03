@@ -83,7 +83,7 @@ export default function HomeTabPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const saved = localStorage.getItem("theme_mode");
-    if (saved === "dark" || saved === "light" || saved === "cherry" || saved === "azula") {
+    if (saved === "dark" || saved === "light" || saved === "cherry" || saved === "azula" || saved === "alerik") {
       setTheme(saved);
     }
   }, []);
@@ -110,64 +110,80 @@ export default function HomeTabPage() {
 
   const isCherry = theme === "cherry";
   const isAzula = theme === "azula";
+  const isAlerik = theme === "alerik";
   const isLight = theme === "light" || isCherry || isAzula;
 
   const pageClass = useMemo(() => {
     if (isCherry) return "cherry-mode bg-[#fffefc] text-[#3a2530]";
     if (isAzula) return "azula-mode bg-[#050506] text-[#efe5cb]";
+    if (isAlerik) return "alerik-mode bg-[#050505] text-[#f5f0e8]";
     if (isLight) return "light-mode bg-[#fbfdff] text-slate-900";
     return "dark-mode bg-slate-950 text-white";
-  }, [isCherry, isAzula, isLight]);
+  }, [isCherry, isAzula, isAlerik, isLight]);
 
-  const ctaClass = isAzula
-    ? "bg-[#cfb06a] text-[#101012] hover:bg-[#dec284]"
+  const ctaClass = isAlerik
+    ? "bg-gradient-to-br from-[#e8c96a] to-[#8a6a28] text-[#050505] hover:from-[#f1d988] hover:to-[#b78f3f]"
+    : isAzula
+      ? "bg-[#cfb06a] text-[#101012] hover:bg-[#dec284]"
     : isCherry
       ? "bg-rose-600 text-white hover:bg-rose-700"
       : isLight
         ? "bg-blue-600 text-white hover:bg-blue-700"
         : "bg-cyan-500 text-slate-950 hover:bg-cyan-400";
 
-  const shellClass = isLight
-    ? "border-slate-300 bg-white/90 text-slate-800"
-    : "border-white/15 bg-slate-900/60 text-white/85";
+  const shellClass = isAlerik
+    ? "border-[#c9a84c]/35 bg-[#0b0b0b]/90 text-[#f5f0e8]"
+    : isLight
+      ? "border-slate-300 bg-white/90 text-slate-800"
+      : "border-white/15 bg-slate-900/60 text-white/85";
 
-  const cardClass = isLight
-    ? "border-slate-300 bg-white/90 shadow-sm"
-    : isAzula
-      ? "border-[#b99654]/40 bg-[#0f1013]/85"
-      : "border-white/12 bg-slate-900/55";
+  const cardClass = isAlerik
+    ? "border-[#c9a84c]/28 bg-[#101010]/92 shadow-[0_18px_40px_-24px_rgba(0,0,0,0.85)]"
+    : isLight
+      ? "border-slate-300 bg-white/90 shadow-sm"
+      : isAzula
+        ? "border-[#b99654]/40 bg-[#0f1013]/85"
+        : "border-white/12 bg-slate-900/55";
 
-  const softCardClass = isLight
-    ? "border-slate-300 bg-white/85"
-    : isAzula
-      ? "border-[#b99654]/25 bg-[#16171b]/70"
-      : "border-white/10 bg-white/5";
+  const softCardClass = isAlerik
+    ? "border-[#c9a84c]/18 bg-[#141210]/78"
+    : isLight
+      ? "border-slate-300 bg-white/85"
+      : isAzula
+        ? "border-[#b99654]/25 bg-[#16171b]/70"
+        : "border-white/10 bg-white/5";
 
-  const mutedTextClass = isLight ? "text-slate-600" : isAzula ? "text-[#d9ccaa]/80" : "text-white/75";
+  const mutedTextClass = isAlerik ? "text-[#f5f0e8]/70" : isLight ? "text-slate-600" : isAzula ? "text-[#d9ccaa]/80" : "text-white/75";
 
   const accentLabelClass = isCherry
     ? "text-rose-700"
-    : isAzula
-      ? "text-[#d6be86]"
-      : isLight
-        ? "text-slate-500"
-        : "text-cyan-200/80";
+    : isAlerik
+      ? "text-[#c9a84c]"
+      : isAzula
+        ? "text-[#d6be86]"
+        : isLight
+          ? "text-slate-500"
+          : "text-cyan-200/80";
 
   const honestClass = isCherry
     ? "border-rose-300 bg-rose-50 text-rose-800"
-    : isAzula
-      ? "border-[#c8a865]/30 bg-[#c8a865]/10 text-[#e8d7ac]"
-      : isLight
-        ? "border-amber-300 bg-amber-50 text-amber-800"
-        : "border-cyan-400/25 bg-cyan-500/10 text-cyan-200";
+    : isAlerik
+      ? "border-[#c9a84c]/28 bg-[#1a1409] text-[#e8c96a]"
+      : isAzula
+        ? "border-[#c8a865]/30 bg-[#c8a865]/10 text-[#e8d7ac]"
+        : isLight
+          ? "border-amber-300 bg-amber-50 text-amber-800"
+          : "border-cyan-400/25 bg-cyan-500/10 text-cyan-200";
 
   const heroGlowClass = isCherry
     ? "bg-[radial-gradient(circle_at_12%_8%,rgba(244,63,94,0.14),transparent_36%),radial-gradient(circle_at_85%_72%,rgba(217,70,239,0.08),transparent_42%)]"
-    : isAzula
-      ? "bg-[radial-gradient(circle_at_12%_8%,rgba(212,175,106,0.16),transparent_36%),radial-gradient(circle_at_85%_72%,rgba(212,175,106,0.1),transparent_42%)]"
-      : isLight
-        ? "bg-[radial-gradient(circle_at_12%_8%,rgba(59,130,246,0.12),transparent_36%),radial-gradient(circle_at_85%_72%,rgba(14,165,233,0.08),transparent_42%)]"
-      : "bg-[radial-gradient(circle_at_12%_8%,rgba(34,211,238,0.12),transparent_36%),radial-gradient(circle_at_85%_72%,rgba(56,189,248,0.08),transparent_42%)]";
+    : isAlerik
+      ? "bg-[radial-gradient(circle_at_12%_8%,rgba(201,168,76,0.16),transparent_34%),radial-gradient(circle_at_85%_72%,rgba(201,168,76,0.09),transparent_40%),linear-gradient(180deg,rgba(201,168,76,0.03),transparent)]"
+      : isAzula
+        ? "bg-[radial-gradient(circle_at_12%_8%,rgba(212,175,106,0.16),transparent_36%),radial-gradient(circle_at_85%_72%,rgba(212,175,106,0.1),transparent_42%)]"
+        : isLight
+          ? "bg-[radial-gradient(circle_at_12%_8%,rgba(59,130,246,0.12),transparent_36%),radial-gradient(circle_at_85%_72%,rgba(14,165,233,0.08),transparent_42%)]"
+          : "bg-[radial-gradient(circle_at_12%_8%,rgba(34,211,238,0.12),transparent_36%),radial-gradient(circle_at_85%_72%,rgba(56,189,248,0.08),transparent_42%)]";
 
   return (
     <div className={`min-h-screen relative overflow-hidden ${pageClass} ${syne.className}`}>
@@ -180,11 +196,11 @@ export default function HomeTabPage() {
             <div className="flex items-center gap-2">
               <details className="relative">
                 <summary className={`list-none inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer [&::-webkit-details-marker]:hidden ${shellClass}`}>
-                  Theme: {theme === "cherry" ? "Sakura" : theme === "azula" ? "Azula" : theme === "light" ? "Light" : "Dark"}
+                  Theme: {theme === "cherry" ? "Sakura" : theme === "azula" ? "Azula" : theme === "alerik" ? "Alerik" : theme === "light" ? "Light" : "Dark"}
                   <span className="text-[10px]">▼</span>
                 </summary>
                 <div className={`absolute left-0 top-full mt-2 w-40 rounded-xl border p-1.5 shadow-2xl ${shellClass}`}>
-                  {["dark", "light", "cherry", "azula"].map((mode) => (
+                  {["dark", "light", "cherry", "azula", "alerik"].map((mode) => (
                     <button
                       key={mode}
                       onClick={() => {
@@ -197,7 +213,7 @@ export default function HomeTabPage() {
                           : isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/85 hover:bg-white/10"
                       }`}
                     >
-                      {mode === "cherry" ? "Sakura" : mode === "azula" ? "Azula" : mode[0].toUpperCase() + mode.slice(1)}
+                      {mode === "cherry" ? "Sakura" : mode === "azula" ? "Azula" : mode === "alerik" ? "Alerik" : mode[0].toUpperCase() + mode.slice(1)}
                     </button>
                   ))}
                 </div>
@@ -246,30 +262,31 @@ export default function HomeTabPage() {
               <div className="text-left">
                 <h1 className={`text-5xl md:text-6xl font-semibold leading-none tracking-tight ${
                   isCherry ? "bg-gradient-to-r from-rose-900 via-fuchsia-800 to-indigo-800 bg-clip-text text-transparent"
-                    : isAzula ? "text-transparent bg-clip-text bg-gradient-to-r from-[#d9c58a] via-[#efe3bc] to-[#b9974c]"
-                      : isLight ? "text-slate-900" : "bg-gradient-to-r from-white via-cyan-100 to-sky-200 bg-clip-text text-transparent"
+                    : isAlerik ? "text-transparent bg-clip-text bg-gradient-to-r from-[#e8c96a] via-[#f5f0e8] to-[#8a6a28]"
+                      : isAzula ? "text-transparent bg-clip-text bg-gradient-to-r from-[#d9c58a] via-[#efe3bc] to-[#b9974c]"
+                        : isLight ? "text-slate-900" : "bg-gradient-to-r from-white via-cyan-100 to-sky-200 bg-clip-text text-transparent"
                 }`}>
                   Arthastra
                 </h1>
-                <p className={`mt-2 text-3xl md:text-4xl font-medium leading-none tracking-tight ${isCherry ? "text-rose-900" : isAzula ? "text-[#f0e7c8]/95" : isLight ? "text-slate-700" : "text-cyan-100/90"}`}>
+                <p className={`mt-2 text-3xl md:text-4xl font-medium leading-none tracking-tight ${isCherry ? "text-rose-900" : isAlerik ? "text-[#f5f0e8]" : isAzula ? "text-[#f0e7c8]/95" : isLight ? "text-slate-700" : "text-cyan-100/90"}`}>
                   Analytical Information
                 </p>
               </div>
             </div>
           </div>
-          <p className={`mt-5 text-lg md:text-xl font-medium reveal reveal-up delay-2 ${isCherry ? "text-rose-900/90" : isAzula ? "text-[#ddd2ae]/90" : isLight ? "text-slate-700" : "text-slate-200/90"}`}>Clarity in Every Market.</p>
-          <p className={`text-xs mt-3 reveal reveal-up delay-3 ${isCherry ? "text-rose-800/80" : isAzula ? "text-[#b8ab82]/80" : isLight ? "text-slate-500" : "text-slate-400/80"}`}>Founder: Deep Patel • Co-founder: Juan M. Ramirez</p>
+          <p className={`mt-5 text-lg md:text-xl font-medium reveal reveal-up delay-2 ${isCherry ? "text-rose-900/90" : isAlerik ? "text-[#e8dcc0]/90" : isAzula ? "text-[#ddd2ae]/90" : isLight ? "text-slate-700" : "text-slate-200/90"}`}>Clarity in Every Market.</p>
+          <p className={`text-xs mt-3 reveal reveal-up delay-3 ${isCherry ? "text-rose-800/80" : isAlerik ? "text-[#c9a84c]/72" : isAzula ? "text-[#b8ab82]/80" : isLight ? "text-slate-500" : "text-slate-400/80"}`}>Founder: Deep Patel • Co-founder: Juan M. Ramirez</p>
 
           <div className={`mt-5 inline-flex rounded-xl overflow-hidden border reveal reveal-up delay-4 ${shellClass}`}>
             <Link href="/home" className="px-3 py-1.5 text-xs font-semibold inline-flex items-center bg-blue-600 text-white">Home</Link>
-            <Link href="/" className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"}`}>Stock</Link>
-            <Link href="/" className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"}`}>Crypto</Link>
-            <Link href="/" className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"}`}>Metals</Link>
-            <Link href="/" className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"}`}>FX</Link>
-            <Link href="/market-school" className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"}`}>Learn</Link>
-            <Link href="/simulator" className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"}`}>Simulator</Link>
-            <Link href="/" className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"}`}>Geo Politics</Link>
-            <Link href="/" className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"}`}>Global Market</Link>
+            <Link href="/" className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${isAlerik ? "text-[#f5f0e8]/82 hover:bg-[#1a1710]" : isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"}`}>Stock</Link>
+            <Link href="/" className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${isAlerik ? "text-[#f5f0e8]/82 hover:bg-[#1a1710]" : isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"}`}>Crypto</Link>
+            <Link href="/" className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${isAlerik ? "text-[#f5f0e8]/82 hover:bg-[#1a1710]" : isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"}`}>Metals</Link>
+            <Link href="/" className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${isAlerik ? "text-[#f5f0e8]/82 hover:bg-[#1a1710]" : isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"}`}>FX</Link>
+            <Link href="/market-school" className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${isAlerik ? "text-[#f5f0e8]/82 hover:bg-[#1a1710]" : isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"}`}>Learn</Link>
+            <Link href="/simulator" className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${isAlerik ? "text-[#f5f0e8]/82 hover:bg-[#1a1710]" : isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"}`}>Simulator</Link>
+            <Link href="/" className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${isAlerik ? "text-[#f5f0e8]/82 hover:bg-[#1a1710]" : isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"}`}>Geo Politics</Link>
+            <Link href="/" className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${isAlerik ? "text-[#f5f0e8]/82 hover:bg-[#1a1710]" : isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"}`}>Global Market</Link>
           </div>
         </section>
 
@@ -277,16 +294,16 @@ export default function HomeTabPage() {
           <div className="grid grid-cols-1 lg:grid-cols-[1.35fr_0.9fr] gap-6 items-start">
             <div>
               <p className={`text-[11px] uppercase tracking-[0.22em] font-semibold ${accentLabelClass} ${plexMono.className}`}>Home • Research First</p>
-              <h2 className={`mt-2 text-5xl md:text-7xl font-semibold leading-[0.95] reveal reveal-left delay-1 ${isLight ? "text-slate-900" : "text-white"} ${cormorant.className}`}>Learn Before You Earn</h2>
-              <p className={`mt-3 text-xl md:text-2xl font-medium reveal reveal-left delay-2 ${isLight ? "text-slate-700" : isAzula ? "text-[#eadfbf]" : "text-white/90"}`}>It&apos;s time everyday investors can earn too.</p>
+              <h2 className={`mt-2 text-5xl md:text-7xl font-semibold leading-[0.95] reveal reveal-left delay-1 ${isAlerik ? "text-[#f5f0e8]" : isLight ? "text-slate-900" : "text-white"} ${cormorant.className}`}>Learn Before You Earn</h2>
+              <p className={`mt-3 text-xl md:text-2xl font-medium reveal reveal-left delay-2 ${isAlerik ? "text-[#f2e6c8]" : isLight ? "text-slate-700" : isAzula ? "text-[#eadfbf]" : "text-white/90"}`}>It&apos;s time everyday investors can earn too.</p>
               <div className={`mt-5 max-w-4xl text-sm md:text-base leading-7 space-y-4 reveal reveal-left delay-3 ${mutedTextClass}`}>
                 <p>Making one good trade should not require hours of searching through financial reports, charts, APIs, videos, and news only to end with an educated guess.</p>
                 <p>Investors spend more time collecting information than actually understanding it. Arthastra brings fundamentals, technical analysis, market sentiment, and news together into one research-driven platform.</p>
-                <p className={`font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>Learn first. Invest second.</p>
+                <p className={`font-semibold ${isAlerik ? "text-[#f5f0e8]" : isLight ? "text-slate-900" : "text-white"}`}>Learn first. Invest second.</p>
               </div>
               <div className="mt-6 flex flex-wrap gap-3 reveal reveal-left delay-4">
                 <Link href="/" className={`inline-flex rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-300 hover:-translate-y-0.5 ${ctaClass}`}>Start Researching →</Link>
-                <Link href="/about" className={`inline-flex rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all duration-300 hover:-translate-y-0.5 ${isLight ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-50" : "border-white/15 bg-slate-900/50 text-white/85 hover:bg-white/10"}`}>Read Our Story →</Link>
+                <Link href="/about" className={`inline-flex rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all duration-300 hover:-translate-y-0.5 ${isAlerik ? "border-[#c9a84c]/30 bg-[#0c0b09] text-[#f5f0e8] hover:bg-[#17130d]" : isLight ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-50" : "border-white/15 bg-slate-900/50 text-white/85 hover:bg-white/10"}`}>Read Our Story →</Link>
               </div>
               <p className={`mt-4 text-xs ${isLight ? "text-slate-500" : "text-white/60"}`}>Paper trading simulator for educational purposes only. No real money required. Not financial advice.</p>
             </div>
@@ -297,7 +314,7 @@ export default function HomeTabPage() {
                 {MARKET_STACK.map((item, idx) => (
                   <div key={item.label} className={`rounded-lg border px-3 py-2.5 flex items-center justify-between reveal reveal-right ${idx === 0 ? "delay-2" : idx === 1 ? "delay-3" : idx === 2 ? "delay-4" : "delay-5"} ${softCardClass}`}>
                     <span className={`text-xs ${isLight ? "text-slate-600" : "text-white/65"}`}>{item.label}</span>
-                    <span className={`text-xs font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{item.value}</span>
+                    <span className={`text-xs font-semibold ${isAlerik ? "text-[#f5f0e8]" : isLight ? "text-slate-900" : "text-white"}`}>{item.value}</span>
                   </div>
                 ))}
               </div>
@@ -311,13 +328,13 @@ export default function HomeTabPage() {
 
         <section className={`rounded-2xl border backdrop-blur-md p-6 md:p-8 shadow-[0_14px_40px_-22px_rgba(15,23,42,0.9)] mb-6 reveal reveal-up ${cardClass}`}>
           <div className="flex items-center justify-between gap-3 mb-4">
-            <h2 className={`text-2xl md:text-3xl font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>What You Get Inside Arthastra</h2>
+            <h2 className={`text-2xl md:text-3xl font-semibold ${isAlerik ? "text-[#f5f0e8]" : isLight ? "text-slate-900" : "text-white"}`}>What You Get Inside Arthastra</h2>
             <span className={`text-[11px] uppercase tracking-[0.18em] font-semibold ${accentLabelClass} ${plexMono.className}`}>Research Workflow</span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {INFO_BLOCKS.map((block, idx) => (
               <div key={block.title} className={`rounded-xl border p-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg reveal reveal-up ${idx === 0 ? "delay-1" : idx === 1 ? "delay-2" : "delay-3"} ${softCardClass}`}>
-                <div className={`text-base font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{block.title}</div>
+                <div className={`text-base font-semibold ${isAlerik ? "text-[#f5f0e8]" : isLight ? "text-slate-900" : "text-white"}`}>{block.title}</div>
                 <p className={`mt-2 text-sm leading-6 ${mutedTextClass}`}>{block.body}</p>
               </div>
             ))}
@@ -326,7 +343,7 @@ export default function HomeTabPage() {
 
         <section className={`rounded-2xl border backdrop-blur-md p-6 md:p-10 shadow-[0_14px_40px_-22px_rgba(15,23,42,0.9)] mb-6 reveal reveal-up ${cardClass}`}>
           <p className={`text-[11px] uppercase tracking-[0.24em] ${accentLabelClass} ${plexMono.className}`}>Why We Built This</p>
-          <h2 className={`mt-2 text-4xl md:text-6xl leading-[0.98] ${isLight ? "text-slate-900" : "text-white"} ${cormorant.className}`}>
+          <h2 className={`mt-2 text-4xl md:text-6xl leading-[0.98] ${isAlerik ? "text-[#f5f0e8]" : isLight ? "text-slate-900" : "text-white"} ${cormorant.className}`}>
             Investing without understanding is just{" "}
             <em className={`${isAzula ? "text-[#d6be86]" : isLight ? "text-amber-700" : "text-yellow-300"} italic`}>gambling with extra steps.</em>
           </h2>
@@ -335,17 +352,17 @@ export default function HomeTabPage() {
             <p>Deciding what stock to buy and what not to buy should not require digging through the entire internet.</p>
             <p>So we built Arthastra: a research-first investing platform for everyday investors. We bring everything together in one place — you bring your brain.</p>
           </div>
-          <p className={`mt-5 text-base md:text-lg font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>Most platforms optimize for trading speed. We optimize for decision quality.</p>
+          <p className={`mt-5 text-base md:text-lg font-semibold ${isAlerik ? "text-[#f5f0e8]" : isLight ? "text-slate-900" : "text-white"}`}>Most platforms optimize for trading speed. We optimize for decision quality.</p>
         </section>
 
         <section className={`rounded-2xl border backdrop-blur-md p-6 md:p-10 shadow-[0_14px_40px_-22px_rgba(15,23,42,0.9)] mb-6 reveal reveal-up ${cardClass}`}>
           <p className={`text-[11px] uppercase tracking-[0.24em] ${accentLabelClass} ${plexMono.className}`}>Truth Section</p>
-          <h2 className={`mt-2 text-4xl md:text-6xl leading-[0.98] mb-6 ${isLight ? "text-slate-900" : "text-white"} ${cormorant.className}`}>Research Is The Real Edge</h2>
+          <h2 className={`mt-2 text-4xl md:text-6xl leading-[0.98] mb-6 ${isAlerik ? "text-[#f5f0e8]" : isLight ? "text-slate-900" : "text-white"} ${cormorant.className}`}>Research Is The Real Edge</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border rounded-xl overflow-hidden">
             {TRUTH_CARDS.map((card, idx) => (
               <div key={card.title} className={`relative border p-5 md:p-6 transition-all duration-300 hover:-translate-y-1 reveal reveal-up ${idx === 0 ? "delay-1" : idx === 1 ? "delay-2" : "delay-3"} ${softCardClass}`}>
                 <div className={`text-6xl leading-none ${cormorant.className} ${isLight ? "text-slate-300" : isAzula ? "text-[#8e7a4d]/35" : "text-white/10"}`}>{String(idx + 1).padStart(2, "0")}</div>
-                <div className={`mt-2 text-xl font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{card.title}</div>
+                <div className={`mt-2 text-xl font-semibold ${isAlerik ? "text-[#f5f0e8]" : isLight ? "text-slate-900" : "text-white"}`}>{card.title}</div>
                 <p className={`mt-3 text-sm leading-7 ${mutedTextClass}`}>{card.text}</p>
               </div>
             ))}
@@ -354,7 +371,7 @@ export default function HomeTabPage() {
 
         <section className={`rounded-2xl border backdrop-blur-md p-6 md:p-10 shadow-[0_14px_40px_-22px_rgba(15,23,42,0.9)] mb-6 reveal reveal-up ${cardClass}`}>
           <p className={`text-[11px] uppercase tracking-[0.24em] ${accentLabelClass} ${plexMono.className}`}>How It Works</p>
-          <h2 className={`mt-2 text-4xl md:text-6xl leading-[0.98] mb-6 ${isLight ? "text-slate-900" : "text-white"} ${cormorant.className}`}>
+          <h2 className={`mt-2 text-4xl md:text-6xl leading-[0.98] mb-6 ${isAlerik ? "text-[#f5f0e8]" : isLight ? "text-slate-900" : "text-white"} ${cormorant.className}`}>
             Four steps from{" "}
             <em className={`${isAzula ? "text-[#d6be86]" : isLight ? "text-amber-700" : "text-yellow-300"} italic`}>curious</em>{" "}
             to confident.
@@ -363,7 +380,7 @@ export default function HomeTabPage() {
             {STEPS.map((step, idx) => (
               <div key={step.title} className={`rounded-xl border p-4 text-center reveal reveal-up ${idx % 2 === 0 ? "delay-1" : "delay-2"} ${softCardClass}`}>
                 <div className={`mx-auto mb-3 h-10 w-10 rounded-full border flex items-center justify-center text-[11px] tracking-[0.08em] ${isLight ? "border-slate-400 text-slate-600" : isAzula ? "border-[#b99654]/60 text-[#d6be86]" : "border-white/30 text-white/70"} ${plexMono.className}`}>{String(idx + 1).padStart(2, "0")}</div>
-                <div className={`mt-1 text-base font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{step.title}</div>
+                <div className={`mt-1 text-base font-semibold ${isAlerik ? "text-[#f5f0e8]" : isLight ? "text-slate-900" : "text-white"}`}>{step.title}</div>
                 <p className={`mt-2 text-sm leading-6 ${mutedTextClass}`}>{step.text}</p>
               </div>
             ))}
@@ -372,7 +389,7 @@ export default function HomeTabPage() {
 
         <section className={`rounded-2xl border backdrop-blur-md p-6 md:p-10 shadow-[0_14px_40px_-22px_rgba(15,23,42,0.9)] mb-6 reveal reveal-up ${cardClass}`}>
           <p className={`text-[11px] uppercase tracking-[0.24em] ${accentLabelClass} ${plexMono.className}`}>Features Inside</p>
-          <h2 className={`mt-2 text-4xl md:text-6xl leading-[0.98] mb-3 ${isLight ? "text-slate-900" : "text-white"} ${cormorant.className}`}>
+          <h2 className={`mt-2 text-4xl md:text-6xl leading-[0.98] mb-3 ${isAlerik ? "text-[#f5f0e8]" : isLight ? "text-slate-900" : "text-white"} ${cormorant.className}`}>
             Built with tools that{" "}
             <em className={`${isAzula ? "text-[#d6be86]" : isLight ? "text-amber-700" : "text-yellow-300"} italic`}>explain themselves.</em>
           </h2>
@@ -381,7 +398,7 @@ export default function HomeTabPage() {
             {FEATURES.map((feature, idx) => (
               <div key={feature.title} className={`rounded-none border p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg reveal reveal-up ${idx % 3 === 0 ? "delay-1" : idx % 3 === 1 ? "delay-2" : "delay-3"} ${softCardClass}`}>
                 <div className="text-lg mb-1">{feature.icon}</div>
-                <div className={`text-base font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{feature.title}</div>
+                <div className={`text-base font-semibold ${isAlerik ? "text-[#f5f0e8]" : isLight ? "text-slate-900" : "text-white"}`}>{feature.title}</div>
                 <p className={`mt-2 text-sm leading-6 ${mutedTextClass}`}>{feature.text}</p>
                 <div className={`mt-3 inline-block text-[10px] uppercase tracking-[0.2em] px-2 py-1 border rounded-sm ${accentLabelClass} ${isLight ? "border-slate-300 bg-slate-50" : "border-white/20 bg-white/5"} ${plexMono.className}`}>
                   {feature.title.includes("ASTRA")
@@ -403,7 +420,7 @@ export default function HomeTabPage() {
 
         <section className={`rounded-2xl border backdrop-blur-md p-6 md:p-10 shadow-[0_14px_40px_-22px_rgba(15,23,42,0.9)] mb-6 reveal reveal-up ${cardClass}`}>
           <p className={`text-[11px] uppercase tracking-[0.24em] ${accentLabelClass} ${plexMono.className}`}>Who Built This</p>
-          <h2 className={`mt-2 text-4xl md:text-6xl leading-[0.98] ${isLight ? "text-slate-900" : "text-white"} ${cormorant.className}`}>
+          <h2 className={`mt-2 text-4xl md:text-6xl leading-[0.98] ${isAlerik ? "text-[#f5f0e8]" : isLight ? "text-slate-900" : "text-white"} ${cormorant.className}`}>
             Two builders who got{" "}
             <em className={`${isAzula ? "text-[#d6be86]" : isLight ? "text-amber-700" : "text-yellow-300"} italic`}>tired of the gap.</em>
           </h2>
@@ -417,14 +434,14 @@ export default function HomeTabPage() {
           <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className={`rounded-none border p-5 reveal reveal-left delay-2 ${softCardClass}`}>
               <div className={`mb-2 inline-block text-[10px] uppercase tracking-[0.2em] px-2 py-1 border rounded-sm ${accentLabelClass} ${isLight ? "border-slate-300 bg-slate-50" : "border-white/20 bg-white/5"} ${plexMono.className}`}>Founder</div>
-              <div className={`text-base font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>Deep Patel</div>
+              <div className={`text-base font-semibold ${isAlerik ? "text-[#f5f0e8]" : isLight ? "text-slate-900" : "text-white"}`}>Deep Patel</div>
               <div className={`text-xs mt-1 ${isLight ? "text-slate-500" : "text-white/60"}`}>Founder · Systems Architect</div>
               <p className={`mt-3 text-sm leading-6 ${mutedTextClass}`}>Deep started Arthastra and designed the original platform architecture and research infrastructure. With a cybersecurity and systems design background, he focuses on reliable foundations and disciplined research workflows.</p>
               <p className={`mt-3 text-sm font-semibold ${isLight ? "text-slate-800" : "text-white"}`}>Build the foundation correctly and everything else follows.</p>
             </div>
             <div className={`rounded-none border p-5 reveal reveal-right delay-3 ${softCardClass}`}>
               <div className={`mb-2 inline-block text-[10px] uppercase tracking-[0.2em] px-2 py-1 border rounded-sm ${accentLabelClass} ${isLight ? "border-slate-300 bg-slate-50" : "border-white/20 bg-white/5"} ${plexMono.className}`}>Co-Founder</div>
-              <div className={`text-base font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>Juan M. Ramirez</div>
+              <div className={`text-base font-semibold ${isAlerik ? "text-[#f5f0e8]" : isLight ? "text-slate-900" : "text-white"}`}>Juan M. Ramirez</div>
               <div className={`text-xs mt-1 ${isLight ? "text-slate-500" : "text-white/60"}`}>Co-Founder · Systems Architect</div>
               <p className={`mt-3 text-sm leading-6 ${mutedTextClass}`}>Juan designed the quant-like research engines and AI analysis systems that power Arthastra. With cybersecurity and penetration testing experience, he focuses on turning complexity into clear decisions for everyday investors.</p>
               <p className={`mt-3 text-sm font-semibold ${isLight ? "text-slate-800" : "text-white"}`}>Information is the edge. Research first. Then decide.</p>
@@ -434,11 +451,11 @@ export default function HomeTabPage() {
         </section>
 
         <section className={`rounded-2xl border backdrop-blur-md p-6 md:p-8 text-center shadow-[0_14px_40px_-22px_rgba(15,23,42,0.9)] reveal reveal-up ${cardClass}`}>
-          <h2 className={`text-2xl md:text-3xl font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>Start With Practice</h2>
+          <h2 className={`text-2xl md:text-3xl font-semibold ${isAlerik ? "text-[#f5f0e8]" : isLight ? "text-slate-900" : "text-white"}`}>Start With Practice</h2>
           <p className={`mt-3 text-sm md:text-base ${mutedTextClass}`}>Make trades. Watch ASTRA. Read the reasoning. Learn in a safe environment. That is the whole point.</p>
           <div className="mt-5 flex flex-wrap justify-center gap-3">
             <Link href="/simulator" className={`inline-flex rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-300 hover:-translate-y-0.5 ${ctaClass}`}>Open Simulator →</Link>
-            <Link href="/about" className={`inline-flex rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all duration-300 hover:-translate-y-0.5 ${isLight ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-50" : "border-white/15 bg-slate-900/50 text-white/85 hover:bg-white/10"}`}>Read Our Story →</Link>
+            <Link href="/about" className={`inline-flex rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all duration-300 hover:-translate-y-0.5 ${isAlerik ? "border-[#c9a84c]/30 bg-[#0c0b09] text-[#f5f0e8] hover:bg-[#17130d]" : isLight ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-50" : "border-white/15 bg-slate-900/50 text-white/85 hover:bg-white/10"}`}>Read Our Story →</Link>
           </div>
         </section>
       </main>
