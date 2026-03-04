@@ -1014,7 +1014,6 @@ function buildTradeExecutor(riskLevel, macro) {
 
 export async function POST(req) {
   try {
-    console.log("[simulator-autopilot] PATCHED ROUTE v2 (92591e4)");
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action || "").toLowerCase();
     if (["start", "stop", "status", "events", "update_risk", "cycle"].includes(action)) {
@@ -1785,7 +1784,6 @@ export async function POST(req) {
 
     return NextResponse.json(
       {
-        routeVersion: "PATCHED_ROUTE_V2_92591e4",
         decisions: publicDecisions,
         context: { ...context, cryptoMovers },
         provider,
