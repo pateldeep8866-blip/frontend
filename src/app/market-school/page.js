@@ -52,6 +52,39 @@ const GLOSSARY_TERMS = [
     term: "Yield",
     definition: "Return from a bond or income-generating asset, often shown as a percentage.",
   },
+  {
+    term: "Payment for Order Flow (PFOF)",
+    definition: "How free brokers get paid by routing orders to market makers who execute them.",
+  },
+  {
+    term: "Bid-Ask Spread",
+    definition: "The difference between the best buyer price and best seller price, often a hidden trading cost.",
+  },
+  {
+    term: "Market Maker",
+    definition: "A firm that continuously quotes buy/sell prices and profits from spread while providing liquidity.",
+  },
+];
+
+const BROKER_GLOSSARY_ENTRIES = [
+  {
+    term: "Payment for Order Flow (PFOF)",
+    definition: "How free brokers get paid by selling your order flow to market makers.",
+    details:
+      "With many zero-commission brokers, your order is routed to firms like Citadel Securities. They pay for that flow, execute your order, and can capture spread economics in the process. This is legal but controversial and has faced SEC scrutiny.",
+  },
+  {
+    term: "Bid-Ask Spread",
+    definition: "The gap between the highest bid and lowest ask where hidden cost can appear.",
+    details:
+      "The bid is what buyers pay; the ask is what sellers want. Market makers often earn by buying near bid and selling near ask. Even with no visible commission, execution inside or near spread can still create cost.",
+  },
+  {
+    term: "Market Maker",
+    definition: "A liquidity provider that stands ready to buy and sell continuously.",
+    details:
+      "Market makers quote two-sided prices and keep markets moving. In PFOF models, they pay brokers for order routing and handle execution. Their business depends on volume, spread capture, and risk management.",
+  },
 ];
 
 const THEME_OPTIONS = ["dark", "light", "cherry", "azula", "alerik"];
@@ -264,6 +297,8 @@ export default function MarketSchoolPage() {
   const [activeTerm, setActiveTerm] = useState(null);
   const [readLessons, setReadLessons] = useState([]);
   const [activityDays, setActivityDays] = useState([]);
+  const [featuredPfofOpen, setFeaturedPfofOpen] = useState(false);
+  const [expandedBrokerTerm, setExpandedBrokerTerm] = useState("");
 
   const loadLessons = useCallback(async (silent = false) => {
     if (silent) setRefreshing(true);
@@ -380,6 +415,17 @@ export default function MarketSchoolPage() {
       const t = item.term.toLowerCase();
       const d = item.definition.toLowerCase();
       return t.includes(q) || d.includes(q);
+    });
+  }, [glossaryQuery]);
+
+  const filteredBrokerGlossary = useMemo(() => {
+    const q = glossaryQuery.trim().toLowerCase();
+    if (!q) return BROKER_GLOSSARY_ENTRIES;
+    return BROKER_GLOSSARY_ENTRIES.filter((item) => {
+      const t = item.term.toLowerCase();
+      const d = item.definition.toLowerCase();
+      const x = item.details.toLowerCase();
+      return t.includes(q) || d.includes(q) || x.includes(q);
     });
   }, [glossaryQuery]);
 
@@ -550,6 +596,73 @@ export default function MarketSchoolPage() {
             </button>
           </div>
 
+          <article className={`mb-4 rounded-xl border p-5 ${isLight ? "border-slate-200 bg-white" : "border-[#1e2d45] bg-[#111827]"}`}>
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <span className={`rounded px-2 py-0.5 text-[10px] font-bold tracking-[0.12em] ${isLight ? "bg-blue-100 text-blue-700" : "bg-blue-500/15 text-blue-300"}`}>
+                BROKER MECHANICS
+              </span>
+              <span className={`rounded px-2 py-0.5 text-[10px] font-bold ${isLight ? "bg-emerald-100 text-emerald-700" : "bg-emerald-500/15 text-emerald-300"}`}>
+                Beginner
+              </span>
+              <span className={`rounded border px-2 py-0.5 text-[10px] ${isLight ? "border-slate-300 text-slate-500" : "border-[#1e2d45] text-[#4d6480]"}`}>
+                5 min read
+              </span>
+            </div>
+            <h3 className={`text-lg font-semibold ${isLight ? "text-slate-900" : "text-[#e2eaf6]"}`}>
+              How &quot;Free&quot; Brokers Actually Make Money
+            </h3>
+            <p className={`mt-1 text-sm leading-relaxed ${isLight ? "text-slate-600" : "text-[#7a9ab8]"}`}>
+              Robinhood says $0 commissions, but someone still gets paid. This lesson explains Payment for Order Flow,
+              spread economics, and where hidden execution costs can show up.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {["PFOF", "Bid-Ask Spread", "Robinhood", "Brokers"].map((pill) => (
+                <span key={pill} className={`rounded border px-2 py-0.5 text-[11px] ${isLight ? "border-slate-300 bg-slate-50 text-slate-600" : "border-[#1e2d45] bg-[#161f2e] text-[#4d6480]"}`}>
+                  {pill}
+                </span>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setFeaturedPfofOpen((v) => !v)}
+              className={`mt-4 rounded-md border px-3 py-1.5 text-xs font-semibold ${isLight ? "border-slate-300 text-slate-700 hover:border-blue-400 hover:text-blue-700" : "border-[#1e2d45] text-[#7a9ab8] hover:border-blue-400 hover:bg-blue-500/10 hover:text-blue-300"}`}
+            >
+              {featuredPfofOpen ? "Close Lesson ↑" : "Read Lesson →"}
+            </button>
+
+            {featuredPfofOpen && (
+              <div className={`mt-4 space-y-3 border-t pt-4 ${isLight ? "border-slate-200" : "border-[#1e2d45]"}`}>
+                <div>
+                  <h4 className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-[#e2eaf6]"}`}>Payment for Order Flow (PFOF)</h4>
+                  <p className={`mt-1 text-sm leading-relaxed ${isLight ? "text-slate-700" : "text-[#7a9ab8]"}`}>
+                    When you place a free trade, many brokers route that order to a market maker. The market maker pays
+                    the broker for this order flow and fills the trade.
+                  </p>
+                </div>
+                <div>
+                  <h4 className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-[#e2eaf6]"}`}>Why market makers pay for order flow</h4>
+                  <p className={`mt-1 text-sm leading-relaxed ${isLight ? "text-slate-700" : "text-[#7a9ab8]"}`}>
+                    Market makers can earn from spread capture and execution quality differences across venues. You may
+                    see zero commission, but execution price still determines your true cost.
+                  </p>
+                </div>
+                <ul className={`space-y-1 pl-4 text-sm ${isLight ? "text-slate-700" : "text-[#7a9ab8]"}`}>
+                  <li>Interest on idle customer cash</li>
+                  <li>Margin lending interest</li>
+                  <li>Premium subscriptions</li>
+                  <li>Stock lending programs</li>
+                </ul>
+                <div className={`rounded-r-lg border-l-4 px-3 py-2 text-sm italic ${isLight ? "border-amber-400 bg-amber-50 text-amber-700" : "border-[#fbbf24] bg-amber-500/10 text-[#d4a017]"}`}>
+                  “If the product is free, you are often part of the product.”
+                </div>
+                <div className={`rounded-lg border px-3 py-2 text-sm ${isLight ? "border-rose-300 bg-rose-50 text-rose-700" : "border-rose-500/30 bg-rose-500/10 text-rose-300"}`}>
+                  <strong>Case study:</strong> The SEC fined Robinhood in 2020 over disclosures and execution quality
+                  issues linked to PFOF practices.
+                </div>
+              </div>
+            )}
+          </article>
+
           {error && (
             <div className={`mb-4 rounded-lg border px-3 py-2 text-xs ${isLight ? "border-rose-300 bg-rose-50 text-rose-700" : "border-rose-400/35 bg-rose-500/15 text-rose-200"}`}>
               {error}
@@ -691,6 +804,26 @@ export default function MarketSchoolPage() {
           <div className={`mb-3 text-xs ${isLight ? "text-slate-500" : "text-white/60"}`}>{filteredTerms.length} terms</div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {filteredBrokerGlossary.map((item) => {
+              const open = expandedBrokerTerm === item.term;
+              return (
+                <button
+                  type="button"
+                  key={`broker-${item.term}`}
+                  onClick={() => setExpandedBrokerTerm((prev) => (prev === item.term ? "" : item.term))}
+                  className={`text-left rounded-lg border p-3 transition-colors ${isLight ? "border-slate-200 bg-white hover:bg-slate-50" : "border-[#1e2d45] bg-[#111827] hover:border-[#2e4060]"}`}
+                >
+                  <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-[#e2eaf6]"}`}>{item.term}</div>
+                  <div className={`mt-1 text-xs ${isLight ? "text-slate-600" : "text-[#7a9ab8]"}`}>{item.definition}</div>
+                  {open && (
+                    <div className={`mt-2 text-xs leading-relaxed ${isLight ? "text-blue-700" : "text-blue-300"}`}>
+                      {item.details}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+
             {filteredTerms.map((item) => (
               <button
                 type="button"
