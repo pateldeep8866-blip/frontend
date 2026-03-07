@@ -286,7 +286,7 @@ export default function HomeTabPage() {
             <Link href="/market-school" className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${isAlerik ? "text-[#f5f0e8]/82 hover:bg-[#1a1710]" : isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"}`}>Learn</Link>
             <Link href="/simulator" className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${isAlerik ? "text-[#f5f0e8]/82 hover:bg-[#1a1710]" : isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"}`}>Simulator</Link>
             <Link href="/" className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${isAlerik ? "text-[#f5f0e8]/82 hover:bg-[#1a1710]" : isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"}`}>Geo Politics</Link>
-            <Link href="/" className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${isAlerik ? "text-[#f5f0e8]/82 hover:bg-[#1a1710]" : isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"}`}>Global Market</Link>
+            <Link href="/global-market" className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${isAlerik ? "text-[#f5f0e8]/82 hover:bg-[#1a1710]" : isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"}`}>Global Market</Link>
           </div>
         </section>
 
