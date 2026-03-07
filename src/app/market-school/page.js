@@ -689,13 +689,14 @@ export default function MarketSchoolPage() {
 
           {!loading && visibleLessons.length > 0 && (
             <div className="space-y-3">
-              {visibleLessons.map((lesson) => {
+              {visibleLessons.map((lesson, lessonIdx) => {
                 const difficulty = normalizeDifficulty(lesson.difficulty);
                 const expanded = expandedLessonId === lesson.id;
+                const lessonKey = `${String(lesson?.id || "lesson")}-${lessonIdx}`;
 
                 return (
                   <article
-                    key={lesson.id}
+                    key={lessonKey}
                     className={`rounded-xl border p-4 transition-all ${isLight ? "border-slate-200 bg-white" : "border-white/12 bg-white/[0.02]"}`}
                   >
                     <div className="flex flex-wrap items-center gap-2 mb-2">
@@ -723,9 +724,9 @@ export default function MarketSchoolPage() {
                     </p>
 
                     <div className="mt-3 flex flex-wrap items-center gap-2">
-                      {Array.isArray(lesson.related_tickers) && lesson.related_tickers.map((ticker) => (
+                      {Array.isArray(lesson.related_tickers) && lesson.related_tickers.map((ticker, tickerIdx) => (
                         <Link
-                          key={`${lesson.id}-${ticker}`}
+                          key={`${lesson.id}-${ticker}-${tickerIdx}`}
                           href={`/?search=${encodeURIComponent(ticker)}`}
                           className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${isLight ? "border-slate-300 bg-slate-50 text-slate-700 hover:bg-slate-100" : "border-white/15 bg-white/10 text-white/85 hover:bg-white/15"}`}
                         >
