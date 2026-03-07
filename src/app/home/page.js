@@ -4161,7 +4161,7 @@ export default function Home() {
             ))}
           </div>
         )}
-        <AzulaThemeBackground active={isAzula} keyPrefix="home-azula" />
+        {isAzula && <AzulaThemeBackground />}
 
         <div className="relative z-10 mx-auto w-full max-w-6xl px-6 py-10 md:py-14">
         {/* HEADER */}
