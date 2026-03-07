@@ -102,20 +102,33 @@ body {
 }
 
 .azula-mode {
-  background-color: #060607;
+  background-color: #020508;
   background-image:
-    radial-gradient(circle at 11% 7%, rgba(225, 205, 154, 0.09), transparent 38%),
-    radial-gradient(circle at 84% 78%, rgba(166, 132, 70, 0.08), transparent 43%),
-    linear-gradient(180deg, #070708 0%, #0c0c10 44%, #08080b 100%);
+    radial-gradient(circle at 18% 8%, rgba(0, 212, 255, 0.14), transparent 38%),
+    radial-gradient(circle at 84% 76%, rgba(79, 195, 247, 0.12), transparent 44%),
+    linear-gradient(180deg, #020508 0%, #041122 44%, #020b17 100%);
   isolation: isolate;
 }
 
 .azula-mode::before {
-  display: none;
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  opacity: 0.32;
+  z-index: 0;
 }
 
 .azula-mode::after {
-  display: none;
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 65% at 50% -4%, rgba(79, 195, 247, 0.17), transparent 56%),
+    linear-gradient(180deg, rgba(0, 212, 255, 0.04), transparent 35%);
+  z-index: 0;
 }
 
 
@@ -197,13 +210,13 @@ body {
 }
 
 .azula-mode .app-card {
-  background: linear-gradient(180deg, rgba(17, 17, 22, 0.96), rgba(12, 12, 16, 0.96)) !important;
-  border-color: rgba(189, 156, 95, 0.42) !important;
+  background: linear-gradient(180deg, rgba(2, 15, 35, 0.92), rgba(2, 12, 28, 0.9)) !important;
+  border-color: rgba(0, 180, 255, 0.25) !important;
   box-shadow:
-    0 20px 40px -24px rgba(0, 0, 0, 0.78),
-    0 1px 0 rgba(255, 255, 255, 0.02) inset,
-    0 0 0 1px rgba(207, 172, 109, 0.22) inset;
-  color: #ece3cd !important;
+    0 18px 38px -24px rgba(0, 0, 0, 0.78),
+    0 0 0 1px rgba(0, 180, 255, 0.12) inset,
+    0 1px 0 rgba(255, 255, 255, 0.02) inset;
+  color: #e8f4ff !important;
   position: relative;
   overflow: hidden;
   backdrop-filter: blur(2px);
@@ -214,8 +227,8 @@ body {
   position: absolute;
   inset: -35% -20%;
   pointer-events: none;
-  background: linear-gradient(112deg, transparent 30%, rgba(216, 188, 131, 0.18) 48%, transparent 68%);
-  opacity: 0.18;
+  background: linear-gradient(112deg, transparent 30%, rgba(0, 212, 255, 0.2) 48%, transparent 68%);
+  opacity: 0.14;
   transform: translateX(-68%);
   animation: azulaCardLightning 9.5s linear infinite;
 }
@@ -225,79 +238,92 @@ body {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  box-shadow: 0 0 14px rgba(204, 169, 104, 0.14) inset;
+  box-shadow: 0 0 14px rgba(0, 212, 255, 0.24) inset;
   opacity: 0.2;
   animation: azulaCardPulse 7.2s ease-in-out infinite;
 }
 
 .azula-mode .app-card:hover {
-  border-color: rgba(220, 188, 126, 0.62) !important;
+  border-color: #4fc3f7 !important;
+  box-shadow:
+    0 18px 38px -24px rgba(0, 0, 0, 0.78),
+    0 0 0 1px rgba(79, 195, 247, 0.2) inset,
+    0 0 12px rgba(0, 212, 255, 0.6);
 }
 
 .azula-mode .app-card-title {
-  color: #ead6a8 !important;
+  color: #e8f4ff !important;
 }
 
 .azula-mode .app-card,
 .azula-mode .app-card * {
-  color: #ece3cd !important;
+  color: #e8f4ff !important;
   opacity: 1 !important;
-  -webkit-text-fill-color: #ece3cd !important;
+  -webkit-text-fill-color: #e8f4ff !important;
 }
 
 .azula-mode .app-card [class*="text-green-"] {
-  color: #34d399 !important;
-  -webkit-text-fill-color: #34d399 !important;
+  color: #4fc3f7 !important;
+  -webkit-text-fill-color: #4fc3f7 !important;
 }
 
 .azula-mode .app-card [class*="text-red-"] {
-  color: #fb7185 !important;
-  -webkit-text-fill-color: #fb7185 !important;
+  color: #1a6fff !important;
+  -webkit-text-fill-color: #1a6fff !important;
 }
 
 .azula-mode .app-card [class*="text-blue-"] {
-  color: #d8be84 !important;
-  -webkit-text-fill-color: #d8be84 !important;
+  color: #00d4ff !important;
+  -webkit-text-fill-color: #00d4ff !important;
 }
 
 .azula-mode .app-card [class*="bg-white/"] {
-  background-color: rgba(22, 22, 29, 0.86) !important;
+  background-color: rgba(3, 20, 44, 0.72) !important;
 }
 
 .azula-mode .app-card [class*="border-white/"] {
-  border-color: rgba(206, 171, 106, 0.32) !important;
+  border-color: rgba(0, 180, 255, 0.25) !important;
 }
 
 .azula-mode button[class*="bg-blue-600"] {
-  background: linear-gradient(180deg, #cdaa68 0%, #a7803c 100%) !important;
-  color: #111112 !important;
+  background: linear-gradient(180deg, #4fc3f7 0%, #00d4ff 100%) !important;
+  color: #020508 !important;
   box-shadow:
-    0 8px 18px -10px rgba(189, 145, 74, 0.72),
-    0 0 0 1px rgba(255, 238, 197, 0.2) inset;
+    0 8px 18px -10px rgba(0, 180, 255, 0.7),
+    0 0 0 1px rgba(232, 244, 255, 0.2) inset;
 }
 
 .azula-mode button[class*="bg-blue-600"]:hover {
-  background: linear-gradient(180deg, #d8b777 0%, #b58c44 100%) !important;
+  background: linear-gradient(180deg, #70d4ff 0%, #37ddff 100%) !important;
 }
 
 .azula-title-neon {
   text-shadow:
-    0 0 6px rgba(223, 203, 156, 0.44),
-    0 0 14px rgba(176, 137, 67, 0.28),
+    0 0 6px rgba(79, 195, 247, 0.6),
+    0 0 14px rgba(0, 212, 255, 0.34),
     2px 2px 0 rgba(0, 0, 0, 0.35);
 }
 
-.azula-logo-thunder::before,
-.azula-logo-thunder::after {
-  display: none;
-}
-
 .azula-logo-thunder::before {
-  display: none;
+  content: "";
+  position: absolute;
+  inset: -12% -14%;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(0, 212, 255, 0.2), transparent 65%);
+  filter: blur(8px);
+  animation: azulaAuraPulse 2.8s ease-in-out infinite;
+  pointer-events: none;
 }
 
 .azula-logo-thunder::after {
-  display: none;
+  content: "";
+  position: absolute;
+  inset: -6% -8%;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 180, 255, 0.25);
+  box-shadow: 0 0 12px rgba(0, 212, 255, 0.6);
+  animation: azulaThunderPulse 2.8s ease-in-out infinite;
+  pointer-events: none;
 }
 
 @keyframes azulaFlameRise {
@@ -465,7 +491,7 @@ body {
 }
 
 .azula-scene {
-  display: none !important;
+  display: block !important;
 }
 
 .azula-scene::before {
@@ -475,7 +501,7 @@ body {
   pointer-events: none;
   background:
     repeating-linear-gradient(-7deg, rgba(37, 99, 235, 0) 0 34px, rgba(96, 165, 250, 0.2) 34px 35px, rgba(224, 242, 254, 0.42) 35px 36px, rgba(37, 99, 235, 0) 36px 64px);
-  opacity: 0.02;
+  opacity: 0.18;
   filter: blur(0.2px);
   animation: azulaRainFall 0.74s linear infinite;
 }
@@ -489,16 +515,31 @@ body {
     radial-gradient(120% 62% at 50% -4%, rgba(59, 130, 246, 0.52), transparent 58%),
     linear-gradient(180deg, rgba(241, 245, 249, 0.64), rgba(219, 234, 254, 0.16) 26%, rgba(255, 255, 255, 0) 48%);
   mix-blend-mode: screen;
-  opacity: 0.03;
+  opacity: 0.12;
   animation: azulaStrikeFlash 4.6s steps(1, end) infinite;
 }
 
 .azula-flame {
-  display: none;
+  position: absolute;
+  bottom: -84px;
+  width: 2px;
+  height: 140px;
+  background: linear-gradient(180deg, rgba(0, 212, 255, 0), rgba(79, 195, 247, 0.72) 48%, rgba(232, 244, 255, 0.9) 72%, rgba(0, 212, 255, 0));
+  filter: blur(0.3px);
+  opacity: 0.32;
+  animation: azulaFlameRise 9.4s linear infinite;
 }
 
 .azula-flame::after {
-  display: none;
+  content: "";
+  position: absolute;
+  left: -4px;
+  top: 6%;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(232, 244, 255, 0.9), rgba(0, 212, 255, 0));
+  opacity: 0.75;
 }
 
 .azula-flame-1 { left: 3%; --flame-drift: 16px; animation-duration: 8.8s; animation-delay: -1s; }
