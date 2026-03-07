@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { getSupabaseClient } from "@/app/api/_lib/supabaseClient";
+import AzulaThemeBackground from "@/components/AzulaThemeBackground";
 
 const LANGUAGE_OPTIONS = [
   { code: "en", label: "English" },
@@ -16,8 +17,6 @@ const LANGUAGE_OPTIONS = [
   { code: "ru", label: "Russian" },
   { code: "ur", label: "Urdu" },
 ];
-const AZULA_FLAME_IDS = Array.from({ length: 8 }, (_, index) => index + 1);
-const AZULA_LIGHTNING_IDS = Array.from({ length: 8 }, (_, index) => index + 1);
 
 const PORTFOLIO_TEXT = {
   en: { backHome: "Back Home", dark: "Dark", light: "Light", sakura: "Sakura", azula: "Azula", alerik: "Alerik", portfolio: "Portfolio", loading: "Loading", checking: "Checking account...", loginRequired: "Login Required", loginMessage: "Please sign in from the home page to manage portfolio holdings (stocks, ETFs, funds, bonds, and crypto)." },
@@ -764,16 +763,7 @@ export default function PortfolioPage() {
       <div className={`pointer-events-none absolute -top-24 -left-20 h-80 w-80 rounded-full blur-3xl ${isCherry ? "bg-rose-100/34" : isAzula ? "bg-[#c9b071]/14" : isLight ? "bg-sky-200/35" : "bg-cyan-500/12"}`} />
       <div className={`pointer-events-none absolute top-1/3 -right-28 h-96 w-96 rounded-full blur-3xl ${isCherry ? "bg-rose-100/28" : isAzula ? "bg-[#a17f42]/12" : isLight ? "bg-blue-200/30" : "bg-blue-500/10"}`} />
       <div className={`pointer-events-none absolute inset-0 ${isCherry ? "bg-[radial-gradient(circle_at_12%_6%,rgba(244,114,182,0.08),transparent_31%),radial-gradient(circle_at_86%_70%,rgba(251,113,133,0.07),transparent_36%),radial-gradient(circle_at_52%_14%,rgba(196,181,253,0.05),transparent_30%),linear-gradient(120deg,rgba(255,255,255,0.985),rgba(255,252,253,0.97),rgba(255,255,255,0.99))]" : isAzula ? "bg-[radial-gradient(circle_at_18%_8%,rgba(200,178,115,0.1),transparent_42%),radial-gradient(circle_at_82%_74%,rgba(236,223,169,0.08),transparent_46%),linear-gradient(180deg,rgba(9,9,11,0.96),rgba(17,17,23,0.96),rgba(10,10,14,0.98))]" : isLight ? "bg-[radial-gradient(circle_at_15%_10%,rgba(125,211,252,0.18),transparent_40%),radial-gradient(circle_at_80%_70%,rgba(147,197,253,0.14),transparent_42%),radial-gradient(circle_at_55%_18%,rgba(59,130,246,0.09),transparent_35%)]" : "bg-[radial-gradient(circle_at_20%_10%,rgba(59,130,246,0.08),transparent_35%),radial-gradient(circle_at_80%_70%,rgba(14,165,233,0.07),transparent_35%)]"}`} />
-      {isAzula && (
-        <div className="pointer-events-none absolute inset-0 z-[1] overflow-hidden azula-scene" aria-hidden="true">
-          {AZULA_FLAME_IDS.map((flameId) => (
-            <span key={`portfolio-azula-flame-${flameId}`} className={`azula-flame azula-flame-${flameId}`} />
-          ))}
-          {AZULA_LIGHTNING_IDS.map((boltId) => (
-            <span key={`portfolio-azula-bolt-${boltId}`} className={`azula-lightning azula-lightning-${boltId}`} />
-          ))}
-        </div>
-      )}
+      <AzulaThemeBackground active={isAzula} keyPrefix="portfolio-azula" />
 
       <div className="relative z-10 mx-auto w-full max-w-6xl px-6 py-10 md:py-14">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-8">

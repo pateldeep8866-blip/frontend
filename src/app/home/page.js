@@ -5,6 +5,7 @@ import Link from "next/link";
 import { geoMercator, geoPath } from "d3-geo";
 import { getSupabaseClient } from "@/app/api/_lib/supabaseClient";
 import geopoliticalRelations from "@/data/geopolitical-relations.json";
+import AzulaThemeBackground from "@/components/AzulaThemeBackground";
 
 function Badge({ value, light = false }) {
   const v = (value || "").toUpperCase();
@@ -229,8 +230,6 @@ function geopoliticsAgeLabel(value) {
 }
 
 const SAKURA_PETAL_IDS = Array.from({ length: 14 }, (_, index) => index + 1);
-const AZULA_FLAME_IDS = Array.from({ length: 8 }, (_, index) => index + 1);
-const AZULA_LIGHTNING_IDS = Array.from({ length: 18 }, (_, index) => index + 1);
 
 const LANGUAGE_OPTIONS = [
   { code: "en", label: "English" },
@@ -4162,16 +4161,7 @@ export default function Home() {
             ))}
           </div>
         )}
-        {isAzula && (
-          <div className="pointer-events-none absolute inset-0 z-[1] overflow-hidden azula-scene" aria-hidden="true">
-            {AZULA_FLAME_IDS.map((flameId) => (
-              <span key={`azula-flame-${flameId}`} className={`azula-flame azula-flame-${flameId}`} />
-            ))}
-            {AZULA_LIGHTNING_IDS.map((boltId) => (
-              <span key={`azula-bolt-${boltId}`} className={`azula-lightning azula-lightning-${boltId}`} />
-            ))}
-          </div>
-        )}
+        <AzulaThemeBackground active={isAzula} keyPrefix="home-azula" />
 
         <div className="relative z-10 mx-auto w-full max-w-6xl px-6 py-10 md:py-14">
         {/* HEADER */}
