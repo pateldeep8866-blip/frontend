@@ -560,6 +560,7 @@ const UI_TEXT = {
     light: "Light",
     sakura: "Sakura",
     azula: "Azula",
+    alerik: "Alerik",
     home: "Home",
     learn: "Learn",
     marketSchool: "Market School",
@@ -594,6 +595,7 @@ const UI_TEXT = {
     light: "Claro",
     sakura: "Sakura",
     azula: "Azula",
+    alerik: "Alerik",
     home: "Inicio",
     learn: "Aprender",
     marketSchool: "Market School",
@@ -628,6 +630,7 @@ const UI_TEXT = {
     light: "Clair",
     sakura: "Sakura",
     azula: "Azula",
+    alerik: "Alerik",
     home: "Accueil",
     learn: "Learn",
     marketSchool: "Market School",
@@ -662,6 +665,7 @@ const UI_TEXT = {
     light: "लाइट",
     sakura: "सकुरा",
     azula: "अज़ूला",
+    alerik: "Alerik",
     home: "होम",
     learn: "लर्न",
     marketSchool: "मार्केट स्कूल",
@@ -1248,7 +1252,7 @@ export default function Home() {
     } catch {}
     try {
       const t = localStorage.getItem("theme_mode");
-      if (t === "light" || t === "dark" || t === "cherry" || t === "azula") setTheme(t);
+      if (t === "light" || t === "dark" || t === "cherry" || t === "azula" || t === "alerik") setTheme(t);
     } catch {}
     try {
       const l = localStorage.getItem("site_language");
@@ -3633,7 +3637,8 @@ export default function Home() {
   );
   const isCherry = theme === "cherry";
   const isAzula = theme === "azula";
-  const isLight = theme === "light" || isCherry || isAzula;
+  const isAlerik = theme === "alerik";
+  const isLight = theme === "light" || isCherry;
   const trendDelta =
     chartPoints.length > 1 ? Number(chartPoints[chartPoints.length - 1].close) - Number(chartPoints[0].close) : 0;
   const trendPct =
@@ -4121,7 +4126,15 @@ export default function Home() {
   const t = (key) => UI_TEXT[language]?.[key] || UI_TEXT.en[key] || key;
   const tx = (text) => resolveLocalizedText(text, language, headlineTranslationCacheRef.current);
   const activeThemeLabel =
-    theme === "cherry" ? t("sakura") : theme === "azula" ? t("azula") : theme === "light" ? t("light") : t("dark");
+    theme === "cherry"
+      ? t("sakura")
+      : theme === "azula"
+        ? t("azula")
+        : theme === "alerik"
+          ? t("alerik")
+          : theme === "light"
+            ? t("light")
+            : t("dark");
   const activeLanguageLabel = LANGUAGE_OPTIONS.find((x) => x.code === language)?.label || "English";
   const closeParentDropdown = (event) => {
     event?.currentTarget?.closest("details")?.removeAttribute("open");
@@ -4138,7 +4151,7 @@ export default function Home() {
 
 
   return (
-    <div className={`min-h-screen relative overflow-hidden ${isCherry ? "cherry-mode bg-[#fffefc] text-[#3a2530]" : isAzula ? "azula-mode bg-[#020508] text-[#e8f4ff]" : isLight ? "light-mode bg-[#fbfdff] text-slate-900" : "dark-mode bg-slate-950 text-white"}`}>
+    <div className={`min-h-screen relative overflow-hidden ${isCherry ? "cherry-mode bg-[#fffefc] text-[#3a2530]" : isAzula ? "azula-mode bg-[#020508] text-[#e8f4ff]" : isAlerik ? "alerik-mode bg-[#050505] text-[#f5f0e8]" : isLight ? "light-mode bg-[#fbfdff] text-slate-900" : "dark-mode bg-slate-950 text-white"}`}>
       <div>
         <div className={`pointer-events-none absolute -top-24 -left-20 h-80 w-80 rounded-full blur-3xl ${isCherry ? "bg-rose-100/34" : isAzula ? "bg-[#00d4ff]/14" : isLight ? "bg-sky-200/35" : "bg-cyan-500/12"}`} />
         <div className={`pointer-events-none absolute top-1/3 -right-28 h-96 w-96 rounded-full blur-3xl ${isCherry ? "bg-rose-100/28" : isAzula ? "bg-[#4fc3f7]/12" : isLight ? "bg-blue-200/30" : "bg-blue-500/10"}`} />
@@ -4166,7 +4179,7 @@ export default function Home() {
         <div className="relative z-10 mx-auto w-full max-w-6xl px-6 py-10 md:py-14">
         {/* HEADER */}
         <div className="text-center mb-10">
-          <div className="absolute left-6 top-0 z-40 flex items-start gap-2">
+          <div className="absolute left-6 top-0 z-40 pointer-events-auto flex items-start gap-2">
             <details className="relative">
               <summary className={`list-none inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer [&::-webkit-details-marker]:hidden ${
                 isCherry
@@ -4229,6 +4242,18 @@ export default function Home() {
                 >
                   {t("azula")}
                 </button>
+                <button
+                  onClick={(event) => selectThemeFromDropdown("alerik", event)}
+                  className={`mt-1 w-full rounded-lg px-3 py-2 text-left text-xs font-semibold ${
+                    theme === "alerik"
+                      ? "bg-[#c9a84c] text-[#050505]"
+                      : isLight
+                        ? "text-[#6d531f] hover:bg-[#f7f1e1]"
+                        : "text-white/85 hover:bg-white/10"
+                  }`}
+                >
+                  {t("alerik")}
+                </button>
               </div>
             </details>
             <details className="relative">
@@ -4270,7 +4295,7 @@ export default function Home() {
               </div>
             </details>
           </div>
-          <div className="absolute right-6 top-0 z-40">
+          <div className="absolute right-6 top-0 z-40 pointer-events-auto">
             <details className="relative">
               <summary className={`list-none inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer [&::-webkit-details-marker]:hidden ${
                 isCherry
@@ -4290,7 +4315,7 @@ export default function Home() {
             }`}>
               {t("theme")}
             </div>
-            <div className="grid grid-cols-4 gap-1 pb-1">
+            <div className="grid grid-cols-5 gap-1 pb-1">
               <button
                 onClick={(event) => selectThemeFromDropdown("dark", event)}
                 className={`rounded-md px-2 py-1.5 text-xs font-semibold ${
@@ -4338,6 +4363,18 @@ export default function Home() {
                 }`}
               >
                 {t("azula")}
+              </button>
+              <button
+                onClick={(event) => selectThemeFromDropdown("alerik", event)}
+                className={`rounded-md px-2 py-1.5 text-xs font-semibold ${
+                  theme === "alerik"
+                    ? "bg-[#c9a84c] text-[#050505]"
+                    : isLight
+                      ? "bg-[#f7f1e1] text-[#6d531f] hover:bg-[#efe5cf]"
+                      : "bg-white/10 text-white/85 hover:bg-white/15"
+                }`}
+              >
+                {t("alerik")}
               </button>
             </div>
             <div className={`my-1 h-px ${isLight ? "bg-slate-200" : "bg-white/10"}`} />
