@@ -382,12 +382,12 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
     <div><div class="brand-t">ARTHASTRA</div><div class="brand-s">War Room // MIC Intelligence</div></div>
   </div>
   <div class="sitenav">
-    <a href="#">Home</a><a href="#">Stock/ETF/MF</a><a href="#">Global Market</a><a href="#">Crypto</a><a href="#">Metals</a><a href="#">FX</a><a href="#">Learn</a><a href="#">Simulator</a><a href="#">Geo Politics</a><a href="#" class="active">War Room</a>
+    <a href="/home?mode=stock">Home</a><a href="/home?mode=stock">Stock/ETF/MF</a><a href="/home?mode=globalmarket">Global Market</a><a href="/home?mode=crypto">Crypto</a><a href="/home?mode=metals">Metals</a><a href="/home?mode=fx">FX</a><a href="/market-school">Learn</a><a href="/simulator">Simulator</a><a href="/home?mode=geopolitics">Geo Politics</a><a href="/warroom.html" class="active">War Room</a>
   </div>
   <div class="topbar-r">
-    <div><div class="hst-l">Regime</div><div class="hst-v r">RISK-OFF</div></div>
-    <div><div class="hst-l">ITA YTD</div><div class="hst-v g">+18.4%</div></div>
-    <div><div class="hst-l">Budget</div><div class="hst-v a">$886B</div></div>
+    <div><div class="hst-l">Regime</div><div class="hst-v r" id="regime-value">RISK-OFF</div></div>
+    <div><div class="hst-l">Global Avg</div><div class="hst-v g" id="global-avg-value">+0.00%</div></div>
+    <div><div class="hst-l">Budget</div><div class="hst-v a" id="budget-value">$886B</div></div>
     <div><div id="ck">00:00:00</div><div id="ckd">--- UTC</div></div>
   </div>
 </div>
@@ -576,7 +576,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
           </div>
           <div class="ribbon-wrap">
             <div class="ribbon-tag">INTEL</div>
-            <div class="ribbon-scroll"><div class="ribbon-track">
+            <div class="ribbon-scroll"><div class="ribbon-track" id="intel-ribbon-track">
               <div class="ri">LMT $4.2B F-35 sustainment — DOD Mar 2025</div>
               <div class="ri">RTX Patriot PAC-3 confirmed Ukraine — NATO communiqué</div>
               <div class="ri">NOC B-21 Raider achieves Initial Operational Capability</div>
@@ -835,6 +835,88 @@ const TIMELINE_EVENTS=[
 
 // STATE
 let currentConflict='ukraine',currentView='map',cmpA='LMT',cmpB='RTX';
+const WARROOM_STORAGE_KEY='warroom_context_v1';
+
+function persistWarRoomContext(extra={}){
+  try{
+    const payload={
+      source:'warroom',
+      conflict:currentConflict,
+      conflictName:CONFLICTS[currentConflict]?.name||currentConflict,
+      view:currentView,
+      company:extra.company||null,
+      ticker:extra.ticker||extra.company||null,
+      suggestedMode:extra.suggestedMode||'geopolitics',
+      updatedAt:new Date().toISOString(),
+    };
+    localStorage.setItem(WARROOM_STORAGE_KEY,JSON.stringify(payload));
+    window.dispatchEvent(new CustomEvent('warroom-context-updated',{detail:payload}));
+  }catch{}
+}
+
+function applyIncomingContext(){
+  const params=new URLSearchParams(window.location.search);
+  const wantedConflict=params.get('conflict');
+  const wantedView=params.get('view');
+  const wantedCompany=params.get('company');
+  if(wantedConflict&&CONFLICTS[wantedConflict]){
+    selectConflict(wantedConflict);
+  }
+  if(wantedView&&['map','intel','money','web','sim','compare'].includes(wantedView)){
+    setView(wantedView);
+  }
+  if(wantedCompany&&COMPANIES[wantedCompany]){
+    renderMoneyTrace(wantedCompany);
+    setView('money');
+  }
+}
+
+async function hydrateLiveData(){
+  try{
+    const [newsRes,perfRes,statusRes]=await Promise.all([
+      fetch('/api/market-news',{cache:'no-store'}).catch(()=>null),
+      fetch('/api/global-market-performance',{cache:'no-store'}).catch(()=>null),
+      fetch('/api/status',{cache:'no-store'}).catch(()=>null),
+    ]);
+
+    if(newsRes&&newsRes.ok){
+      const newsData=await newsRes.json().catch(()=>({}));
+      const newsRows=Array.isArray(newsData?.news)?newsData.news:[];
+      const top=newsRows.slice(0,8).map((n)=>`${n.headline||''} — ${n.source||'MARKET'}`).filter(Boolean);
+      if(top.length){
+        const track=document.getElementById('intel-ribbon-track');
+        if(track){
+          const all=[...top,...top];
+          track.innerHTML=all.map((item)=>`<div class="ri">${item}</div>`).join('');
+        }
+      }
+    }
+
+    if(perfRes&&perfRes.ok){
+      const perf=await perfRes.json().catch(()=>({}));
+      const rows=Array.isArray(perf?.rows)?perf.rows:[];
+      const vals=rows.map((r)=>Number(r?.percentChange)).filter((v)=>Number.isFinite(v));
+      if(vals.length){
+        const avg=vals.reduce((a,b)=>a+b,0)/vals.length;
+        const el=document.getElementById('global-avg-value');
+        if(el){
+          el.textContent=`${avg>=0?'+':''}${avg.toFixed(2)}%`;
+          el.className=`hst-v ${avg>=0?'g':'r'}`;
+        }
+      }
+    }
+
+    if(statusRes&&statusRes.ok){
+      const status=await statusRes.json().catch(()=>({}));
+      const ok=Boolean(status?.ok);
+      const regime=document.getElementById('regime-value');
+      if(regime){
+        regime.textContent=ok?'SYSTEM READY':'DEGRADED';
+        regime.className=`hst-v ${ok?'g':'r'}`;
+      }
+    }
+  }catch{}
+}
 
 // VIEW SWITCHING
 function setView(v){
@@ -850,6 +932,7 @@ function setView(v){
   if(v==='sim'){renderSimCo();updateSim();}
   if(v==='compare')initCompare();
   if(v==='money')renderMoneyTrace('LMT');
+  persistWarRoomContext({suggestedMode:v==='map'||v==='intel'?'geopolitics':'stock'});
 }
 
 function setRTab(t){
@@ -874,6 +957,7 @@ function selectConflict(id){
   setView('intel');
   renderIntel();
   renderConnections();
+  persistWarRoomContext({suggestedMode:'geopolitics'});
 }
 
 // INTEL
@@ -943,6 +1027,7 @@ function renderMoneyTrace(co){
     <div class="conn-card r"><div class="conn-type">◈ Stock Impact</div><div class="conn-row"><div class="conn-name">YTD</div><div class="conn-val">${d.ytd}</div></div><div class="conn-row"><div class="conn-name">vs S&P</div><div class="conn-val">+6.2%</div></div></div>
     <div class="conn-card a"><div class="conn-type">◈ Workforce Leverage</div><div class="conn-row"><div class="conn-name">Employees</div><div class="conn-val">${d.emp}</div></div><div class="conn-row"><div class="conn-name">Political impact</div><div class="conn-note">Jobs in 48+ states</div></div></div>`;
   document.querySelectorAll('#trace-co-select .tsel-pill').forEach(p=>p.classList.toggle('active',p.dataset.co===co));
+  persistWarRoomContext({company:co,ticker:co,suggestedMode:'stock'});
 }
 
 function initMoneySelectors(){
@@ -1151,6 +1236,10 @@ renderRevolvingDoor();
 renderTimeline(2022);
 renderConnections();
 renderIntel();
+applyIncomingContext();
+persistWarRoomContext();
+hydrateLiveData();
+setInterval(hydrateLiveData, 60000);
 </script>
 </body>
 </html>

@@ -1268,6 +1268,7 @@ export default function Home() {
   };
 
   useEffect(() => {
+    const VALID_ASSET_MODES = new Set(["stock", "crypto", "metals", "fx", "geopolitics", "globalmarket", "news"]);
     try {
       const h = JSON.parse(localStorage.getItem("search_history") || "[]");
       if (Array.isArray(h)) setSearchHistory(h.map(normalizeHistoryEntry).filter(Boolean).slice(0, 8));
@@ -1279,6 +1280,29 @@ export default function Home() {
     try {
       const l = localStorage.getItem("site_language");
       if (LANGUAGE_OPTIONS.some((x) => x.code === l)) setLanguage(l);
+    } catch {}
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const modeFromQuery = String(params.get("mode") || "").toLowerCase().trim();
+      const conflictFromQuery = String(params.get("conflict") || "").trim();
+      const companyFromQuery = String(params.get("company") || "").toUpperCase().trim();
+      if (VALID_ASSET_MODES.has(modeFromQuery)) {
+        setAssetMode(modeFromQuery);
+      }
+      const rawWarRoom = localStorage.getItem("warroom_context_v1");
+      const warRoomContext = rawWarRoom ? JSON.parse(rawWarRoom) : null;
+      const modeFromWarRoom = String(warRoomContext?.suggestedMode || "").toLowerCase().trim();
+      if (!modeFromQuery && VALID_ASSET_MODES.has(modeFromWarRoom)) {
+        setAssetMode(modeFromWarRoom);
+      }
+      const contextCompany = companyFromQuery || String(warRoomContext?.ticker || "").toUpperCase().trim();
+      if (contextCompany && /^[A-Z0-9.\-]{1,12}$/.test(contextCompany)) {
+        setTicker(contextCompany);
+      }
+      const contextConflict = conflictFromQuery || String(warRoomContext?.conflictName || "").trim();
+      if (contextConflict && (modeFromQuery === "geopolitics" || modeFromWarRoom === "geopolitics")) {
+        setGeoQuery(contextConflict);
+      }
     } catch {}
     try {
       const raw = localStorage.getItem("headline_impact_cache_v1");
