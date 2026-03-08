@@ -367,7 +367,38 @@ tr:last-child td{border-bottom:none;}
 <!-- ════════════════════════════════════════════════════
      ONBOARDING
 ════════════════════════════════════════════════════ -->
-<div id="onboard">
+<!-- ── LOGIN GATE ── -->
+<div id="loginGate" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;">
+  <div class="brand" style="text-align:center;margin-bottom:40px;">
+    <div class="brand-mark"></div>
+    <div class="brand-name">ARTHASTRA</div>
+    <div class="brand-tagline">Intelligent Wealth Automation</div>
+  </div>
+  <div class="card" style="max-width:400px;width:100%;">
+    <div class="card-title" style="margin-bottom:4px;">Welcome back</div>
+    <div class="card-sub" style="margin-bottom:24px;">Sign in to access your bot, or continue as a guest to try the simulator.</div>
+
+    <div id="loginError" style="display:none;background:rgba(255,68,102,.1);border:1px solid rgba(255,68,102,.3);border-radius:8px;padding:10px 14px;font-size:11px;color:#ff4466;margin-bottom:14px;"></div>
+
+    <div style="margin-bottom:12px;">
+      <label style="font-size:11px;color:var(--dim);letter-spacing:.06em;display:block;margin-bottom:6px;">EMAIL</label>
+      <input id="loginEmail" type="email" placeholder="you@example.com" style="width:100%;padding:12px 14px;background:var(--s2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'DM Mono',monospace;font-size:13px;outline:none;">
+    </div>
+    <div style="margin-bottom:20px;">
+      <label style="font-size:11px;color:var(--dim);letter-spacing:.06em;display:block;margin-bottom:6px;">PASSWORD</label>
+      <input id="loginPassword" type="password" placeholder="••••••••" style="width:100%;padding:12px 14px;background:var(--s2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'DM Mono',monospace;font-size:13px;outline:none;">
+    </div>
+
+    <button class="btn btn-gold" style="width:100%;margin-bottom:10px;" onclick="handleLogin()">Sign In →</button>
+    <button class="btn btn-ghost" style="width:100%;" onclick="continueAsGuest()">Continue as Guest (Simulator Only)</button>
+
+    <div style="margin-top:16px;text-align:center;font-size:11px;color:var(--dim);">
+      Don't have an account? <a href="/home" style="color:var(--gold);text-decoration:none;">Learn more</a>
+    </div>
+  </div>
+</div>
+
+<div id="onboard" style="display:none;">
   <div class="brand">
     <div class="brand-mark"></div>
     <div class="brand-name">ARTHASTRA</div>
@@ -620,7 +651,56 @@ tr:last-child td{border-bottom:none;}
 
 <script>
 // ── STATE ─────────────────────────────────────────────────────────────────────
-let capital = 5000, exchange = 'kraken', step = 0;
+// ── AUTH CHECK ─────────────────────────────────────────────────────────────────
+const urlParams = new URLSearchParams(window.location.search);
+const authToken = urlParams.get('token') || localStorage.getItem('arbi_token');
+let IS_PAID = false;
+let IS_GUEST = true;
+
+function handleLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginError');
+
+  if (!email || !password) {
+    errEl.textContent = 'Please enter your email and password.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  // TODO: Wire to Supabase auth when ready
+  // For now show a friendly message
+  errEl.style.display = 'none';
+  errEl.style.color = '#00dfa0';
+  errEl.style.background = 'rgba(0,223,160,.08)';
+  errEl.style.borderColor = 'rgba(0,223,160,.25)';
+  errEl.textContent = 'Auth system coming soon — continue as guest for now.';
+  errEl.style.display = 'block';
+}
+
+function continueAsGuest() {
+  IS_GUEST = true;
+  IS_PAID = false;
+  document.getElementById('loginGate').style.display = 'none';
+  document.getElementById('onboard').style.display = 'flex';
+
+  // Hide exchange step dot
+  const s1 = document.getElementById('s1');
+  if (s1) s1.style.display = 'none';
+
+  // Add simulator banner
+  const brand = document.querySelector('#onboard .brand');
+  if (brand && !document.getElementById('simBanner')) {
+    const banner = document.createElement('div');
+    banner.id = 'simBanner';
+    banner.style.cssText = 'background:rgba(201,169,110,.08);border:1px solid rgba(201,169,110,.25);border-radius:10px;padding:10px 16px;font-size:11px;color:#c9a96e;letter-spacing:.06em;margin-bottom:16px;text-align:center;';
+    banner.innerHTML = '◈ SIMULATOR MODE &nbsp;·&nbsp; Paper trading only &nbsp;·&nbsp; <a href="/home" style="color:#c9a96e;text-decoration:underline;">Upgrade to go live</a>';
+    brand.insertAdjacentElement('afterend', banner);
+  }
+}
+
+// Remove old DOMContentLoaded guest banner logic
+
 
 // ── ONBOARDING ────────────────────────────────────────────────────────────────
 function setCapital(amt, el) {
@@ -672,6 +752,9 @@ function setExchange(name, el) {
 }
 
 function goStep(n) {
+  // Guests skip step 1 (exchange connection)
+  if (IS_GUEST && n === 1) { n = 2; }
+
   [0,1,2,3].forEach(i => {
     document.getElementById('step'+i).style.display = i === n ? 'block' : 'none';
     const s = document.getElementById('s'+i);
@@ -684,15 +767,26 @@ function goStep(n) {
 
   if (n === 2) {
     document.getElementById('rev-capital').textContent = '$' + capital.toLocaleString();
-    document.getElementById('rev-exchange').textContent =
-      exchange.charAt(0).toUpperCase() + exchange.slice(1);
+    const exEl = document.getElementById('rev-exchange');
+    if (exEl) exEl.textContent = IS_GUEST ? 'Paper Trading (Simulator)' : exchange.charAt(0).toUpperCase() + exchange.slice(1);
+    const modeEl = document.getElementById('rev-mode');
+    if (modeEl) modeEl.textContent = 'Paper trading (safe)';
   }
 }
 
 function launch() {
   goStep(3);
   const log  = document.getElementById('launchLog');
-  const msgs = [
+  const msgs = IS_GUEST ? [
+    '◈ Simulator mode activated',
+    '✓ Paper capital set: $' + capital.toLocaleString(),
+    '✓ Market regime detected: RANGING / LOW VOL',
+    '✓ Strategies selected: Funding Arb, Mean Reversion, Cross-Arb',
+    '✓ Risk parameters set (1% per trade, 2% daily limit)',
+    '✓ Collective learning model loaded (1,247 trades)',
+    '✓ Your trades will train the collective model',
+    '✓ ARBI Simulator is live ◈',
+  ] : [
     '✓ API keys validated',
     '✓ Balance confirmed: $' + capital.toLocaleString(),
     '✓ Market regime detected: RANGING / LOW VOL',
