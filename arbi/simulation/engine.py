@@ -496,8 +496,11 @@ class SimulationEngine:
         conn.execute("""
             UPDATE sim_trades
             SET exit_price=?, pnl_pct=?, profitable=?, hold_hrs=?, status='CLOSED'
-            WHERE sim_user=? AND symbol=? AND status='OPEN'
-            ORDER BY ts DESC LIMIT 1
+            WHERE rowid=(
+                SELECT rowid FROM sim_trades
+                WHERE sim_user=? AND symbol=? AND status='OPEN'
+                ORDER BY ts DESC LIMIT 1
+            )
         """, (exit_price, round(pnl_pct*100,4), 1 if pnl_pct>0 else 0,
               round(hold_hrs,2), self.sim_user, sym))
         conn.commit()
@@ -536,7 +539,11 @@ class SimulationEngine:
         conn = sqlite3.connect(SIM_DB_PATH)
         conn.execute("""
             UPDATE sim_sessions SET last_seen=?, trades_this_session=?, balance=?
-            WHERE sim_user=? ORDER BY started_ts DESC LIMIT 1
+            WHERE rowid=(
+                SELECT rowid FROM sim_sessions
+                WHERE sim_user=?
+                ORDER BY started_ts DESC LIMIT 1
+            )
         """, (time.time(), self.trade_count, self.balance, self.sim_user))
         conn.commit()
         conn.close()
