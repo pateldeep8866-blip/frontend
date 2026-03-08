@@ -1,0 +1,3 @@
+# Procfile
+# Tells Railway what command to run to start the bot
+web: python -m simulation.engine --user arthastra_global --live
