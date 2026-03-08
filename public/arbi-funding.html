@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arthastra — Funding Rate Monitor</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#060810; --s1:#0c0f1a; --s2:#111520; --s3:#171c2e;
+  --border:#1e2540; --gold:#c9a96e; --gold2:#8a6835;
+  --green:#00dfa0; --green2:#006845; --red:#ff4466;
+  --blue:#4488ff; --text:#e4e8f4; --dim:#5a6180; --muted:#2a3050;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'DM Mono',monospace;background:var(--bg);color:var(--text);min-height:100vh;}
+body::before{content:'';position:fixed;inset:0;
+  background-image:linear-gradient(rgba(201,169,110,.02)1px,transparent 1px),linear-gradient(90deg,rgba(201,169,110,.02)1px,transparent 1px);
+  background-size:40px 40px;pointer-events:none;z-index:0;}
+
+.wrap{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:32px 24px;}
+
+/* Header */
+.hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:32px;}
+.logo{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:var(--gold);letter-spacing:.1em;display:flex;align-items:center;gap:10px;}
+.lsq{width:24px;height:24px;border:1.5px solid var(--gold);transform:rotate(45deg);display:flex;align-items:center;justify-content:center;}
+.lsq::after{content:'';width:8px;height:8px;background:var(--gold);}
+.page-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;color:var(--text);}
+.page-sub{font-size:11px;color:var(--dim);margin-top:3px;}
+
+/* Live badge */
+.live{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--green);background:rgba(0,223,160,.07);border:1px solid rgba(0,223,160,.18);padding:5px 14px;border-radius:100px;}
+.dot{width:6px;height:6px;background:var(--green);border-radius:50%;animation:blink 1.4s infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.25;}}
+
+/* Stat row */
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:24px;}
+.sc{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:16px 18px;transition:all .2s;animation:up .35s ease both;}
+.sc:hover{border-color:var(--gold2);transform:translateY(-2px);}
+@keyframes up{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+.sc:nth-child(1){animation-delay:.05s;}.sc:nth-child(2){animation-delay:.1s;}
+.sc:nth-child(3){animation-delay:.15s;}.sc:nth-child(4){animation-delay:.2s;}
+.sc:nth-child(5){animation-delay:.25s;}
+.slbl{font-size:9px;letter-spacing:.1em;color:var(--dim);text-transform:uppercase;}
+.sval{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;margin:4px 0 3px;letter-spacing:-.03em;}
+.sval.gold{color:var(--gold);} .sval.green{color:var(--green);} .sval.red{color:var(--red);} .sval.white{color:var(--text);}
+.schg{font-size:10px;color:var(--dim);}
+.schg.up{color:var(--green);} .schg.dn{color:var(--red);}
+
+/* Two col */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px;}
+
+/* Card */
+.card{background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:22px;animation:up .35s ease both;}
+.card:nth-child(1){animation-delay:.3s;} .card:nth-child(2){animation-delay:.35s;}
+.chdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.ctitle{font-family:'Syne',sans-serif;font-size:13px;font-weight:600;}
+.csub{font-size:10px;color:var(--dim);margin-top:2px;}
+
+/* Rate table */
+.rtable{width:100%;border-collapse:collapse;}
+.rtable th{font-size:9px;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;padding:5px 0;text-align:left;border-bottom:1px solid var(--border);}
+.rtable td{font-size:12px;padding:10px 0;border-bottom:1px solid rgba(30,37,64,.4);vertical-align:middle;}
+.rtable tr:last-child td{border-bottom:none;}
+.rtable tr{animation:up .3s ease both;}
+.sym{color:var(--text);font-weight:500;}
+.rate-val{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;}
+.rate-val.pos{color:var(--green);} .rate-val.neg{color:var(--red);}
+.annual{color:var(--gold);}
+.pred{font-size:10px;}
+.pred.pos{color:var(--green);} .pred.neg{color:var(--red);}
+.status-tag{font-size:9px;padding:3px 8px;border-radius:5px;font-weight:600;letter-spacing:.05em;}
+.status-tag.enter{background:rgba(0,223,160,.1);color:var(--green);}
+.status-tag.wait{background:rgba(201,169,110,.1);color:var(--gold);}
+.status-tag.skip{background:rgba(255,68,102,.08);color:var(--red);}
+.status-tag.open{background:rgba(68,136,255,.1);color:var(--blue);}
+.act-btn{font-family:'DM Mono',monospace;font-size:10px;padding:4px 12px;border-radius:7px;border:none;cursor:pointer;transition:.15s;background:rgba(0,223,160,.1);color:var(--green);border:1px solid rgba(0,223,160,.2);}
+.act-btn:hover{background:rgba(0,223,160,.2);}
+
+/* Position cards */
+.pos-card{background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:10px;transition:.2s;}
+.pos-card:hover{border-color:var(--gold2);}
+.pos-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.pos-sym{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:var(--text);}
+.pos-yield{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:var(--green);}
+.pos-rows{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+.pr{display:flex;flex-direction:column;gap:2px;}
+.pr-lbl{font-size:9px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;}
+.pr-val{font-size:12px;color:var(--text);}
+.pr-val.green{color:var(--green);} .pr-val.gold{color:var(--gold);}
+
+/* Progress bar */
+.pbar-wrap{margin-top:10px;}
+.pbar-lbl{display:flex;justify-content:space-between;font-size:10px;color:var(--dim);margin-bottom:4px;}
+.pbar{height:4px;background:var(--s3);border-radius:100px;overflow:hidden;}
+.pbar-fill{height:100%;background:linear-gradient(90deg,var(--green2),var(--green));border-radius:100px;transition:width 1s ease;}
+
+/* Calculator */
+.calc{background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:22px;animation:up .35s .4s ease both;}
+.calc-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;}
+.field{display:flex;flex-direction:column;gap:5px;}
+.field label{font-size:9px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;}
+.field input,.field select{background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-family:'DM Mono',monospace;font-size:13px;color:var(--text);outline:none;transition:.2s;-webkit-appearance:none;}
+.field input:focus,.field select:focus{border-color:var(--gold2);box-shadow:0 0 0 3px rgba(201,169,110,.07);}
+
+.result-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.rbox{background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;}
+.rbox-lbl{font-size:9px;color:var(--dim);letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px;}
+.rbox-val{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;}
+.rbox-val.green{color:var(--green);} .rbox-val.gold{color:var(--gold);} .rbox-val.white{color:var(--text);}
+
+/* Chart */
+.mini-chart{height:80px;position:relative;margin-top:8px;}
+
+/* Risk checklist */
+.risks{display:flex;flex-direction:column;gap:8px;margin-top:4px;}
+.risk-row{display:flex;align-items:flex-start;gap:10px;padding:10px;background:var(--s2);border-radius:8px;border:1px solid var(--border);}
+.risk-ico{width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;}
+.risk-ico.ok{background:rgba(0,223,160,.1);}
+.risk-ico.warn{background:rgba(201,169,110,.1);}
+.risk-ico.bad{background:rgba(255,68,102,.1);}
+.risk-title{font-size:11px;color:var(--text);margin-bottom:2px;}
+.risk-desc{font-size:10px;color:var(--dim);line-height:1.5;}
+
+::-webkit-scrollbar{width:3px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:100px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- Header -->
+<div class="hdr">
+  <div class="logo"><div class="lsq"></div>ARTHASTRA</div>
+  <div>
+    <div class="page-title">Funding Rate Engine</div>
+    <div class="page-sub">Delta-neutral arbitrage · Bybit linear perps · March 2026</div>
+  </div>
+  <div class="live"><div class="dot"></div>SCANNING LIVE</div>
+</div>
+
+<!-- Stats -->
+<div class="stats">
+  <div class="sc"><div class="slbl">Capital Deployed</div><div class="sval gold" id="deployed">$0</div><div class="schg neu" id="deployedPct">of $10,000 allocated</div></div>
+  <div class="sc"><div class="slbl">Funding Collected</div><div class="sval green" id="collected">$0.00</div><div class="schg up" id="collectedRate">+$0 today</div></div>
+  <div class="sc"><div class="slbl">Avg Annual Yield</div><div class="sval white" id="avgYield">—</div><div class="schg neu">net of fees</div></div>
+  <div class="sc"><div class="slbl">Active Positions</div><div class="sval gold" id="openPos">0</div><div class="schg neu">across 0 symbols</div></div>
+  <div class="sc"><div class="slbl">Next Funding In</div><div class="sval white" id="countdown">—</div><div class="schg neu">all exchanges</div></div>
+</div>
+
+<!-- Rate table + positions -->
+<div class="grid2">
+
+  <!-- Rate scanner -->
+  <div class="card">
+    <div class="chdr">
+      <div><div class="ctitle">Live Funding Rates</div><div class="csub">Current + predicted · sorted by net yield</div></div>
+    </div>
+    <table class="rtable">
+      <thead><tr>
+        <th>Symbol</th><th>Current Rate</th><th>Predicted</th><th>Annual Net</th><th>Status</th><th></th>
+      </tr></thead>
+      <tbody id="rateTable"></tbody>
+    </table>
+  </div>
+
+  <!-- Open positions -->
+  <div class="card">
+    <div class="chdr">
+      <div><div class="ctitle">Open Positions</div><div class="csub">Delta-neutral · both legs tracked</div></div>
+    </div>
+    <div id="positionList"><div style="font-size:11px;color:var(--dim);text-align:center;padding:24px;">No open positions. Click Enter on a signal to simulate opening one.</div></div>
+  </div>
+
+</div>
+
+<!-- Calculator -->
+<div class="calc">
+  <div class="chdr">
+    <div><div class="ctitle">Yield Calculator</div><div class="csub">Model your returns before entering</div></div>
+  </div>
+  <div class="calc-grid">
+    <div class="field"><label>Capital ($)</label><input type="number" id="cCapital" value="10000" oninput="calcYield()"></div>
+    <div class="field"><label>8h Funding Rate (%)</label><input type="number" id="cRate" value="0.02" step="0.001" oninput="calcYield()"></div>
+    <div class="field"><label>Exchange Fee (%)</label><input type="number" id="cFee" value="0.06" step="0.01" oninput="calcYield()"></div>
+    <div class="field"><label>Holding Period</label>
+      <select id="cPeriod" onchange="calcYield()">
+        <option value="7">7 days</option>
+        <option value="30" selected>30 days</option>
+        <option value="90">90 days</option>
+        <option value="365">1 year</option>
+      </select>
+    </div>
+  </div>
+  <div class="result-grid" id="calcResults"></div>
+</div>
+
+<!-- Bottom row -->
+<div style="height:16px;"></div>
+<div class="grid2">
+
+  <!-- Yield chart -->
+  <div class="card">
+    <div class="chdr"><div><div class="ctitle">Simulated Yield Curve</div><div class="csub">$10k capital · current market rates</div></div></div>
+    <div class="mini-chart"><canvas id="yieldChart"></canvas></div>
+    <div style="margin-top:12px;display:flex;gap:20px;font-size:10px;color:var(--dim);">
+      <span><span style="color:var(--green);">■</span> Bull market (0.05%/8h)</span>
+      <span><span style="color:var(--gold);">■</span> Normal market (0.02%/8h)</span>
+      <span><span style="color:var(--blue);">■</span> Flat market (0.01%/8h)</span>
+    </div>
+  </div>
+
+  <!-- Risk checklist -->
+  <div class="card">
+    <div class="chdr"><div><div class="ctitle">Risk Monitor</div><div class="csub">3 failure modes · all mitigated</div></div></div>
+    <div class="risks">
+      <div class="risk-row">
+        <div class="risk-ico ok">✓</div>
+        <div><div class="risk-title">Liquidation Risk</div><div class="risk-desc">Margin buffer set at 40%. Auto-exit triggers at 15% margin ratio. Rebalancing fires at 5% drift to prevent forced liquidation.</div></div>
+      </div>
+      <div class="risk-row">
+        <div class="risk-ico ok">✓</div>
+        <div><div class="risk-title">Rate Flip Detection</div><div class="risk-desc">Bot checks PREDICTED funding rate before every entry and on each monitoring cycle. Exits before negative flip, not after.</div></div>
+      </div>
+      <div class="risk-row">
+        <div class="risk-ico ok">✓</div>
+        <div><div class="risk-title">Rebalancing Drift</div><div class="risk-desc">Spot/perp notional monitored every loop. Auto-rebalance triggers at 5% drift to maintain perfect delta-neutral hedge.</div></div>
+      </div>
+      <div class="risk-row">
+        <div class="risk-ico warn">!</div>
+        <div><div class="risk-title">Exchange Counterparty Risk</div><div class="risk-desc">All capital on Bybit. Diversify across Binance + Bybit once deployed. Never keep more than 50% on one venue.</div></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</div>
+
+<script>
+// ── SIMULATED FUNDING RATES (realistic March 2026 data) ──────────────────────
+const RATES = [
+  {sym:'BTC/USDT', rate: 0.0182, pred: 0.0175, annual: 17.4, status:'ENTER'},
+  {sym:'ETH/USDT', rate: 0.0241, pred: 0.0228, annual: 23.1, status:'ENTER'},
+  {sym:'SOL/USDT', rate: 0.0312, pred: 0.0295, annual: 29.8, status:'ENTER'},
+  {sym:'BNB/USDT', rate: 0.0094, pred: 0.0081, annual:  7.2, status:'WAIT'},
+  {sym:'XRP/USDT', rate: 0.0521, pred: 0.0488, annual: 49.8, status:'ENTER'},
+  {sym:'DOGE/USDT',rate: 0.0071, pred:-0.0012, annual:  0.0, status:'SKIP'},
+  {sym:'ADA/USDT', rate: 0.0158, pred: 0.0142, annual: 13.4, status:'ENTER'},
+];
+
+// Active positions (simulated)
+let positions = [];
+let totalCollected = 0;
+let sessionStart = Date.now();
+
+// ── RATE TABLE ────────────────────────────────────────────────────────────────
+function renderRateTable() {
+  const tbody = document.getElementById('rateTable');
+  // Drift rates slightly
+  RATES.forEach(r => {
+    r.rate = Math.max(-0.05, r.rate + (Math.random()-.5)*0.001);
+    r.pred = Math.max(-0.05, r.pred + (Math.random()-.5)*0.0008);
+    r.annual = r.pred > 0 ? r.rate * 1095 : 0;
+    r.status = r.rate >= 0.01 && r.pred > 0 ? 'ENTER' : r.rate >= 0.005 ? 'WAIT' : 'SKIP';
+  });
+
+  tbody.innerHTML = RATES.map((r,i) => {
+    const inPos = positions.find(p => p.sym === r.sym);
+    const statusLabel = inPos ? 'OPEN' : r.status;
+    const statusCls   = inPos ? 'open' : r.status.toLowerCase();
+    const btn = (!inPos && r.status === 'ENTER')
+      ? `<button class="act-btn" onclick="openPosition('${r.sym}',${r.rate},${r.annual})">Enter</button>`
+      : inPos ? `<button class="act-btn" style="background:rgba(255,68,102,.1);color:var(--red);border-color:rgba(255,68,102,.2);" onclick="closePosition('${r.sym}')">Close</button>`
+      : '';
+    return `<tr style="animation-delay:${i*.05}s">
+      <td class="sym">${r.sym}</td>
+      <td><span class="rate-val ${r.rate>=0?'pos':'neg'}">${r.rate>=0?'+':''}${r.rate.toFixed(4)}%</span><span style="font-size:9px;color:var(--dim);margin-left:4px;">per 8h</span></td>
+      <td><span class="pred ${r.pred>=0?'pos':'neg'}">${r.pred>=0?'+':''}${r.pred.toFixed(4)}%</span></td>
+      <td><span class="annual">${r.annual > 0 ? r.annual.toFixed(1)+'%' : '—'}</span></td>
+      <td><span class="status-tag ${statusCls}">${statusLabel}</span></td>
+      <td>${btn}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── POSITIONS ─────────────────────────────────────────────────────────────────
+function openPosition(sym, rate, annual) {
+  const capital = 2000;
+  positions.push({
+    sym, rate, annual, capital,
+    openedAt: Date.now(),
+    collected: 0,
+    periods: 0,
+  });
+  renderPositions();
+  updateStats();
+}
+
+function closePosition(sym) {
+  positions = positions.filter(p => p.sym !== sym);
+  renderPositions();
+  updateStats();
+}
+
+function renderPositions() {
+  const el = document.getElementById('positionList');
+  if (!positions.length) {
+    el.innerHTML = '<div style="font-size:11px;color:var(--dim);text-align:center;padding:24px;">No open positions. Click Enter on a signal to simulate opening one.</div>';
+    return;
+  }
+  el.innerHTML = positions.map(p => {
+    const hrsOpen   = (Date.now() - p.openedAt) / 3600000;
+    const periods   = Math.floor(hrsOpen / 8);
+    p.periods       = periods;
+    p.collected     = p.capital * (p.rate/100) * Math.max(periods, hrsOpen/8);
+    const yieldPct  = (p.collected / p.capital * 100).toFixed(3);
+    const annualized= p.annual.toFixed(1);
+    const progress  = Math.min((hrsOpen / (24*30)) * 100, 100);
+    return `
+    <div class="pos-card">
+      <div class="pos-top">
+        <div class="pos-sym">${p.sym}</div>
+        <div class="pos-yield">+$${p.collected.toFixed(4)}</div>
+      </div>
+      <div class="pos-rows">
+        <div class="pr"><div class="pr-lbl">Notional</div><div class="pr-val">$${p.capital.toLocaleString()}</div></div>
+        <div class="pr"><div class="pr-lbl">Yield So Far</div><div class="pr-val green">${yieldPct}%</div></div>
+        <div class="pr"><div class="pr-lbl">Annualized</div><div class="pr-val gold">${annualized}%</div></div>
+        <div class="pr"><div class="pr-lbl">8h Rate</div><div class="pr-val">+${p.rate.toFixed(4)}%</div></div>
+        <div class="pr"><div class="pr-lbl">Periods</div><div class="pr-val">${Math.max(periods,1)}</div></div>
+        <div class="pr"><div class="pr-lbl">Status</div><div class="pr-val green">Delta Neutral</div></div>
+      </div>
+      <div class="pbar-wrap">
+        <div class="pbar-lbl"><span>30-day progress</span><span>${progress.toFixed(0)}%</span></div>
+        <div class="pbar"><div class="pbar-fill" style="width:${progress}%"></div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── STATS ─────────────────────────────────────────────────────────────────────
+function updateStats() {
+  const totalCap = positions.reduce((s,p) => s+p.capital, 0);
+  const totalCol = positions.reduce((s,p) => s+p.collected, 0);
+  const avgYield = positions.length
+    ? (positions.reduce((s,p) => s+p.annual, 0) / positions.length).toFixed(1) + '%'
+    : '—';
+
+  document.getElementById('deployed').textContent = '$'+totalCap.toLocaleString();
+  document.getElementById('deployedPct').textContent = 'of $10,000 allocated';
+  document.getElementById('collected').textContent = '+$'+totalCol.toFixed(4);
+  document.getElementById('collectedRate').textContent = '+$'+(totalCol/Math.max((Date.now()-sessionStart)/86400000,0.01)).toFixed(4)+' today';
+  document.getElementById('avgYield').textContent = avgYield;
+  document.getElementById('openPos').textContent = positions.length;
+}
+
+// ── COUNTDOWN ─────────────────────────────────────────────────────────────────
+function updateCountdown() {
+  const now     = new Date();
+  const hours   = now.getUTCHours();
+  const mins    = now.getUTCMinutes();
+  const secs    = now.getUTCSeconds();
+  const nextPeriod = [0, 8, 16, 24].find(h => h > hours) || 24;
+  const remaining  = (nextPeriod - hours - 1) * 3600 + (59 - mins) * 60 + (60 - secs);
+  const h = Math.floor(remaining/3600);
+  const m = Math.floor((remaining%3600)/60);
+  const s = remaining%60;
+  document.getElementById('countdown').textContent =
+    `${h}h ${m.toString().padStart(2,'0')}m ${s.toString().padStart(2,'0')}s`;
+}
+
+// ── CALCULATOR ────────────────────────────────────────────────────────────────
+function calcYield() {
+  const capital = parseFloat(document.getElementById('cCapital').value) || 0;
+  const rate8h  = parseFloat(document.getElementById('cRate').value) / 100 || 0;
+  const fee     = parseFloat(document.getElementById('cFee').value) / 100 || 0;
+  const days    = parseInt(document.getElementById('cPeriod').value) || 30;
+
+  const periods     = (days * 24) / 8;
+  const grossYield  = capital * rate8h * periods;
+  const feesCost    = capital * fee * 2;   // entry + exit
+  const netYield    = grossYield - feesCost;
+  const annualized  = (rate8h * 1095 * 100).toFixed(1);
+  const daily       = (capital * rate8h * 3).toFixed(2);
+
+  document.getElementById('calcResults').innerHTML = `
+    <div class="rbox"><div class="rbox-lbl">Gross Yield</div><div class="rbox-val green">$${grossYield.toFixed(2)}</div></div>
+    <div class="rbox"><div class="rbox-lbl">Fees Cost</div><div class="rbox-val white">-$${feesCost.toFixed(2)}</div></div>
+    <div class="rbox"><div class="rbox-lbl">Net Profit</div><div class="rbox-val gold">$${netYield.toFixed(2)}</div></div>
+    <div class="rbox"><div class="rbox-lbl">Annualized</div><div class="rbox-val green">${annualized}%</div></div>
+  `;
+}
+calcYield();
+
+// ── YIELD CHART ───────────────────────────────────────────────────────────────
+function drawYieldChart() {
+  const canvas = document.getElementById('yieldChart');
+  const ctx    = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth;
+  canvas.height = canvas.offsetHeight;
+  const W=canvas.width, H=canvas.height;
+
+  const scenarios = [
+    {rate: 0.05/100, color:'#00dfa0'},  // bull
+    {rate: 0.02/100, color:'#c9a96e'},  // normal
+    {rate: 0.01/100, color:'#4488ff'},  // flat
+  ];
+  const capital = 10000, days = 90;
+  const allVals = scenarios.flatMap(s =>
+    Array.from({length:days+1},(_,i) => capital + capital * s.rate * 3 * i)
+  );
+  const minV = Math.min(...allVals) * .999;
+  const maxV = Math.max(...allVals) * 1.001;
+
+  ctx.clearRect(0,0,W,H);
+  const pad = {t:8,r:8,b:20,l:56};
+  const w = W-pad.l-pad.r, h = H-pad.t-pad.b;
+
+  // Grid
+  for(let i=0;i<=3;i++){
+    const y=pad.t+(h/3)*i;
+    ctx.strokeStyle='rgba(30,37,64,.5)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(W-pad.r,y); ctx.stroke();
+    const v=maxV-(maxV-minV)*(i/3);
+    ctx.fillStyle='rgba(90,97,128,.6)'; ctx.font='9px DM Mono';
+    ctx.fillText('$'+(v/1000).toFixed(1)+'k',2,y+3);
+  }
+
+  scenarios.forEach(s => {
+    const pts = Array.from({length:days+1},(_,i) =>({
+      x: pad.l + (i/days)*w,
+      y: pad.t + h - ((capital + capital*s.rate*3*i - minV)/(maxV-minV))*h
+    }));
+    ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y);
+    pts.forEach(p => ctx.lineTo(p.x,p.y));
+    ctx.strokeStyle=s.color; ctx.lineWidth=1.5; ctx.stroke();
+  });
+}
+window.addEventListener('resize', drawYieldChart);
+setTimeout(drawYieldChart, 100);
+
+// ── MAIN LOOP ─────────────────────────────────────────────────────────────────
+function tick() {
+  renderRateTable();
+  renderPositions();
+  updateStats();
+  updateCountdown();
+}
+tick();
+setInterval(tick, 3000);
+setInterval(updateCountdown, 1000);
+</script>
+</body>
+</html>

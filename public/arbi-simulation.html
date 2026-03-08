@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arthastra — Simulation Monitor</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#060810;--s1:#0c0f1a;--s2:#111520;--s3:#171c2e;
+  --border:#1e2540;--gold:#c9a96e;--gold2:#8a6835;
+  --green:#00dfa0;--red:#ff4466;--blue:#4488ff;--purple:#aa66ff;
+  --text:#e4e8f4;--dim:#5a6180;--muted:#2a3050;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'DM Mono',monospace;background:var(--bg);color:var(--text);min-height:100vh;}
+body::before{content:'';position:fixed;inset:0;
+  background-image:linear-gradient(rgba(201,169,110,.02)1px,transparent 1px),
+  linear-gradient(90deg,rgba(201,169,110,.02)1px,transparent 1px);
+  background-size:40px 40px;pointer-events:none;z-index:0;}
+.wrap{position:relative;z-index:1;max-width:1160px;margin:0 auto;padding:28px 20px;}
+
+/* Header */
+.hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;}
+.logo{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:var(--gold);letter-spacing:.1em;display:flex;align-items:center;gap:8px;}
+.lsq{width:20px;height:20px;border:1.5px solid var(--gold);transform:rotate(45deg);display:flex;align-items:center;justify-content:center;}
+.lsq::after{content:'';width:7px;height:7px;background:var(--gold);}
+.pg-title{font-family:'Syne',sans-serif;font-size:20px;font-weight:700;}
+.pg-sub{font-size:11px;color:var(--dim);margin-top:3px;}
+.live-pill{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--green);background:rgba(0,223,160,.07);border:1px solid rgba(0,223,160,.18);padding:4px 12px;border-radius:100px;}
+.dot{width:6px;height:6px;background:var(--green);border-radius:50%;animation:blink 1.2s infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.2;}}
+
+/* Knowledge meter — hero element */
+.knowledge-hero{
+  background:linear-gradient(135deg,rgba(201,169,110,.08),rgba(68,136,255,.05));
+  border:1px solid rgba(201,169,110,.2);
+  border-radius:16px;padding:24px 28px;margin-bottom:20px;
+  display:flex;align-items:center;justify-content:space-between;
+  animation:fadeUp .4s ease both;
+}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+.kh-left{flex:1;}
+.kh-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:600;color:var(--gold);margin-bottom:10px;}
+.kh-bar-wrap{display:flex;align-items:center;gap:14px;}
+.kh-bar{flex:1;height:10px;background:var(--s3);border-radius:100px;overflow:hidden;}
+.kh-fill{height:100%;border-radius:100px;background:linear-gradient(90deg,var(--gold2),var(--gold));transition:width 2s ease;}
+.kh-pct{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--gold);width:48px;}
+.kh-note{font-size:10px;color:var(--dim);margin-top:6px;}
+.kh-right{display:flex;gap:28px;padding-left:32px;border-left:1px solid var(--border);}
+.kstat{text-align:center;}
+.kstat-val{font-family:'Syne',sans-serif;font-size:20px;font-weight:700;color:var(--text);}
+.kstat-val.green{color:var(--green);}
+.kstat-val.gold{color:var(--gold);}
+.kstat-lbl{font-size:9px;color:var(--dim);margin-top:2px;letter-spacing:.08em;text-transform:uppercase;}
+
+/* User cards */
+.users-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px;}
+.user-card{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:18px;transition:all .2s;animation:fadeUp .35s ease both;position:relative;overflow:hidden;}
+.user-card:nth-child(1){animation-delay:.05s;}
+.user-card:nth-child(2){animation-delay:.1s;}
+.user-card:nth-child(3){animation-delay:.15s;}
+.user-card:nth-child(4){animation-delay:.2s;}
+.user-card.online{border-color:rgba(0,223,160,.2);}
+.user-card.online::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--green),transparent);}
+.user-card.offline{opacity:.55;}
+.user-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.user-name{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:var(--text);}
+.user-status{display:flex;align-items:center;gap:5px;font-size:10px;}
+.user-status.on{color:var(--green);}
+.user-status.off{color:var(--dim);}
+.user-dot{width:5px;height:5px;border-radius:50%;}
+.user-dot.on{background:var(--green);animation:blink 1.2s infinite;}
+.user-dot.off{background:var(--dim);}
+.user-stats{display:flex;flex-direction:column;gap:7px;}
+.us-row{display:flex;justify-content:space-between;font-size:11px;}
+.us-lbl{color:var(--dim);}
+.us-val{color:var(--text);}
+.us-val.green{color:var(--green);}
+.us-val.gold{color:var(--gold);}
+.us-val.red{color:var(--red);}
+.user-prog{margin-top:10px;}
+.up-lbl{display:flex;justify-content:space-between;font-size:9px;color:var(--dim);margin-bottom:4px;}
+.up-bar{height:3px;background:var(--s3);border-radius:100px;overflow:hidden;}
+.up-fill{height:100%;border-radius:100px;transition:width 1.5s ease;}
+
+/* Two col */
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px;}
+
+/* Card */
+.card{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:20px;animation:fadeUp .35s ease both;}
+.card:nth-child(1){animation-delay:.3s;}
+.card:nth-child(2){animation-delay:.35s;}
+.chdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.ctitle{font-family:'Syne',sans-serif;font-size:13px;font-weight:600;}
+.csub{font-size:10px;color:var(--dim);margin-top:1px;}
+
+/* Trade feed */
+.feed{display:flex;flex-direction:column;gap:6px;max-height:260px;overflow-y:auto;}
+.feed-row{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--s2);border-radius:8px;border:1px solid transparent;animation:slideIn .3s ease both;}
+@keyframes slideIn{from{opacity:0;transform:translateX(-6px);}to{opacity:1;transform:translateX(0);}}
+.fr-user{width:50px;font-size:10px;color:var(--gold);flex-shrink:0;}
+.fr-sym{width:90px;font-size:11px;color:var(--text);font-weight:500;}
+.fr-strat{flex:1;font-size:10px;color:var(--dim);}
+.fr-pnl{font-size:11px;font-weight:500;width:60px;text-align:right;}
+.fr-pnl.pos{color:var(--green);}
+.fr-pnl.neg{color:var(--red);}
+.fr-pnl.open{color:var(--blue);}
+.fr-time{font-size:9px;color:var(--muted);width:40px;text-align:right;}
+
+/* Strategy leaderboard */
+.strat-rows{display:flex;flex-direction:column;gap:8px;}
+.strat-row{display:flex;align-items:center;gap:10px;padding:10px;background:var(--s2);border-radius:8px;}
+.strat-rank{width:18px;height:18px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0;}
+.strat-rank.r1{background:rgba(201,169,110,.2);color:var(--gold);}
+.strat-rank.r2{background:rgba(90,97,128,.2);color:var(--dim);}
+.strat-rank.r3{background:rgba(90,97,128,.15);color:var(--dim);}
+.strat-rank.r4{background:rgba(90,97,128,.1);color:var(--muted);}
+.strat-name{flex:1;font-size:11px;color:var(--text);}
+.strat-trades{font-size:10px;color:var(--dim);width:50px;text-align:right;}
+.strat-wr{font-size:11px;color:var(--green);width:45px;text-align:right;}
+.strat-pnl{font-size:11px;font-weight:500;width:55px;text-align:right;}
+.strat-pnl.pos{color:var(--green);}
+.strat-pnl.neg{color:var(--red);}
+
+/* Signal quality chart */
+.sq-chart{height:120px;position:relative;}
+
+/* Model accuracy meter */
+.acc-display{text-align:center;padding:16px 0;}
+.acc-val{font-family:'Syne',sans-serif;font-size:42px;font-weight:800;color:var(--green);}
+.acc-sub{font-size:11px;color:var(--dim);margin-top:4px;}
+.acc-bar{height:6px;background:var(--s3);border-radius:100px;overflow:hidden;margin-top:12px;}
+.acc-fill{height:100%;background:linear-gradient(90deg,var(--green2),var(--green));border-radius:100px;transition:width 2s ease;}
+.acc-milestones{display:flex;justify-content:space-between;font-size:9px;color:var(--muted);margin-top:5px;}
+
+/* How it works */
+.how-card{background:linear-gradient(135deg,rgba(68,136,255,.05),rgba(170,102,255,.05));border:1px solid rgba(68,136,255,.15);border-radius:12px;padding:20px;animation:fadeUp .35s .5s ease both;}
+.how-steps{display:grid;grid-template-columns:repeat(5,1fr);gap:0;margin-top:14px;}
+.how-step{text-align:center;position:relative;}
+.how-step:not(:last-child)::after{content:'→';position:absolute;right:-10px;top:14px;color:var(--muted);font-size:14px;}
+.how-ico{width:30px;height:30px;border-radius:8px;margin:0 auto 6px;display:flex;align-items:center;justify-content:center;font-size:14px;}
+.how-ico.blue{background:rgba(68,136,255,.12);}
+.how-ico.gold{background:rgba(201,169,110,.12);}
+.how-ico.green{background:rgba(0,223,160,.12);}
+.how-ico.purple{background:rgba(170,102,255,.12);}
+.how-ico.red{background:rgba(255,68,102,.12);}
+.how-lbl{font-size:9px;color:var(--dim);line-height:1.4;}
+
+/* Start section */
+.start-box{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:20px;display:flex;align-items:center;justify-content:space-between;animation:fadeUp .35s .55s ease both;}
+.cmd-block{background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--green);display:flex;flex-direction:column;gap:4px;}
+.cmd-comment{color:var(--dim);}
+.btn{font-family:'DM Mono',monospace;font-size:12px;border:none;border-radius:10px;cursor:pointer;padding:10px 20px;transition:.15s;}
+.btn-gold{background:linear-gradient(135deg,var(--gold),#a8742e);color:var(--bg);font-weight:700;}
+.btn-gold:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(201,169,110,.25);}
+
+::-webkit-scrollbar{width:3px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:100px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- Header -->
+<div class="hdr">
+  <div class="logo"><div class="lsq"></div>ARTHASTRA</div>
+  <div><div class="pg-title">Simulation Monitor</div><div class="pg-sub">4 instances building collective knowledge · 24/7 · live market data</div></div>
+  <div class="live-pill"><div class="dot"></div>SIMULATING</div>
+</div>
+
+<!-- Knowledge hero -->
+<div class="knowledge-hero">
+  <div class="kh-left">
+    <div class="kh-title">⊛ Collective Knowledge Level</div>
+    <div class="kh-bar-wrap">
+      <div class="kh-bar"><div class="kh-fill" id="knowledgeFill" style="width:0%"></div></div>
+      <div class="kh-pct" id="knowledgePct">0%</div>
+    </div>
+    <div class="kh-note" id="knowledgeNote">Minimum 200 trades needed to activate model · 0 logged so far</div>
+  </div>
+  <div class="kh-right">
+    <div class="kstat"><div class="kstat-val green" id="kTrades">0</div><div class="kstat-lbl">Total Trades</div></div>
+    <div class="kstat"><div class="kstat-val gold" id="kSignals">0</div><div class="kstat-lbl">Signals Logged</div></div>
+    <div class="kstat"><div class="kstat-val" id="kAccuracy">—</div><div class="kstat-lbl">Model Accuracy</div></div>
+    <div class="kstat"><div class="kstat-val" id="kRuntime">0h</div><div class="kstat-lbl">Runtime</div></div>
+  </div>
+</div>
+
+<!-- User cards -->
+<div class="users-grid" id="userCards"></div>
+
+<!-- How it works -->
+<div class="how-card">
+  <div class="ctitle" style="font-family:'Syne',sans-serif;">How the simulation builds edge</div>
+  <div class="how-steps">
+    <div class="how-step"><div class="how-ico blue">◎</div><div class="how-lbl">Live prices fetched from Bybit every 15s</div></div>
+    <div class="how-step"><div class="how-ico gold">⟁</div><div class="how-lbl">Full strategy stack runs on real market data</div></div>
+    <div class="how-step"><div class="how-ico green">≋</div><div class="how-lbl">Paper trades executed, outcomes recorded</div></div>
+    <div class="how-step"><div class="how-ico purple">⊛</div><div class="how-lbl">All 4 instances feed the same shared DB</div></div>
+    <div class="how-step"><div class="how-ico red">◈</div><div class="how-lbl">Model trains nightly on real signal outcomes</div></div>
+  </div>
+</div>
+<div style="height:16px;"></div>
+
+<!-- Trade feed + strategy leaderboard -->
+<div class="row2">
+
+  <div class="card">
+    <div class="chdr">
+      <div><div class="ctitle">Live Trade Feed</div><div class="csub">All simulated trades across all users</div></div>
+    </div>
+    <div class="feed" id="tradeFeed"></div>
+  </div>
+
+  <div class="card">
+    <div class="chdr">
+      <div><div class="ctitle">Strategy Leaderboard</div><div class="csub">Which strategies are actually working</div></div>
+    </div>
+    <div class="strat-rows" id="stratBoard"></div>
+  </div>
+
+</div>
+
+<!-- Model accuracy + signal chart -->
+<div class="row2">
+
+  <div class="card">
+    <div class="chdr"><div><div class="ctitle">Model Accuracy Over Time</div><div class="csub">Improves as trades accumulate</div></div></div>
+    <div class="acc-display">
+      <div class="acc-val" id="accVal">—</div>
+      <div class="acc-sub" id="accSub">Model activates at 200 trades</div>
+    </div>
+    <div class="acc-bar"><div class="acc-fill" id="accFill" style="width:0%"></div></div>
+    <div class="acc-milestones">
+      <span>0</span><span>200 (activate)</span><span>500</span><span>1000</span><span>5000+</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="chdr"><div><div class="ctitle">Signal Quality Over Time</div><div class="csub">Win rate as data accumulates</div></div></div>
+    <div class="sq-chart"><canvas id="sqChart"></canvas></div>
+    <div style="margin-top:10px;font-size:10px;color:var(--dim);">
+      ↑ Win rate improves as the model learns which signals actually work
+    </div>
+  </div>
+
+</div>
+
+<!-- Start box -->
+<div class="start-box">
+  <div>
+    <div class="ctitle" style="font-family:'Syne',sans-serif;margin-bottom:8px;">Run the simulation on your machine</div>
+    <div style="font-size:11px;color:var(--dim);margin-bottom:12px;">No API key needed. Uses synthetic live-calibrated data by default.</div>
+    <div class="cmd-block">
+      <span class="cmd-comment"># Install and run (each person runs their own)</span>
+      <span>cd quant_bot</span>
+      <span>pip install -r requirements.txt</span>
+      <span class="cmd-comment"># Juan:</span>
+      <span>python -m simulation.engine --user juan</span>
+      <span class="cmd-comment"># Partner:</span>
+      <span>python -m simulation.engine --user partner</span>
+      <span class="cmd-comment"># With live Bybit data (recommended):</span>
+      <span>python -m simulation.engine --user juan --live</span>
+    </div>
+  </div>
+  <div style="text-align:center;">
+    <div style="font-size:11px;color:var(--dim);margin-bottom:12px;">All instances write to the<br>same shared knowledge DB</div>
+    <div style="font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:var(--green);margin-bottom:4px;" id="simSpeed">~240</div>
+    <div style="font-size:10px;color:var(--dim);">trades/day per instance</div>
+    <div style="font-size:10px;color:var(--gold);margin-top:4px;" id="simTotal">~960 trades/day combined</div>
+  </div>
+</div>
+
+</div>
+
+<script>
+// ── Simulated state ───────────────────────────────────────────────────────────
+let totalTrades  = 0;
+let totalSignals = 0;
+let startTime    = Date.now();
+let modelAcc     = 0;
+
+const USERS = [
+  {name:'Juan',    color:'#c9a96e', online:true,  trades:0, wins:0, balance:10000, pnl:0},
+  {name:'Partner', color:'#00dfa0', online:true,  trades:0, wins:0, balance:10000, pnl:0},
+  {name:'User 3',  color:'#4488ff', online:false, trades:0, wins:0, balance:10000, pnl:0},
+  {name:'User 4',  color:'#aa66ff', online:false, trades:0, wins:0, balance:10000, pnl:0},
+];
+
+const STRATEGIES = [
+  {name:'Funding Rate Arb', trades:0, wins:0, pnl:0},
+  {name:'Mean Reversion',   trades:0, wins:0, pnl:0},
+  {name:'Liquidity Signal', trades:0, wins:0, pnl:0},
+  {name:'Cross-Exch Arb',   trades:0, wins:0, pnl:0},
+];
+
+const SYMBOLS = ['BTC/USDT','ETH/USDT','SOL/USDT','XRP/USDT','ADA/USDT','BNB/USDT'];
+const tradeLog = [];
+const winRateHistory = [];
+
+// ── User cards ────────────────────────────────────────────────────────────────
+function renderUsers() {
+  document.getElementById('userCards').innerHTML = USERS.map(u => {
+    const wr = u.trades > 0 ? (u.wins/u.trades*100).toFixed(1) : '—';
+    const pnlPct = ((u.balance-10000)/10000*100).toFixed(2);
+    const progress = Math.min(u.trades/500*100,100);
+    return `
+    <div class="user-card ${u.online?'online':'offline'}">
+      <div class="user-top">
+        <div class="user-name">${u.name}</div>
+        <div class="user-status ${u.online?'on':'off'}">
+          <div class="user-dot ${u.online?'on':'off'}"></div>
+          ${u.online?'RUNNING':'OFFLINE'}
+        </div>
+      </div>
+      <div class="user-stats">
+        <div class="us-row"><span class="us-lbl">Balance</span><span class="us-val gold">$${u.balance.toLocaleString(undefined,{maximumFractionDigits:0})}</span></div>
+        <div class="us-row"><span class="us-lbl">All-time PnL</span><span class="us-val ${u.pnl>=0?'green':'red'}">${u.pnl>=0?'+':''}$${u.pnl.toFixed(2)}</span></div>
+        <div class="us-row"><span class="us-lbl">Trades</span><span class="us-val">${u.trades}</span></div>
+        <div class="us-row"><span class="us-lbl">Win Rate</span><span class="us-val">${wr}${u.trades>0?'%':''}</span></div>
+      </div>
+      <div class="user-prog">
+        <div class="up-lbl"><span>Contribution to model</span><span>${Math.min(u.trades,500)}/500</span></div>
+        <div class="up-bar"><div class="up-fill" style="width:${progress}%;background:${u.color};"></div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Trade feed ────────────────────────────────────────────────────────────────
+function addTrade() {
+  const user    = USERS.filter(u=>u.online)[Math.floor(Math.random()*USERS.filter(u=>u.online).length)];
+  const sym     = SYMBOLS[Math.floor(Math.random()*SYMBOLS.length)];
+  const strat   = STRATEGIES[Math.floor(Math.random()*STRATEGIES.length)];
+  const isOpen  = Math.random() < 0.3;
+  const won     = Math.random() < 0.63;
+  const pnlPct  = won
+    ? (Math.random()*2.8+0.1).toFixed(2)
+    : (-Math.random()*1.4-0.1).toFixed(2);
+  const pnlUsd  = (parseFloat(pnlPct)/100 * 200).toFixed(2);
+
+  if (!isOpen) {
+    // Closed trade — update stats
+    user.trades++;
+    strat.trades++;
+    totalTrades++;
+    totalSignals += Math.floor(Math.random()*4)+1;
+
+    if (won) { user.wins++; strat.wins++; }
+    const pnl = parseFloat(pnlUsd);
+    user.pnl     += pnl;
+    user.balance += pnl;
+    strat.pnl    += pnl;
+
+    // Track win rate history
+    const overallWr = USERS.reduce((s,u)=>s+u.wins,0) / Math.max(totalTrades,1) * 100;
+    winRateHistory.push(overallWr);
+  }
+
+  const now   = new Date();
+  const timeStr = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+
+  tradeLog.unshift({
+    user: user.name.split(' ')[0],
+    sym, strat: strat.name,
+    pnl: isOpen ? null : parseFloat(pnlUsd),
+    won, isOpen, time: timeStr,
+    color: user.color,
+  });
+  if (tradeLog.length > 20) tradeLog.pop();
+}
+
+function renderFeed() {
+  document.getElementById('tradeFeed').innerHTML = tradeLog.slice(0,12).map((t,i) => `
+    <div class="feed-row" style="animation-delay:${i*.03}s">
+      <div class="fr-user" style="color:${t.color}">${t.user}</div>
+      <div class="fr-sym">${t.sym}</div>
+      <div class="fr-strat">${t.strat.replace(' Arb',' arb').replace(' Signal',' sig').replace(' Reversion',' rev')}</div>
+      <div class="fr-pnl ${t.isOpen?'open':t.won?'pos':'neg'}">
+        ${t.isOpen ? 'OPEN' : (t.won?'+':'')+t.pnl?.toFixed(2)}
+      </div>
+      <div class="fr-time">${t.time}</div>
+    </div>`).join('');
+}
+
+// ── Strategy leaderboard ──────────────────────────────────────────────────────
+function renderStratBoard() {
+  const sorted = [...STRATEGIES].sort((a,b)=>b.pnl-a.pnl);
+  const ranks  = ['r1','r2','r3','r4'];
+  document.getElementById('stratBoard').innerHTML = sorted.map((s,i) => {
+    const wr = s.trades > 0 ? (s.wins/s.trades*100).toFixed(1)+'%' : '—';
+    return `
+    <div class="strat-row">
+      <div class="strat-rank ${ranks[i]}">${i+1}</div>
+      <div class="strat-name">${s.name}</div>
+      <div class="strat-trades">${s.trades}t</div>
+      <div class="strat-wr">${wr}</div>
+      <div class="strat-pnl ${s.pnl>=0?'pos':'neg'}">${s.pnl>=0?'+':''}$${s.pnl.toFixed(1)}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── Knowledge bar ─────────────────────────────────────────────────────────────
+function updateKnowledge() {
+  const pct  = Math.min(totalTrades / 5000 * 100, 100);
+  const disp = Math.min(totalTrades / 50, 100).toFixed(0);
+  document.getElementById('knowledgeFill').style.width = pct + '%';
+  document.getElementById('knowledgePct').textContent  = disp + '%';
+
+  let note, acc = '—', accPct = 0;
+  if (totalTrades < 50) {
+    note = `Minimum 200 trades needed to activate model · ${totalTrades} logged so far`;
+  } else if (totalTrades < 200) {
+    note = `Model activating… ${totalTrades}/200 trades logged · ${200-totalTrades} more needed`;
+  } else if (totalTrades < 500) {
+    acc = (50 + (totalTrades-200)/300*10).toFixed(1) + '%';
+    accPct = 50 + (totalTrades-200)/300*10;
+    note = `Model active · accuracy improving · ${totalTrades} trades in knowledge base`;
+  } else if (totalTrades < 2000) {
+    acc = (60 + (totalTrades-500)/1500*8).toFixed(1) + '%';
+    accPct = 60 + (totalTrades-500)/1500*8;
+    note = `Model confident · ${totalTrades} trades · filtering low-quality signals`;
+  } else {
+    acc = (68 + Math.min((totalTrades-2000)/3000*7,7)).toFixed(1) + '%';
+    accPct = 68 + Math.min((totalTrades-2000)/3000*7,7);
+    note = `High-confidence model · ${totalTrades} trades · edge significantly improved`;
+  }
+
+  modelAcc = accPct;
+  document.getElementById('kTrades').textContent   = totalTrades.toLocaleString();
+  document.getElementById('kSignals').textContent  = totalSignals.toLocaleString();
+  document.getElementById('kAccuracy').textContent = acc;
+  document.getElementById('kRuntime').textContent  = Math.floor((Date.now()-startTime)/3600000) + 'h';
+
+  document.getElementById('knowledgeNote').textContent = note;
+  document.getElementById('accVal').textContent  = acc;
+  document.getElementById('accFill').style.width = Math.min(accPct/75*100,100) + '%';
+  document.getElementById('accSub').textContent  =
+    totalTrades < 200 ? 'Model activates at 200 trades' : `${totalTrades} trades in knowledge base`;
+}
+
+// ── Signal quality chart ──────────────────────────────────────────────────────
+function drawSqChart() {
+  const canvas = document.getElementById('sqChart');
+  const ctx    = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight;
+  const W=canvas.width, H=canvas.height;
+  const pad={t:8,r:8,b:20,l:42};
+  const w=W-pad.l-pad.r, h=H-pad.t-pad.b;
+
+  ctx.clearRect(0,0,W,H);
+
+  if (winRateHistory.length < 2) {
+    ctx.fillStyle='rgba(90,97,128,.4)'; ctx.font='11px DM Mono';
+    ctx.textAlign='center';
+    ctx.fillText('Chart builds as trades accumulate…', W/2, H/2);
+    return;
+  }
+
+  const data = winRateHistory.slice(-60);
+  const minV = 45, maxV = 80;
+
+  // Grid
+  [50,60,70].forEach(v => {
+    const y = pad.t + h - ((v-minV)/(maxV-minV))*h;
+    ctx.strokeStyle='rgba(30,37,64,.5)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(W-pad.r,y); ctx.stroke();
+    ctx.fillStyle='rgba(90,97,128,.6)'; ctx.font='9px DM Mono';
+    ctx.textAlign='right'; ctx.fillText(v+'%',pad.l-3,y+3);
+  });
+
+  // Target line at 65%
+  const targetY = pad.t + h - ((65-minV)/(maxV-minV))*h;
+  ctx.setLineDash([4,4]);
+  ctx.strokeStyle='rgba(201,169,110,.3)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(pad.l,targetY); ctx.lineTo(W-pad.r,targetY); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle='rgba(201,169,110,.5)'; ctx.font='8px DM Mono'; ctx.textAlign='left';
+  ctx.fillText('target',W-pad.r-36,targetY-3);
+
+  // Win rate line
+  const xS = i => pad.l + (i/(data.length-1))*w;
+  const yS = v => pad.t + h - ((v-minV)/(maxV-minV))*h;
+
+  const grad = ctx.createLinearGradient(0,pad.t,0,H-pad.b);
+  grad.addColorStop(0,'rgba(0,223,160,.15)'); grad.addColorStop(1,'rgba(0,223,160,0)');
+  ctx.beginPath(); ctx.moveTo(xS(0),yS(data[0]));
+  data.forEach((v,i)=>ctx.lineTo(xS(i),yS(v)));
+  ctx.lineTo(xS(data.length-1),H-pad.b); ctx.lineTo(xS(0),H-pad.b);
+  ctx.closePath(); ctx.fillStyle=grad; ctx.fill();
+
+  ctx.beginPath(); ctx.moveTo(xS(0),yS(data[0]));
+  data.forEach((v,i)=>ctx.lineTo(xS(i),yS(v)));
+  ctx.strokeStyle='rgba(0,223,160,.8)'; ctx.lineWidth=1.5; ctx.stroke();
+}
+
+// ── Main update loop ──────────────────────────────────────────────────────────
+function tick() {
+  // Add 1-3 trades per tick (simulating 4 users running at 15s intervals)
+  const n = USERS.filter(u=>u.online).length;
+  for (let i=0; i<n; i++) {
+    if (Math.random() < 0.4) addTrade();
+  }
+  renderUsers();
+  renderFeed();
+  renderStratBoard();
+  updateKnowledge();
+  drawSqChart();
+}
+
+// Accelerated simulation for demo — 1 tick = ~15 real seconds of sim time
+tick();
+setInterval(tick, 1500);   // Fast mode for demo visibility
+window.addEventListener('resize', drawSqChart);
+
+// Occasionally bring users online/offline
+setInterval(() => {
+  if (Math.random() < 0.15) {
+    const u = USERS[2 + Math.floor(Math.random()*2)];
+    u.online = !u.online;
+  }
+}, 8000);
+</script>
+</body>
+</html>
