@@ -652,6 +652,9 @@ tr:last-child td{border-bottom:none;}
 
 <script>
 // ── STATE ─────────────────────────────────────────────────────────────────────
+let capital  = 5000;
+let exchange = 'kraken';
+let step     = 0;
 // ── AUTH CHECK ─────────────────────────────────────────────────────────────────
 const urlParams = new URLSearchParams(window.location.search);
 const authToken = urlParams.get('token') || localStorage.getItem('arbi_token');
