@@ -49,6 +49,24 @@ function fmtLarge(n) {
   return `${v.toFixed(2)}`;
 }
 
+function fmtPct(n) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return "—";
+  return `${(v * 100).toFixed(2)}%`;
+}
+
+function fmtPctPlain(n) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return "—";
+  return `${v.toFixed(2)}%`;
+}
+
+function fmtPctSigned(n) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return "—";
+  return `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
+}
+
 function normalizeHistoryEntry(value) {
   const raw =
     typeof value === "string"
@@ -76,9 +94,6 @@ function faviconUrlFor(rawUrl) {
   if (!domain) return "";
   return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64`;
 }
-
-const RESEARCH_ENGINE_API_URL =
-  process.env.NEXT_PUBLIC_RESEARCH_ENGINE_URL || "http://localhost:8001/api/research";
 
 const FX_CURRENCY_OPTIONS = [
   { code: "USD", name: "US Dollar", aliases: ["united states", "america", "dollar"] },
@@ -579,13 +594,14 @@ const UI_TEXT = {
     clarityLine: "Clarity in Every Market.",
     founder: "Founder",
     coFounder: "Co-founder",
-    stock: "Stock",
+    stock: "Stocks/ETF/MF",
     crypto: "Crypto",
     metals: "Metals",
     fx: "FX",
     news: "News",
     geoPolitics: "Geo Politics",
     globalMarket: "Global Market",
+    briefing: "Briefing",
   },
   es: {
     theme: "Tema",
@@ -614,13 +630,14 @@ const UI_TEXT = {
     clarityLine: "Claridad en cada mercado.",
     founder: "Fundador",
     coFounder: "Cofundador",
-    stock: "Acciones",
+    stock: "Acciones/ETF/FI",
     crypto: "Cripto",
     metals: "Metales",
     fx: "FX",
     news: "Noticias",
     geoPolitics: "Geopolitica",
     globalMarket: "Mercado Global",
+    briefing: "Briefing",
   },
   fr: {
     theme: "Theme",
@@ -649,13 +666,14 @@ const UI_TEXT = {
     clarityLine: "Clarte sur chaque marche.",
     founder: "Fondateur",
     coFounder: "Cofondateur",
-    stock: "Actions",
+    stock: "Actions/ETF/FCP",
     crypto: "Crypto",
     metals: "Metaux",
     fx: "FX",
     news: "Actualites",
     geoPolitics: "Geopolitique",
     globalMarket: "Marche Global",
+    briefing: "Briefing",
   },
   hi: {
     theme: "थीम",
@@ -684,13 +702,14 @@ const UI_TEXT = {
     clarityLine: "हर बाजार में स्पष्टता।",
     founder: "संस्थापक",
     coFounder: "सह-संस्थापक",
-    stock: "स्टॉक",
+    stock: "स्टॉक्स/ETF/MF",
     crypto: "क्रिप्टो",
     metals: "मेटल्स",
     fx: "एफएक्स",
     news: "समाचार",
     geoPolitics: "जियो पॉलिटिक्स",
     globalMarket: "ग्लोबल मार्केट",
+    briefing: "ब्रीफिंग",
   },
 };
 
@@ -1129,11 +1148,6 @@ export default function Home() {
 
   const [dailyObj, setDailyObj] = useState(null);
   const [dailyLoading, setDailyLoading] = useState(false);
-  const [deepResearchOpen, setDeepResearchOpen] = useState(false);
-  const [deepResearchTicker, setDeepResearchTicker] = useState("");
-  const [deepResearchLoading, setDeepResearchLoading] = useState(false);
-  const [deepResearchError, setDeepResearchError] = useState("");
-  const [deepResearchData, setDeepResearchData] = useState(null);
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
@@ -1228,6 +1242,10 @@ export default function Home() {
   const [simulatorReturnPct, setSimulatorReturnPct] = useState(null);
   const [simulatorAutoPilotActive, setSimulatorAutoPilotActive] = useState(false);
   const [fundamentals, setFundamentals] = useState(null);
+  const [fundInsights, setFundInsights] = useState(null);
+  const [fundInsightsLoading, setFundInsightsLoading] = useState(false);
+  const [secFundamentals, setSecFundamentals] = useState(null);
+  const [secFundamentalsLoading, setSecFundamentalsLoading] = useState(false);
 
   // Chart
   const [chartPoints, setChartPoints] = useState([]);
@@ -1795,10 +1813,14 @@ export default function Home() {
     setResult(null);
     setCompany(null);
     setFundamentals(null);
+    setFundInsights(null);
+    setFundInsightsLoading(false);
+    setSecFundamentals(null);
     setSectorInfo(null);
     setNews([]);
     setAnalysisObj(null);
     setChartPoints([]);
+    setSecFundamentalsLoading(false);
     setCompareRows([]);
     setCompareInput(assetMode === "crypto" ? "BTC,ETH,SOL" : assetMode === "metals" ? "XAU,XAG,XPT" : "AAPL,MSFT,NVDA");
     setFxResult(null);
@@ -2357,6 +2379,42 @@ export default function Home() {
     } catch {}
   }
 
+  async function fetchSecFundamentals(symbol) {
+    if (!symbol) return;
+    try {
+      setSecFundamentalsLoading(true);
+      const res = await fetch(`/api/sec-fundamentals?symbol=${encodeURIComponent(symbol)}`);
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setSecFundamentals(data);
+      } else {
+        setSecFundamentals(null);
+      }
+    } catch {
+      setSecFundamentals(null);
+    } finally {
+      setSecFundamentalsLoading(false);
+    }
+  }
+
+  async function fetchFundInsights(symbol) {
+    if (!symbol) return;
+    try {
+      setFundInsightsLoading(true);
+      const res = await fetch(`/api/fund-insights?symbol=${encodeURIComponent(symbol)}`);
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.isFund) {
+        setFundInsights(data);
+      } else {
+        setFundInsights(null);
+      }
+    } catch {
+      setFundInsights(null);
+    } finally {
+      setFundInsightsLoading(false);
+    }
+  }
+
   async function fetchChart(symbol, range, assetIdOverride = "") {
     if (!symbol) return;
     const key = range || "1M";
@@ -2520,33 +2578,6 @@ export default function Home() {
   }, [chartRange, usingTicker, usingAssetId, assetMode]);
 
   const searchStock = async (forcedInput) => {
-  const runDeepResearch = async (symbol, type = "full") => {
-    const target = String(symbol || "").toUpperCase().trim();
-    if (!target) return;
-    setDeepResearchOpen(true);
-    setDeepResearchTicker(target);
-    setDeepResearchLoading(true);
-    setDeepResearchError("");
-    setDeepResearchData(null);
-
-    try {
-      const res = await fetch(RESEARCH_ENGINE_API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ticker: target, type: type === "quick" ? "quick" : "full" }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(String(data?.error || `Deep research failed (${res.status})`));
-      }
-      setDeepResearchData(data);
-    } catch (err) {
-      setDeepResearchError(err instanceof Error ? err.message : "Unable to run deep research right now.");
-    } finally {
-      setDeepResearchLoading(false);
-    }
-  };
-
     const raw = getSearchInput(forcedInput);
     if (!raw) return;
     const rawCanonical = assetMode === "crypto" || assetMode === "metals" ? raw.toUpperCase() : canonicalTicker(raw);
@@ -2557,6 +2588,10 @@ export default function Home() {
     setErrorMsg("");
     setCompany(null);
     setFundamentals(null);
+    setFundInsights(null);
+    setFundInsightsLoading(false);
+    setSecFundamentals(null);
+    setSecFundamentalsLoading(false);
     setSectorInfo(null);
     setNews([]);
     setAnalysisObj(null);
@@ -2619,6 +2654,7 @@ export default function Home() {
           logo: quote?.logo || "",
           exchange: "Crypto",
           finnhubIndustry: quote?.category || "Digital Asset",
+          utilitySummary: quote?.utilitySummary || "",
           marketCapitalization: Number(quote?.marketCap) / 1e6,
           weburl: quote?.homepage || "",
         });
@@ -2627,6 +2663,31 @@ export default function Home() {
           peRatio: null,
           week52High: null,
           week52Low: null,
+          marketCapRank: Number(quote?.marketCapRank) || null,
+          fdv: Number(quote?.fdv) || null,
+          circulatingSupply: Number(quote?.circulatingSupply) || null,
+          totalSupply: Number(quote?.totalSupply) || null,
+          maxSupply: Number(quote?.maxSupply) || null,
+          ath: Number(quote?.ath) || null,
+          athChangePct: Number(quote?.athChangePct),
+          atl: Number(quote?.atl) || null,
+          atlChangePct: Number(quote?.atlChangePct),
+          sentimentUpVotesPct: Number(quote?.sentimentUpVotesPct),
+          coingeckoScore: Number(quote?.coingeckoScore),
+          developerScore: Number(quote?.developerScore),
+          communityScore: Number(quote?.communityScore),
+          liquidityScore: Number(quote?.liquidityScore),
+          publicInterestScore: Number(quote?.publicInterestScore),
+          twitterFollowers: Number(quote?.twitterFollowers) || null,
+          redditSubscribers: Number(quote?.redditSubscribers) || null,
+          telegramUsers: Number(quote?.telegramUsers) || null,
+          githubRepo: String(quote?.githubRepo || ""),
+          githubStars: Number(quote?.githubStars) || null,
+          githubForks: Number(quote?.githubForks) || null,
+          githubSubscribers: Number(quote?.githubSubscribers) || null,
+          githubTotalIssues: Number(quote?.githubTotalIssues) || null,
+          githubClosedIssues: Number(quote?.githubClosedIssues) || null,
+          githubCommits4w: Number(quote?.githubCommits4w) || null,
         });
         setLatestVolume(Number(quote?.volume) || null);
         setSectorInfo(null);
@@ -2820,6 +2881,8 @@ export default function Home() {
           }
         } catch {}
         fetchFundamentals(sym);
+        fetchFundInsights(sym);
+        fetchSecFundamentals(sym);
 
         // NEWS
         try {
@@ -2888,6 +2951,11 @@ export default function Home() {
     setUsingTicker("");
     setResult(null);
     setCompany(null);
+    setFundamentals(null);
+    setFundInsights(null);
+    setFundInsightsLoading(false);
+    setSecFundamentals(null);
+    setSecFundamentalsLoading(false);
     setSectorInfo(null);
     setNews([]);
     setAnalysisObj(null);
@@ -3647,6 +3715,41 @@ export default function Home() {
       : 0;
   const trendLabel =
     chartPoints.length > 1 ? (trendDelta >= 0 ? "Uptrend" : "Downtrend") : "No trend";
+  const parsedResultPrice = useMemo(() => {
+    const raw = String(result?.price || "").replace(/[^0-9.-]/g, "");
+    const n = Number(raw);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }, [result?.price]);
+  const intradayRangePct = useMemo(() => {
+    const high = Number(result?.high);
+    const low = Number(result?.low);
+    if (!Number.isFinite(high) || !Number.isFinite(low) || !parsedResultPrice || parsedResultPrice <= 0) return null;
+    return ((high - low) / parsedResultPrice) * 100;
+  }, [result?.high, result?.low, parsedResultPrice]);
+  const volumeToMarketCapPct = useMemo(() => {
+    const vol = Number(latestVolume);
+    const cap = Number(fundamentals?.marketCap);
+    if (!Number.isFinite(vol) || !Number.isFinite(cap) || cap <= 0) return null;
+    return (vol / cap) * 100;
+  }, [latestVolume, fundamentals?.marketCap]);
+  const fdvToMarketCapRatio = useMemo(() => {
+    const fdv = Number(fundamentals?.fdv);
+    const cap = Number(fundamentals?.marketCap);
+    if (!Number.isFinite(fdv) || !Number.isFinite(cap) || cap <= 0) return null;
+    return fdv / cap;
+  }, [fundamentals?.fdv, fundamentals?.marketCap]);
+  const circulatingToMaxPct = useMemo(() => {
+    const circ = Number(fundamentals?.circulatingSupply);
+    const max = Number(fundamentals?.maxSupply);
+    if (!Number.isFinite(circ) || !Number.isFinite(max) || max <= 0) return null;
+    return (circ / max) * 100;
+  }, [fundamentals?.circulatingSupply, fundamentals?.maxSupply]);
+  const issueCloseRatePct = useMemo(() => {
+    const total = Number(fundamentals?.githubTotalIssues);
+    const closed = Number(fundamentals?.githubClosedIssues);
+    if (!Number.isFinite(total) || !Number.isFinite(closed) || total <= 0) return null;
+    return (closed / total) * 100;
+  }, [fundamentals?.githubTotalIssues, fundamentals?.githubClosedIssues]);
   const isFxMode = assetMode === "fx";
   const currentTabLabel =
     assetMode === "crypto"
@@ -4125,28 +4228,8 @@ export default function Home() {
   }, [isGlobalMarketMode, selectedGlobalCountry]);
   const t = (key) => UI_TEXT[language]?.[key] || UI_TEXT.en[key] || key;
   const tx = (text) => resolveLocalizedText(text, language, headlineTranslationCacheRef.current);
-  const activeThemeLabel =
-    theme === "cherry"
-      ? t("sakura")
-      : theme === "azula"
-        ? t("azula")
-        : theme === "alerik"
-          ? t("alerik")
-          : theme === "light"
-            ? t("light")
-            : t("dark");
-  const activeLanguageLabel = LANGUAGE_OPTIONS.find((x) => x.code === language)?.label || "English";
   const closeParentDropdown = (event) => {
     event?.currentTarget?.closest("details")?.removeAttribute("open");
-  };
-  const selectThemeFromDropdown = (nextTheme, event) => {
-    setTheme(nextTheme);
-    closeParentDropdown(event);
-  };
-  const selectLanguageFromDropdown = (nextLanguage, event) => {
-    if (!LANGUAGE_OPTIONS.some((x) => x.code === nextLanguage)) return;
-    setLanguage(nextLanguage);
-    closeParentDropdown(event);
   };
 
 
@@ -4179,122 +4262,6 @@ export default function Home() {
         <div className="relative z-10 mx-auto w-full max-w-6xl px-6 py-10 md:py-14">
         {/* HEADER */}
         <div className="text-center mb-10">
-          <div className="absolute left-6 top-0 z-40 pointer-events-auto flex items-start gap-2">
-            <details className="relative">
-              <summary className={`list-none inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer [&::-webkit-details-marker]:hidden ${
-                isCherry
-                  ? "border-rose-200/65 bg-white/96 text-rose-900"
-                  : isLight
-                    ? "border-slate-300 bg-white/90 text-slate-800"
-                    : "border-white/15 bg-slate-900/60 text-white/85"
-              }`}>
-                {t("theme")}: {activeThemeLabel}
-                <span className="text-[10px]">▼</span>
-              </summary>
-              <div className={`absolute left-0 top-full mt-2 w-44 rounded-xl border p-1.5 shadow-2xl ${
-                isLight ? "border-slate-300 bg-white/95" : "border-white/15 bg-slate-900/95"
-              }`}>
-                <button
-                  onClick={(event) => selectThemeFromDropdown("dark", event)}
-                  className={`w-full rounded-lg px-3 py-2 text-left text-xs font-semibold ${
-                    theme === "dark"
-                      ? "bg-blue-600 text-white"
-                      : isLight
-                        ? "text-slate-700 hover:bg-slate-100"
-                        : "text-white/85 hover:bg-white/10"
-                  }`}
-                >
-                  {t("dark")}
-                </button>
-                <button
-                  onClick={(event) => selectThemeFromDropdown("light", event)}
-                  className={`mt-1 w-full rounded-lg px-3 py-2 text-left text-xs font-semibold ${
-                    theme === "light"
-                      ? "bg-blue-600 text-white"
-                      : isLight
-                        ? "text-slate-700 hover:bg-slate-100"
-                        : "text-white/85 hover:bg-white/10"
-                  }`}
-                >
-                  {t("light")}
-                </button>
-                <button
-                  onClick={(event) => selectThemeFromDropdown("cherry", event)}
-                  className={`mt-1 w-full rounded-lg px-3 py-2 text-left text-xs font-semibold ${
-                    theme === "cherry"
-                      ? "bg-rose-600 text-white"
-                      : isLight
-                        ? "text-rose-800 hover:bg-rose-50"
-                        : "text-white/85 hover:bg-white/10"
-                  }`}
-                >
-                  {t("sakura")}
-                </button>
-                <button
-                  onClick={(event) => selectThemeFromDropdown("azula", event)}
-                  className={`mt-1 w-full rounded-lg px-3 py-2 text-left text-xs font-semibold ${
-                    theme === "azula"
-                      ? "bg-[#00d4ff] text-[#020508]"
-                      : isLight
-                        ? "text-[#145f9f] hover:bg-[#e9f7ff]"
-                        : "text-white/85 hover:bg-white/10"
-                  }`}
-                >
-                  {t("azula")}
-                </button>
-                <button
-                  onClick={(event) => selectThemeFromDropdown("alerik", event)}
-                  className={`mt-1 w-full rounded-lg px-3 py-2 text-left text-xs font-semibold ${
-                    theme === "alerik"
-                      ? "bg-[#c9a84c] text-[#050505]"
-                      : isLight
-                        ? "text-[#6d531f] hover:bg-[#f7f1e1]"
-                        : "text-white/85 hover:bg-white/10"
-                  }`}
-                >
-                  {t("alerik")}
-                </button>
-              </div>
-            </details>
-            <details className="relative">
-              <summary className={`list-none inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer [&::-webkit-details-marker]:hidden ${
-                isCherry
-                  ? "border-rose-200/65 bg-white/96 text-rose-900"
-                  : isLight
-                    ? "border-slate-300 bg-white/90 text-slate-800"
-                    : "border-white/15 bg-slate-900/60 text-white/85"
-              }`}>
-                {t("language")}: {activeLanguageLabel}
-                <span className="text-[10px]">▼</span>
-              </summary>
-              <div className={`absolute left-0 top-full mt-2 w-72 rounded-xl border p-2 shadow-2xl ${
-                isLight ? "border-slate-300 bg-white/95" : "border-white/15 bg-slate-900/95"
-              }`}>
-                <div className={`mb-1 px-1 text-[11px] font-semibold ${
-                  isLight ? "text-slate-500" : "text-white/60"
-                }`}>
-                  {t("language")}
-                </div>
-                <div className="grid grid-cols-3 gap-1">
-                  {LANGUAGE_OPTIONS.map((option) => (
-                    <button
-                      key={option.code}
-                      onClick={(event) => selectLanguageFromDropdown(option.code, event)}
-                      className={`rounded-md px-2 py-1.5 text-xs font-semibold ${
-                        language === option.code
-                          ? "bg-blue-600 text-white"
-                          : isLight
-                            ? "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                            : "bg-white/10 text-white/85 hover:bg-white/15"
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </details>
-          </div>
           <div className="absolute right-6 top-0 z-40 pointer-events-auto">
             <details className="relative">
               <summary className={`list-none inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer [&::-webkit-details-marker]:hidden ${
@@ -4310,73 +4277,6 @@ export default function Home() {
               <div className={`absolute right-0 top-full mt-2 w-64 rounded-xl border p-2 shadow-2xl flex flex-col gap-1 ${
                 isLight ? "border-slate-300 bg-white/95" : "border-white/15 bg-slate-900/95"
               }`}>
-            <div className={`px-2 pt-1 pb-0.5 text-[11px] font-semibold ${
-              isLight ? "text-slate-500" : "text-white/60"
-            }`}>
-              {t("theme")}
-            </div>
-            <div className="grid grid-cols-5 gap-1 pb-1">
-              <button
-                onClick={(event) => selectThemeFromDropdown("dark", event)}
-                className={`rounded-md px-2 py-1.5 text-xs font-semibold ${
-                  theme === "dark"
-                    ? "bg-blue-600 text-white"
-                    : isLight
-                      ? "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                      : "bg-white/10 text-white/85 hover:bg-white/15"
-                }`}
-              >
-                {t("dark")}
-              </button>
-              <button
-                onClick={(event) => selectThemeFromDropdown("light", event)}
-                className={`rounded-md px-2 py-1.5 text-xs font-semibold ${
-                  theme === "light"
-                    ? "bg-blue-600 text-white"
-                    : isLight
-                      ? "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                      : "bg-white/10 text-white/85 hover:bg-white/15"
-                }`}
-              >
-                {t("light")}
-              </button>
-              <button
-                onClick={(event) => selectThemeFromDropdown("cherry", event)}
-                className={`rounded-md px-2 py-1.5 text-xs font-semibold ${
-                  theme === "cherry"
-                    ? "bg-rose-600 text-white"
-                    : isLight
-                      ? "bg-rose-50 text-rose-800 hover:bg-rose-100"
-                      : "bg-white/10 text-white/85 hover:bg-white/15"
-                }`}
-              >
-                {t("sakura")}
-              </button>
-              <button
-                onClick={(event) => selectThemeFromDropdown("azula", event)}
-                className={`rounded-md px-2 py-1.5 text-xs font-semibold ${
-                  theme === "azula"
-                    ? "bg-[#00d4ff] text-[#020508]"
-                    : isLight
-                      ? "bg-[#e9f7ff] text-[#145f9f] hover:bg-[#d8f0ff]"
-                      : "bg-white/10 text-white/85 hover:bg-white/15"
-                }`}
-              >
-                {t("azula")}
-              </button>
-              <button
-                onClick={(event) => selectThemeFromDropdown("alerik", event)}
-                className={`rounded-md px-2 py-1.5 text-xs font-semibold ${
-                  theme === "alerik"
-                    ? "bg-[#c9a84c] text-[#050505]"
-                    : isLight
-                      ? "bg-[#f7f1e1] text-[#6d531f] hover:bg-[#efe5cf]"
-                      : "bg-white/10 text-white/85 hover:bg-white/15"
-                }`}
-              >
-                {t("alerik")}
-              </button>
-            </div>
             <div className={`my-1 h-px ${isLight ? "bg-slate-200" : "bg-white/10"}`} />
             <Link
               href="/"
@@ -4911,6 +4811,14 @@ export default function Home() {
             >
               {t("globalMarket")}
             </button>
+            <Link
+              href="/briefing"
+              className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${
+                isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"
+              }`}
+            >
+              {t("briefing")}
+            </Link>
           </div>
         </div>
 
@@ -5582,14 +5490,6 @@ export default function Home() {
                     {tx("Risk")} {dailyView.riskLevel}
                   </span>
                 )}
-                {dailyView.ticker && (
-                  <button
-                    onClick={() => runDeepResearch(dailyView.ticker, "full")}
-                    className="text-[11px] rounded-full border px-2 py-0.5 border-indigo-400/40 bg-indigo-500/15 text-indigo-200 hover:bg-indigo-500/25"
-                  >
-                    {deepResearchLoading && deepResearchTicker === dailyView.ticker ? tx("Researching...") : "Deep Research"}
-                  </button>
-                )}
               </div>
             )}
 
@@ -5656,14 +5556,6 @@ export default function Home() {
                     <span className={`text-[11px] rounded-full border px-2 py-0.5 ${isLight ? "border-blue-300 bg-blue-50 text-blue-700" : "border-blue-400/30 bg-blue-500/15 text-blue-200"}`}>
                       {tx("Confidence")} {dayTraderView.confidence}%
                     </span>
-                  )}
-                  {dayTraderView.ticker && (
-                    <button
-                      onClick={() => runDeepResearch(dayTraderView.ticker, "quick")}
-                      className="text-[11px] rounded-full border px-2 py-0.5 border-indigo-400/40 bg-indigo-500/15 text-indigo-200 hover:bg-indigo-500/25"
-                    >
-                      {deepResearchLoading && deepResearchTicker === dayTraderView.ticker ? tx("Researching...") : "Deep Research"}
-                    </button>
                   )}
                 </div>
               )}
@@ -7156,14 +7048,7 @@ export default function Home() {
             {result && (
               <Card
                 title="Quote"
-                right={assetMode === "stock" && result?.symbol ? (
-                  <button
-                    onClick={() => runDeepResearch(result.symbol, "full")}
-                    className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold"
-                  >
-                    {deepResearchLoading && deepResearchTicker === result.symbol ? `ASTRA is researching ${result.symbol}...` : "Deep Research"}
-                  </button>
-                ) : null}
+                right={null}
               >
                 <div className="text-xl font-semibold">{result.symbol}</div>
                 <div className="text-3xl font-bold mt-1">{result.price}</div>
@@ -7235,6 +7120,646 @@ export default function Home() {
                 )}
               </Card>
             )}
+          </div>
+        )}
+
+        {assetMode === "crypto" && !isNarrativeMode && (result || company?.name) && (
+          <div className="mb-6">
+            <Card title="Crypto Investor Checklist">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
+                <div className={`rounded-xl border p-3 ${isLight ? "border-sky-200 bg-sky-50" : "border-sky-400/30 bg-sky-500/12"}`}>
+                  <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>Real-World Utility</div>
+                  <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>
+                    {company?.finnhubIndustry || "Digital Asset"}
+                  </div>
+                  <div className={`text-xs mt-1 ${isLight ? "text-slate-600" : "text-white/70"}`}>
+                    {company?.utilitySummary || "Check if this token solves a real user or business problem."}
+                  </div>
+                </div>
+                <div className={`rounded-xl border p-3 ${isLight ? "border-emerald-200 bg-emerald-50" : "border-emerald-400/30 bg-emerald-500/12"}`}>
+                  <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>Market Cap</div>
+                  <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>
+                    ${fmtLarge(fundamentals?.marketCap)}
+                  </div>
+                  <div className={`text-xs mt-1 ${isLight ? "text-slate-600" : "text-white/70"}`}>
+                    Size proxy: larger caps are usually less fragile than micro caps.
+                  </div>
+                </div>
+                <div className={`rounded-xl border p-3 ${isLight ? "border-violet-200 bg-violet-50" : "border-violet-400/30 bg-violet-500/12"}`}>
+                  <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>Liquidity (24h Volume)</div>
+                  <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>
+                    ${fmtLarge(latestVolume)}
+                  </div>
+                  <div className={`text-xs mt-1 ${isLight ? "text-slate-600" : "text-white/70"}`}>
+                    Volume / market cap: {fmt(volumeToMarketCapPct) != null ? `${volumeToMarketCapPct.toFixed(2)}%` : "—"}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
+                <div className={`rounded-xl border p-3 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
+                  <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>Trend Confirmation</div>
+                  <div className={`text-sm font-semibold ${trendDelta >= 0 ? (isLight ? "text-emerald-700" : "text-green-300") : (isLight ? "text-rose-700" : "text-red-300")}`}>
+                    {trendLabel} {chartPoints.length > 1 ? `(${trendDelta >= 0 ? "+" : ""}${trendPct.toFixed(2)}%)` : ""}
+                  </div>
+                  <div className={`text-xs mt-1 ${isLight ? "text-slate-600" : "text-white/70"}`}>
+                    Investors usually align entries with trend instead of fighting it.
+                  </div>
+                </div>
+                <div className={`rounded-xl border p-3 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
+                  <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>Volatility Check</div>
+                  <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>
+                    Intraday range: {fmt(intradayRangePct) != null ? `${intradayRangePct.toFixed(2)}%` : "—"}
+                  </div>
+                  <div className={`text-xs mt-1 ${isLight ? "text-slate-600" : "text-white/70"}`}>
+                    Wider ranges generally mean bigger risk and wider stop sizing.
+                  </div>
+                </div>
+                <div className={`rounded-xl border p-3 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
+                  <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>News & Sentiment</div>
+                  <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>
+                    {news.length} recent headline{news.length === 1 ? "" : "s"}
+                  </div>
+                  <div className={`text-xs mt-1 ${isLight ? "text-slate-600" : "text-white/70"}`}>
+                    Momentum can change quickly around exchange, regulation, or ETF headlines.
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className={`rounded-xl border p-3 ${isLight ? "border-cyan-200 bg-cyan-50" : "border-cyan-400/30 bg-cyan-500/12"}`}>
+                  <div className={`text-xs font-semibold mb-2 ${isLight ? "text-slate-700" : "text-white/85"}`}>1) On-Chain Usage (Available Proxies)</div>
+                  <div className={`space-y-1 text-sm ${isLight ? "text-slate-700" : "text-white/75"}`}>
+                    <div>24h Volume: ${fmtLarge(latestVolume)}</div>
+                    <div>Volume / Market Cap: {fmt(volumeToMarketCapPct) != null ? `${volumeToMarketCapPct.toFixed(2)}%` : "—"}</div>
+                    <div>Community Reach: {fmtLarge(fundamentals?.twitterFollowers)} X • {fmtLarge(fundamentals?.redditSubscribers)} Reddit</div>
+                    <div className={`${isLight ? "text-slate-600" : "text-white/60"}`}>Note: active addresses / TVL not in current feed yet.</div>
+                    <div className={`${isLight ? "text-slate-600" : "text-white/60"}`}>Why this matters: higher real usage and liquidity usually means better durability and easier execution.</div>
+                  </div>
+                </div>
+
+                <div className={`rounded-xl border p-3 ${isLight ? "border-indigo-200 bg-indigo-50" : "border-indigo-400/30 bg-indigo-500/12"}`}>
+                  <div className={`text-xs font-semibold mb-2 ${isLight ? "text-slate-700" : "text-white/85"}`}>2) Tokenomics & Supply Pressure</div>
+                  <div className={`space-y-1 text-sm ${isLight ? "text-slate-700" : "text-white/75"}`}>
+                    <div>Circulating Supply: {fmtLarge(fundamentals?.circulatingSupply)}</div>
+                    <div>Max Supply: {fmtLarge(fundamentals?.maxSupply)}</div>
+                    <div>Circulating / Max: {fmt(circulatingToMaxPct) != null ? `${circulatingToMaxPct.toFixed(2)}%` : "—"}</div>
+                    <div>FDV: ${fmtLarge(fundamentals?.fdv)} • FDV/MCap: {fmt(fdvToMarketCapRatio) != null ? `${fdvToMarketCapRatio.toFixed(2)}x` : "—"}</div>
+                    <div className={`${isLight ? "text-slate-600" : "text-white/60"}`}>Why this matters: future token unlock pressure can dilute holders and cap upside.</div>
+                  </div>
+                </div>
+
+                <div className={`rounded-xl border p-3 ${isLight ? "border-rose-200 bg-rose-50" : "border-rose-400/30 bg-rose-500/12"}`}>
+                  <div className={`text-xs font-semibold mb-2 ${isLight ? "text-slate-700" : "text-white/85"}`}>3) Holder Concentration Risk</div>
+                  <div className={`space-y-1 text-sm ${isLight ? "text-slate-700" : "text-white/75"}`}>
+                    <div>Top wallet concentration: Not connected</div>
+                    <div>Exchange wallet concentration: Not connected</div>
+                    <div>Whale transfer alerts: Not connected</div>
+                    <div className={`${isLight ? "text-slate-600" : "text-white/60"}`}>Can be added via on-chain provider integration.</div>
+                    <div className={`${isLight ? "text-slate-600" : "text-white/60"}`}>Why this matters: high concentration increases dump/manipulation risk.</div>
+                  </div>
+                </div>
+
+                <div className={`rounded-xl border p-3 ${isLight ? "border-emerald-200 bg-emerald-50" : "border-emerald-400/30 bg-emerald-500/12"}`}>
+                  <div className={`text-xs font-semibold mb-2 ${isLight ? "text-slate-700" : "text-white/85"}`}>4) Security & Governance Risk</div>
+                  <div className={`space-y-1 text-sm ${isLight ? "text-slate-700" : "text-white/75"}`}>
+                    <div>Developer Score: {fmt(fundamentals?.developerScore) != null ? Number(fundamentals.developerScore).toFixed(2) : "—"}</div>
+                    <div>Liquidity Score: {fmt(fundamentals?.liquidityScore) != null ? Number(fundamentals.liquidityScore).toFixed(2) : "—"}</div>
+                    <div>Sentiment Upvotes: {fmt(fundamentals?.sentimentUpVotesPct) != null ? `${Number(fundamentals.sentimentUpVotesPct).toFixed(1)}%` : "—"}</div>
+                    <div>Public Interest Score: {fmt(fundamentals?.publicInterestScore) != null ? Number(fundamentals.publicInterestScore).toFixed(2) : "—"}</div>
+                    <div className={`${isLight ? "text-slate-600" : "text-white/60"}`}>Why this matters: stronger security/developer signals can reduce protocol failure risk.</div>
+                  </div>
+                </div>
+
+                <div className={`rounded-xl border p-3 ${isLight ? "border-amber-200 bg-amber-50" : "border-amber-400/30 bg-amber-500/12"}`}>
+                  <div className={`text-xs font-semibold mb-2 ${isLight ? "text-slate-700" : "text-white/85"}`}>5) Revenue Quality / Project Health</div>
+                  <div className={`space-y-1 text-sm ${isLight ? "text-slate-700" : "text-white/75"}`}>
+                    <div>GitHub Stars: {fmtLarge(fundamentals?.githubStars)} • Forks: {fmtLarge(fundamentals?.githubForks)}</div>
+                    <div>Commits (4w): {fmtLarge(fundamentals?.githubCommits4w)}</div>
+                    <div>Issue Close Rate: {fmt(issueCloseRatePct) != null ? `${issueCloseRatePct.toFixed(1)}%` : "—"}</div>
+                    {fundamentals?.githubRepo ? (
+                      <a href={fundamentals.githubRepo} target="_blank" rel="noreferrer" className={`${isLight ? "text-blue-700" : "text-blue-300"} underline`}>
+                        View primary GitHub repo
+                      </a>
+                    ) : (
+                      <div>GitHub repo: —</div>
+                    )}
+                    <div className={`${isLight ? "text-slate-600" : "text-white/60"}`}>Why this matters: active and responsive development often supports long-term project quality.</div>
+                  </div>
+                </div>
+
+                <div className={`rounded-xl border p-3 ${isLight ? "border-violet-200 bg-violet-50" : "border-violet-400/30 bg-violet-500/12"}`}>
+                  <div className={`text-xs font-semibold mb-2 ${isLight ? "text-slate-700" : "text-white/85"}`}>6) Catalyst & Event Tracker</div>
+                  <div className={`space-y-1 text-sm ${isLight ? "text-slate-700" : "text-white/75"}`}>
+                    {news.length > 0 ? (
+                      news.slice(0, 3).map((n, idx) => (
+                        <div key={`cat-${idx}`} className="truncate">• {n.headline}</div>
+                      ))
+                    ) : (
+                      <div>No near-term catalyst headlines loaded.</div>
+                    )}
+                    <div className={`${isLight ? "text-slate-600" : "text-white/60"}`}>Track upgrades, ETF decisions, listings, and unlock calendars.</div>
+                    <div className={`${isLight ? "text-slate-600" : "text-white/60"}`}>Why this matters: catalysts can quickly reprice crypto up or down.</div>
+                  </div>
+                </div>
+
+                <div className={`rounded-xl border p-3 md:col-span-2 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
+                  <div className={`text-xs font-semibold mb-2 ${isLight ? "text-slate-700" : "text-white/85"}`}>7) Relative Valuation Comps</div>
+                  <div className={`grid grid-cols-1 md:grid-cols-3 gap-3 text-sm ${isLight ? "text-slate-700" : "text-white/75"}`}>
+                    <div className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-slate-50" : "border-white/10 bg-black/20"}`}>
+                      <div className={`${isLight ? "text-slate-500" : "text-white/60"} text-xs mb-1`}>Market Cap Rank</div>
+                      <div className="font-semibold">#{fmtLarge(fundamentals?.marketCapRank)}</div>
+                    </div>
+                    <div className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-slate-50" : "border-white/10 bg-black/20"}`}>
+                      <div className={`${isLight ? "text-slate-500" : "text-white/60"} text-xs mb-1`}>Distance from ATH</div>
+                      <div className="font-semibold">{fmt(fundamentals?.athChangePct) != null ? `${Number(fundamentals.athChangePct).toFixed(2)}%` : "—"}</div>
+                    </div>
+                    <div className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-slate-50" : "border-white/10 bg-black/20"}`}>
+                      <div className={`${isLight ? "text-slate-500" : "text-white/60"} text-xs mb-1`}>Distance from ATL</div>
+                      <div className="font-semibold">{fmt(fundamentals?.atlChangePct) != null ? `${Number(fundamentals.atlChangePct).toFixed(2)}%` : "—"}</div>
+                    </div>
+                  </div>
+                  <div className={`mt-2 text-xs ${isLight ? "text-slate-600" : "text-white/60"}`}>Why this matters: relative valuation helps compare upside/downside versus other crypto assets.</div>
+                </div>
+
+                <div className={`rounded-xl border p-3 md:col-span-2 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
+                  <div className={`text-xs font-semibold mb-2 ${isLight ? "text-slate-700" : "text-white/85"}`}>ASTRA Investor Brief</div>
+                  <div className={`space-y-1.5 text-sm ${isLight ? "text-slate-700" : "text-white/75"}`}>
+                    <div>
+                      1) Start with utility: confirm this asset solves a real problem and has growing adoption.
+                    </div>
+                    <div>
+                      2) Check liquidity + tokenomics together: deep volume with manageable dilution risk is healthier.
+                    </div>
+                    <div>
+                      3) Use trend and volatility for position sizing: {trendLabel} with intraday range {fmt(intradayRangePct) != null ? `${intradayRangePct.toFixed(2)}%` : "—"}.
+                    </div>
+                    <div>
+                      4) Let catalysts and security signals adjust conviction before entering/exiting.
+                    </div>
+                  </div>
+                  <div className={`mt-3 mb-2 h-px ${isLight ? "bg-slate-200" : "bg-white/10"}`} />
+                  <div className={`text-[11px] font-semibold uppercase tracking-wide mb-2 ${isLight ? "text-slate-600" : "text-white/70"}`}>Data Guide (What Each Metric Means)</div>
+                  <div className={`grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 text-sm ${isLight ? "text-slate-700" : "text-white/75"}`}>
+                    <div><span className="font-semibold">24h Volume:</span> Dollar value traded in last 24h; higher generally means better liquidity.</div>
+                    <div><span className="font-semibold">Volume / Market Cap:</span> Trading activity relative to size; very low can mean weak participation.</div>
+                    <div><span className="font-semibold">Community Reach:</span> Social footprint (X/Reddit); useful for attention, not proof of fundamentals.</div>
+                    <div><span className="font-semibold">Circulating Supply:</span> Tokens currently in public market circulation.</div>
+                    <div><span className="font-semibold">Total Supply:</span> Existing minted supply (can be above circulating if some tokens are locked).</div>
+                    <div><span className="font-semibold">Max Supply:</span> Hard cap of tokens if defined by protocol.</div>
+                    <div><span className="font-semibold">Circulating / Max:</span> Percent already released; lower percent can imply more future dilution risk.</div>
+                    <div><span className="font-semibold">FDV:</span> Fully Diluted Valuation, market value if all max tokens were circulating.</div>
+                    <div><span className="font-semibold">FDV/MCap:</span> Dilution pressure signal; much above 1.0 can indicate future supply overhang.</div>
+                    <div><span className="font-semibold">ATH / ATL:</span> All-time high/low prices used to judge cycle position and downside memory.</div>
+                    <div><span className="font-semibold">Developer Score:</span> Composite dev activity indicator from data provider.</div>
+                    <div><span className="font-semibold">Community Score:</span> Composite social/community activity indicator from data provider.</div>
+                    <div><span className="font-semibold">Liquidity Score:</span> Market depth/quality proxy from data provider.</div>
+                    <div><span className="font-semibold">Coin Score:</span> Broad quality signal from provider (market + community + developer inputs).</div>
+                    <div><span className="font-semibold">Sentiment Upvotes:</span> Positive-vote share from crowd sentiment sources.</div>
+                    <div><span className="font-semibold">Public Interest Score:</span> Search/attention proxy; useful for momentum context.</div>
+                    <div><span className="font-semibold">GitHub Stars/Forks/Subscribers/Commits:</span> Open-source activity and ecosystem engagement proxies.</div>
+                    <div><span className="font-semibold">GitHub Repo:</span> Main public codebase link used for project activity validation.</div>
+                    <div><span className="font-semibold">Issue Close Rate:</span> Closed issues / total issues; shows maintenance responsiveness.</div>
+                    <div><span className="font-semibold">Market Cap Rank:</span> Relative size rank among all cryptocurrencies.</div>
+                    <div><span className="font-semibold">Distance from ATH/ATL:</span> Current position vs historical extremes; helps frame cycle risk/reward.</div>
+                  </div>
+                  <div className={`mt-3 text-xs ${isLight ? "text-slate-600" : "text-white/60"}`}>
+                    Quick read bands: Volume/MCap below 2% often weak, 2%-10% normal, above 10% strong activity.
+                    FDV/MCap near 1.0 is cleaner supply profile; above 1.5 can imply heavier future dilution.
+                    Circulating/Max above 70% generally lower unlock risk than early-stage low-circulation tokens.
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {assetMode === "stock" && !isNarrativeMode && (fundInsightsLoading || fundInsights?.isFund) && (
+          <div className="mb-6">
+            <Card title="Fundamental Data (Fund / ETF / Mutual Fund)">
+              {fundInsightsLoading ? (
+                <div className={`text-sm animate-pulse ${isLight ? "text-slate-600" : "text-white/60"}`}>Loading fund fundamentals...</div>
+              ) : (
+                <>
+                  <div className={`text-xs mb-4 ${isLight ? "text-slate-600" : "text-white/70"}`}>
+                    {fundInsights?.overview?.name || fundInsights?.symbol || "—"} • {fundInsights?.overview?.quoteType || "FUND"}
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-4">
+                    <div className={`rounded-xl border p-3 ${isLight ? "border-sky-200 bg-sky-50" : "border-sky-400/30 bg-sky-500/12"}`}>
+                      <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>Total Assets</div>
+                      <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>${fmtLarge(fundInsights?.overview?.totalAssets)}</div>
+                    </div>
+                    <div className={`rounded-xl border p-3 ${isLight ? "border-emerald-200 bg-emerald-50" : "border-emerald-400/30 bg-emerald-500/12"}`}>
+                      <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>Expense Ratio</div>
+                      <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{fmtPctPlain(fundInsights?.overview?.expenseRatio)}</div>
+                    </div>
+                    <div className={`rounded-xl border p-3 ${isLight ? "border-violet-200 bg-violet-50" : "border-violet-400/30 bg-violet-500/12"}`}>
+                      <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>Net Expense Ratio</div>
+                      <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{fmtPctPlain(fundInsights?.overview?.netExpenseRatio)}</div>
+                    </div>
+                    <div className={`rounded-xl border p-3 ${isLight ? "border-amber-200 bg-amber-50" : "border-amber-400/30 bg-amber-500/12"}`}>
+                      <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>Dividend Yield</div>
+                      <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{fmtPctPlain(fundInsights?.overview?.yieldPct)}</div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
+                    <div className={`rounded-xl border p-3 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
+                      <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>YTD Return</div>
+                      <div className={`text-sm font-semibold ${Number(fundInsights?.overview?.ytdReturnPct) >= 0 ? (isLight ? "text-emerald-700" : "text-green-300") : (isLight ? "text-rose-700" : "text-red-300")}`}>{fmtPctSigned(fundInsights?.overview?.ytdReturnPct)}</div>
+                    </div>
+                    <div className={`rounded-xl border p-3 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
+                      <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>1Y Return</div>
+                      <div className={`text-sm font-semibold ${Number(fundInsights?.overview?.oneYearReturnPct) >= 0 ? (isLight ? "text-emerald-700" : "text-green-300") : (isLight ? "text-rose-700" : "text-red-300")}`}>{fmtPctSigned(fundInsights?.overview?.oneYearReturnPct)}</div>
+                    </div>
+                    <div className={`rounded-xl border p-3 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
+                      <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>3Y Return</div>
+                      <div className={`text-sm font-semibold ${Number(fundInsights?.overview?.threeYearReturnPct) >= 0 ? (isLight ? "text-emerald-700" : "text-green-300") : (isLight ? "text-rose-700" : "text-red-300")}`}>{fmtPctSigned(fundInsights?.overview?.threeYearReturnPct)}</div>
+                    </div>
+                    <div className={`rounded-xl border p-3 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
+                      <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>5Y Return</div>
+                      <div className={`text-sm font-semibold ${Number(fundInsights?.overview?.fiveYearReturnPct) >= 0 ? (isLight ? "text-emerald-700" : "text-green-300") : (isLight ? "text-rose-700" : "text-red-300")}`}>{fmtPctSigned(fundInsights?.overview?.fiveYearReturnPct)}</div>
+                    </div>
+                    <div className={`rounded-xl border p-3 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
+                      <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>10Y Return</div>
+                      <div className={`text-sm font-semibold ${Number(fundInsights?.overview?.tenYearReturnPct) >= 0 ? (isLight ? "text-emerald-700" : "text-green-300") : (isLight ? "text-rose-700" : "text-red-300")}`}>{fmtPctSigned(fundInsights?.overview?.tenYearReturnPct)}</div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-4">
+                    <div className={`rounded-xl border p-3 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
+                      <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>Category</div>
+                      <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{fundInsights?.overview?.category || "—"}</div>
+                    </div>
+                    <div className={`rounded-xl border p-3 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
+                      <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>Fund Family</div>
+                      <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{fundInsights?.overview?.fundFamily || "—"}</div>
+                    </div>
+                    <div className={`rounded-xl border p-3 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
+                      <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>Benchmark</div>
+                      <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{fundInsights?.overview?.benchmark || "—"}</div>
+                    </div>
+                    <div className={`rounded-xl border p-3 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
+                      <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>Holdings Count</div>
+                      <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{fmtLarge(fundInsights?.overview?.numberOfHoldings)}</div>
+                    </div>
+                    <div className={`rounded-xl border p-3 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
+                      <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>NAV</div>
+                      <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>${fmtLarge(fundInsights?.overview?.navPrice)}</div>
+                    </div>
+                    <div className={`rounded-xl border p-3 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
+                      <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>Premium / Discount to NAV</div>
+                      <div className={`text-sm font-semibold ${Number(fundInsights?.overview?.premiumToNavPct) >= 0 ? (isLight ? "text-emerald-700" : "text-green-300") : (isLight ? "text-rose-700" : "text-red-300")}`}>{fmtPctSigned(fundInsights?.overview?.premiumToNavPct)}</div>
+                    </div>
+                    <div className={`rounded-xl border p-3 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
+                      <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>Average Daily Volume</div>
+                      <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{fmtLarge(fundInsights?.overview?.avgDailyVolume)}</div>
+                    </div>
+                    <div className={`rounded-xl border p-3 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
+                      <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>Turnover Ratio</div>
+                      <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{fmtPctPlain(fundInsights?.overview?.turnoverRatio)}</div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
+                    <div className={`rounded-xl border p-3 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
+                      <div className={`text-xs font-semibold mb-2 ${isLight ? "text-slate-700" : "text-white/85"}`}>Top Holdings</div>
+                      {Array.isArray(fundInsights?.topHoldings) && fundInsights.topHoldings.length > 0 ? (
+                        <div className="space-y-1.5">
+                          {fundInsights.topHoldings.slice(0, 10).map((row, idx) => (
+                            <div key={`${row.symbol}-${idx}`} className="flex items-center justify-between text-sm">
+                              <div className={isLight ? "text-slate-700" : "text-white/80"}>
+                                {row.symbol || row.name || "—"} {row.name ? `• ${row.name}` : ""}
+                              </div>
+                              <div className={isLight ? "text-slate-900 font-medium" : "text-white"}>
+                                {fmtPctPlain(row.weightPct)}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className={`text-sm ${isLight ? "text-slate-500" : "text-white/50"}`}>Top holdings data unavailable.</div>
+                      )}
+                    </div>
+                    <div className={`rounded-xl border p-3 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
+                      <div className={`text-xs font-semibold mb-2 ${isLight ? "text-slate-700" : "text-white/85"}`}>Allocation Breakdown</div>
+                      <div className="space-y-3">
+                        <div>
+                          <div className={`text-[11px] uppercase mb-1 ${isLight ? "text-slate-500" : "text-white/55"}`}>Sector</div>
+                          {Array.isArray(fundInsights?.sectorAllocation) && fundInsights.sectorAllocation.length > 0 ? (
+                            <div className="space-y-1">
+                              {fundInsights.sectorAllocation.slice(0, 5).map((row, idx) => (
+                                <div key={`sector-${idx}`} className="flex items-center justify-between text-sm">
+                                  <span className={isLight ? "text-slate-700" : "text-white/80"}>{row.name}</span>
+                                  <span className={isLight ? "text-slate-900 font-medium" : "text-white"}>{fmtPctPlain(row.weightPct)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className={`text-sm ${isLight ? "text-slate-500" : "text-white/50"}`}>—</div>
+                          )}
+                        </div>
+                        <div>
+                          <div className={`text-[11px] uppercase mb-1 ${isLight ? "text-slate-500" : "text-white/55"}`}>Country</div>
+                          {Array.isArray(fundInsights?.countryAllocation) && fundInsights.countryAllocation.length > 0 ? (
+                            <div className="space-y-1">
+                              {fundInsights.countryAllocation.slice(0, 5).map((row, idx) => (
+                                <div key={`country-${idx}`} className="flex items-center justify-between text-sm">
+                                  <span className={isLight ? "text-slate-700" : "text-white/80"}>{row.name}</span>
+                                  <span className={isLight ? "text-slate-900 font-medium" : "text-white"}>{fmtPctPlain(row.weightPct)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className={`text-sm ${isLight ? "text-slate-500" : "text-white/50"}`}>—</div>
+                          )}
+                        </div>
+                        <div>
+                          <div className={`text-[11px] uppercase mb-1 ${isLight ? "text-slate-500" : "text-white/55"}`}>Bond Ratings</div>
+                          {Array.isArray(fundInsights?.bondRatings) && fundInsights.bondRatings.length > 0 ? (
+                            <div className="space-y-1">
+                              {fundInsights.bondRatings.slice(0, 5).map((row, idx) => (
+                                <div key={`bond-${idx}`} className="flex items-center justify-between text-sm">
+                                  <span className={isLight ? "text-slate-700" : "text-white/80"}>{row.name}</span>
+                                  <span className={isLight ? "text-slate-900 font-medium" : "text-white"}>{fmtPctPlain(row.weightPct)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className={`text-sm ${isLight ? "text-slate-500" : "text-white/50"}`}>—</div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className={`rounded-xl border p-3 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
+                    <div className={`text-xs font-semibold mb-2 ${isLight ? "text-slate-700" : "text-white/85"}`}>ASTRA Fundamental Summary (Fund)</div>
+                    <div className={`space-y-1.5 text-sm ${isLight ? "text-slate-700" : "text-white/75"}`}>
+                      <div>
+                        Expense ratio ({fmtPctPlain(fundInsights?.overview?.expenseRatio)}) is the annual fee drag. Lower expense ratios generally preserve more investor return.
+                      </div>
+                      <div>
+                        Net assets (${fmtLarge(fundInsights?.overview?.totalAssets)}) indicate fund scale and liquidity depth. Larger funds are often easier to trade.
+                      </div>
+                      <div>
+                        NAV premium/discount formula: (Market Price - NAV) / NAV = {fmtPctSigned(fundInsights?.overview?.premiumToNavPct)}.
+                        Premium means market price above NAV; discount means below NAV.
+                      </div>
+                      <div>
+                        Performance view: YTD {fmtPctSigned(fundInsights?.overview?.ytdReturnPct)}, 1Y {fmtPctSigned(fundInsights?.overview?.oneYearReturnPct)},
+                        3Y {fmtPctSigned(fundInsights?.overview?.threeYearReturnPct)}, 5Y {fmtPctSigned(fundInsights?.overview?.fiveYearReturnPct)}.
+                        Compare these against the benchmark ({fundInsights?.overview?.benchmark || "not available"}).
+                      </div>
+                      <div>
+                        Concentration risk can be checked via top holdings and sector/country weights. If one holding or sector dominates, portfolio volatility risk usually rises.
+                      </div>
+                      <div>
+                        Bond-focused funds should also review bond ratings and duration; lower-rated bonds generally add yield and credit risk, while higher duration increases rate sensitivity.
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </Card>
+          </div>
+        )}
+
+        {assetMode === "stock" && !isNarrativeMode && !fundInsights?.isFund && (secFundamentalsLoading || secFundamentals) && (
+          <div className="mb-6">
+            <Card
+              title="Fundamental Data"
+            >
+              {secFundamentalsLoading ? (
+                <div className={`text-sm animate-pulse ${isLight ? "text-slate-600" : "text-white/60"}`}>Loading fundamentals...</div>
+              ) : (
+                <>
+                  <div className={`text-xs mb-4 ${isLight ? "text-slate-600" : "text-white/70"}`}>
+                    {secFundamentals?.companyName || "—"} • CIK: {secFundamentals?.cik || "—"}
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-4">
+                    <div className={`rounded-xl border p-3 ${isLight ? "border-sky-200 bg-sky-50" : "border-sky-400/30 bg-sky-500/12"}`}>
+                      <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>Revenue</div>
+                      <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>${fmtLarge(secFundamentals?.fundamentals?.revenue)}</div>
+                    </div>
+                    <div className={`rounded-xl border p-3 ${isLight ? "border-emerald-200 bg-emerald-50" : "border-emerald-400/30 bg-emerald-500/12"}`}>
+                      <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>Net Income</div>
+                      <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>${fmtLarge(secFundamentals?.fundamentals?.netIncome)}</div>
+                    </div>
+                    <div className={`rounded-xl border p-3 ${isLight ? "border-violet-200 bg-violet-50" : "border-violet-400/30 bg-violet-500/12"}`}>
+                      <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>Operating Cash Flow</div>
+                      <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>${fmtLarge(secFundamentals?.fundamentals?.operatingCashFlow)}</div>
+                    </div>
+                    <div className={`rounded-xl border p-3 ${isLight ? "border-amber-200 bg-amber-50" : "border-amber-400/30 bg-amber-500/12"}`}>
+                      <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>Free Cash Flow</div>
+                      <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>${fmtLarge(secFundamentals?.fundamentals?.freeCashFlow)}</div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-4">
+                    <div className={`rounded-xl border p-3 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
+                      <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>Short-Term Liquidity (Current Ratio)</div>
+                      <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>
+                        {fmt(secFundamentals?.highlights?.currentRatio) != null ? Number(secFundamentals.highlights.currentRatio).toFixed(2) : "—"}
+                      </div>
+                    </div>
+                    <div className={`rounded-xl border p-3 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
+                      <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>Debt / Equity</div>
+                      <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>
+                        {fmt(secFundamentals?.highlights?.debtToEquity) != null ? Number(secFundamentals.highlights.debtToEquity).toFixed(2) : "—"}
+                      </div>
+                    </div>
+                    <div className={`rounded-xl border p-3 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
+                      <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>Net Margin</div>
+                      <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>
+                        {fmtPct(secFundamentals?.highlights?.netMargin)}
+                      </div>
+                    </div>
+                    <div className={`rounded-xl border p-3 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
+                      <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>Return on Assets (ROA)</div>
+                      <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>
+                        {fmtPct(secFundamentals?.highlights?.returnOnAssets)}
+                      </div>
+                    </div>
+                    <div className={`rounded-xl border p-3 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
+                      <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>Return on Equity (ROE)</div>
+                      <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>
+                        {fmtPct(secFundamentals?.highlights?.returnOnEquity)}
+                      </div>
+                    </div>
+                    <div className={`rounded-xl border p-3 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
+                      <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>Operating Margin</div>
+                      <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>
+                        {fmtPct(secFundamentals?.highlights?.operatingMargin)}
+                      </div>
+                    </div>
+                    <div className={`rounded-xl border p-3 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
+                      <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>Free Cash Flow Margin</div>
+                      <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>
+                        {fmtPct(secFundamentals?.highlights?.freeCashFlowMargin)}
+                      </div>
+                    </div>
+                    <div className={`rounded-xl border p-3 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
+                      <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>Interest Coverage</div>
+                      <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>
+                        {fmt(secFundamentals?.highlights?.interestCoverage) != null ? Number(secFundamentals.highlights.interestCoverage).toFixed(2) : "—"}
+                      </div>
+                    </div>
+                    <div className={`rounded-xl border p-3 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
+                      <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>Revenue Growth (YoY)</div>
+                      <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>
+                        {fmtPct(secFundamentals?.highlights?.revenueGrowthYoY)}
+                      </div>
+                    </div>
+                    <div className={`rounded-xl border p-3 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
+                      <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>Net Income Growth (YoY)</div>
+                      <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>
+                        {fmtPct(secFundamentals?.highlights?.netIncomeGrowthYoY)}
+                      </div>
+                    </div>
+                    <div className={`rounded-xl border p-3 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
+                      <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>Price / Sales (P/S)</div>
+                      <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>
+                        {(() => {
+                          const marketCap =
+                            fmt(company?.marketCapitalization) != null
+                              ? Number(company.marketCapitalization) * 1e6
+                              : fmt(fundamentals?.marketCap) != null
+                                ? Number(fundamentals.marketCap)
+                                : null;
+                          const revenue = secFundamentals?.fundamentals?.revenue;
+                          if (marketCap == null || !revenue) return "—";
+                          return Number(marketCap / revenue).toFixed(2);
+                        })()}
+                      </div>
+                    </div>
+                    <div className={`rounded-xl border p-3 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
+                      <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>EV / EBITDA</div>
+                      <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>
+                        {(() => {
+                          const marketCap =
+                            fmt(company?.marketCapitalization) != null
+                              ? Number(company.marketCapitalization) * 1e6
+                              : fmt(fundamentals?.marketCap) != null
+                                ? Number(fundamentals.marketCap)
+                                : null;
+                          const totalDebt = secFundamentals?.fundamentals?.totalDebt;
+                          const cash = secFundamentals?.fundamentals?.cash;
+                          const ebitda = secFundamentals?.fundamentals?.ebitda;
+                          if (marketCap == null || ebitda == null || ebitda === 0) return "—";
+                          const ev = marketCap + (totalDebt || 0) - (cash || 0);
+                          return Number(ev / ebitda).toFixed(2);
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3">
+                    <div className={`rounded-xl border p-3 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <div className={`text-xs font-semibold ${isLight ? "text-slate-700" : "text-white/85"}`}>Balance Sheet Snapshot</div>
+                        <a
+                          href={`https://www.sec.gov/edgar/browse/?CIK=${encodeURIComponent(secFundamentals?.cik || secFundamentals?.symbol || "")}&owner=exclude`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className={`text-[11px] underline ${isLight ? "text-blue-700" : "text-blue-300"}`}
+                        >
+                          View full financials
+                        </a>
+                      </div>
+                      <div className={`space-y-1 text-sm ${isLight ? "text-slate-700" : "text-white/75"}`}>
+                        <div>Assets: ${fmtLarge(secFundamentals?.fundamentals?.assets)}</div>
+                        <div>Liabilities: ${fmtLarge(secFundamentals?.fundamentals?.liabilities)}</div>
+                        <div>Equity: ${fmtLarge(secFundamentals?.fundamentals?.equity)}</div>
+                        <div>Total Debt: ${fmtLarge(secFundamentals?.fundamentals?.totalDebt)}</div>
+                        <div>Cash: ${fmtLarge(secFundamentals?.fundamentals?.cash)}</div>
+                        <div>Shares Outstanding: {fmtLarge(secFundamentals?.fundamentals?.sharesOutstanding)}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className={`mt-3 rounded-xl border p-3 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
+                    <div className={`text-xs font-semibold mb-2 ${isLight ? "text-slate-700" : "text-white/85"}`}>ASTRA Fundamental Summary</div>
+                    <div className={`space-y-1.5 text-sm ${isLight ? "text-slate-700" : "text-white/75"}`}>
+                      <div>
+                        Revenue (${fmtLarge(secFundamentals?.fundamentals?.revenue)}) and Net Income (${fmtLarge(secFundamentals?.fundamentals?.netIncome)}) show business scale and profitability.
+                      </div>
+                      <div>
+                        Net Margin formula: Net Income / Revenue = {fmtPct(secFundamentals?.highlights?.netMargin)}. Higher margins usually mean stronger operating efficiency.
+                      </div>
+                      <div>
+                        Short-Term Liquidity formula (Current Ratio): Current Assets / Current Liabilities = {fmt(secFundamentals?.highlights?.currentRatio) != null ? Number(secFundamentals.highlights.currentRatio).toFixed(2) : "—"}.
+                        Above 1.0 generally means healthier short-term liquidity.
+                      </div>
+                      <div>
+                        Debt to Equity formula: Total Debt / Equity = {fmt(secFundamentals?.highlights?.debtToEquity) != null ? Number(secFundamentals.highlights.debtToEquity).toFixed(2) : "—"}.
+                        Lower leverage usually means lower balance-sheet risk.
+                      </div>
+                      <div>
+                        Return on Assets formula: Net Income / Total Assets = {fmtPct(secFundamentals?.highlights?.returnOnAssets)}.
+                        This shows how effectively the company converts assets into earnings.
+                      </div>
+                      <div>
+                        Return on Equity formula: Net Income / Equity = {fmtPct(secFundamentals?.highlights?.returnOnEquity)}.
+                        This reflects shareholder return efficiency.
+                      </div>
+                      <div>
+                        Operating Margin formula: Operating Income / Revenue = {fmtPct(secFundamentals?.highlights?.operatingMargin)}.
+                        This shows profitability from core operations before financing/taxes.
+                      </div>
+                      <div>
+                        Free Cash Flow formula: Operating Cash Flow - Capital Expenditures = ${fmtLarge(secFundamentals?.fundamentals?.freeCashFlow)}.
+                        Positive free cash flow supports reinvestment, debt repayment, and resilience.
+                      </div>
+                      <div>
+                        Free Cash Flow Margin formula: Free Cash Flow / Revenue = {fmtPct(secFundamentals?.highlights?.freeCashFlowMargin)}.
+                        This shows how much real cash is generated per dollar of sales.
+                      </div>
+                      <div>
+                        Interest Coverage formula: Operating Income / Interest Expense = {fmt(secFundamentals?.highlights?.interestCoverage) != null ? Number(secFundamentals.highlights.interestCoverage).toFixed(2) : "—"}.
+                        Higher coverage indicates better ability to service debt.
+                      </div>
+                      <div>
+                        Revenue Growth (YoY) = {fmtPct(secFundamentals?.highlights?.revenueGrowthYoY)} and Net Income Growth (YoY) = {fmtPct(secFundamentals?.highlights?.netIncomeGrowthYoY)}.
+                        Growth trends indicate expansion momentum and earnings quality.
+                      </div>
+                      <div>
+                        Price / Sales formula: Market Cap / Revenue = {(() => {
+                          const marketCap =
+                            fmt(company?.marketCapitalization) != null
+                              ? Number(company.marketCapitalization) * 1e6
+                              : fmt(fundamentals?.marketCap) != null
+                                ? Number(fundamentals.marketCap)
+                                : null;
+                          const revenue = secFundamentals?.fundamentals?.revenue;
+                          if (marketCap == null || !revenue) return "—";
+                          return Number(marketCap / revenue).toFixed(2);
+                        })()}.
+                        Useful for comparing valuation against top-line scale.
+                      </div>
+                      <div>
+                        EV / EBITDA formula: (Market Cap + Total Debt - Cash) / EBITDA = {(() => {
+                          const marketCap =
+                            fmt(company?.marketCapitalization) != null
+                              ? Number(company.marketCapitalization) * 1e6
+                              : fmt(fundamentals?.marketCap) != null
+                                ? Number(fundamentals.marketCap)
+                                : null;
+                          const totalDebt = secFundamentals?.fundamentals?.totalDebt;
+                          const cash = secFundamentals?.fundamentals?.cash;
+                          const ebitda = secFundamentals?.fundamentals?.ebitda;
+                          if (marketCap == null || ebitda == null || ebitda === 0) return "—";
+                          const ev = marketCap + (totalDebt || 0) - (cash || 0);
+                          return Number(ev / ebitda).toFixed(2);
+                        })()}.
+                        Common cross-company valuation measure for capital-intensive businesses.
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </Card>
           </div>
         )}
 
@@ -7440,119 +7965,6 @@ export default function Home() {
       </div>
 
       {/* FLOATING ASTRA CHAT */}
-
-      {deepResearchOpen && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/55"
-            onClick={() => setDeepResearchOpen(false)}
-            aria-label="Close deep research"
-          />
-          <div className={isLight ? "relative w-full max-w-4xl max-h-[86vh] overflow-y-auto rounded-2xl border border-slate-300 bg-white text-slate-900 p-5 shadow-2xl" : "relative w-full max-w-4xl max-h-[86vh] overflow-y-auto rounded-2xl border border-white/15 bg-slate-900 text-white p-5 shadow-2xl"}>
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className={isLight ? "text-lg font-semibold text-slate-900" : "text-lg font-semibold text-white"}>ASTRA Deep Research</div>
-                <div className={isLight ? "text-xs text-slate-500" : "text-xs text-white/60"}>{deepResearchTicker || "—"}</div>
-              </div>
-              <button
-                onClick={() => setDeepResearchOpen(false)}
-                className={isLight ? "h-8 w-8 rounded-full border border-slate-300 bg-slate-100 text-slate-700" : "h-8 w-8 rounded-full border border-white/15 bg-white/10 text-white/80"}
-                aria-label="Close"
-              >
-                x
-              </button>
-            </div>
-
-            {deepResearchLoading ? (
-              <div className={isLight ? "mt-4 text-sm text-slate-700" : "mt-4 text-sm text-white/85"}>ASTRA is researching {deepResearchTicker}...</div>
-            ) : deepResearchError ? (
-              <div className={isLight ? "mt-4 rounded-lg border border-rose-300 bg-rose-50 text-rose-700 px-3 py-2 text-sm" : "mt-4 rounded-lg border border-rose-400/35 bg-rose-500/15 text-rose-200 px-3 py-2 text-sm"}>
-                {deepResearchError}
-              </div>
-            ) : deepResearchData ? (
-              <div className="mt-4 space-y-4">
-                <SummaryPanel label="Summary" text={String(deepResearchData.summary || "No summary available.")} isLight={isLight} />
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className={isLight ? "rounded-xl border border-slate-200 bg-slate-50 p-3" : "rounded-xl border border-white/12 bg-white/[0.03] p-3"}>
-                    <div className="text-xs uppercase tracking-wide mb-2 text-emerald-500 font-semibold">Bull Case</div>
-                    <ul className="list-disc pl-5 space-y-1 text-sm">
-                      {Array.isArray(deepResearchData.bull_case) && deepResearchData.bull_case.length
-                        ? deepResearchData.bull_case.map((x, i) => <li key={`bull-${i}`}>{String(x)}</li>)
-                        : <li>No bull case items available.</li>}
-                    </ul>
-                  </div>
-                  <div className={isLight ? "rounded-xl border border-slate-200 bg-slate-50 p-3" : "rounded-xl border border-white/12 bg-white/[0.03] p-3"}>
-                    <div className="text-xs uppercase tracking-wide mb-2 text-rose-500 font-semibold">Bear Case</div>
-                    <ul className="list-disc pl-5 space-y-1 text-sm">
-                      {Array.isArray(deepResearchData.bear_case) && deepResearchData.bear_case.length
-                        ? deepResearchData.bear_case.map((x, i) => <li key={`bear-${i}`}>{String(x)}</li>)
-                        : <li>No bear case items available.</li>}
-                    </ul>
-                  </div>
-                </div>
-
-                <div className={isLight ? "rounded-xl border border-slate-200 bg-slate-50 p-3" : "rounded-xl border border-white/12 bg-white/[0.03] p-3"}>
-                  <div className="text-xs uppercase tracking-wide mb-2 text-amber-500 font-semibold">Key Risks</div>
-                  <ul className="list-disc pl-5 space-y-1 text-sm">
-                    {Array.isArray(deepResearchData.key_risks) && deepResearchData.key_risks.length
-                      ? deepResearchData.key_risks.map((x, i) => <li key={`risk-${i}`}>{String(x)}</li>)
-                      : <li>No key risks provided.</li>}
-                  </ul>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className={isLight ? "rounded-xl border border-slate-200 bg-slate-50 p-3" : "rounded-xl border border-white/12 bg-white/[0.03] p-3"}>
-                    <div className="text-xs uppercase tracking-wide mb-2 text-cyan-500 font-semibold">Financial Highlights</div>
-                    <div className="space-y-1 text-sm">
-                      {Object.entries(deepResearchData.financial_highlights || {}).map(([k, v]) => (
-                        <div key={k} className="flex items-center justify-between gap-3">
-                          <span className={isLight ? "text-slate-600" : "text-white/70"}>{k.replace(/_/g, " ")}</span>
-                          <span className="font-semibold">{typeof v === "number" ? Number(v).toLocaleString() : String(v ?? "—")}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className={isLight ? "rounded-xl border border-slate-200 bg-slate-50 p-3" : "rounded-xl border border-white/12 bg-white/[0.03] p-3"}>
-                    <div className="text-xs uppercase tracking-wide mb-2 text-violet-500 font-semibold">Sentiment & Call</div>
-                    <div className="text-sm mb-2">
-                      News sentiment: <span className="font-semibold">{String(deepResearchData?.news_sentiment?.label || "neutral")}</span>
-                      {typeof deepResearchData?.news_sentiment?.score === "number" ? ` (${deepResearchData.news_sentiment.score})` : ""}
-                    </div>
-                    <div className="text-sm">
-                      Recommendation: <span className="font-semibold">{String(deepResearchData.recommendation || "HOLD")}</span>
-                      {typeof deepResearchData.confidence === "number" ? ` • Confidence ${deepResearchData.confidence}%` : ""}
-                    </div>
-                  </div>
-                </div>
-
-                <div className={isLight ? "rounded-xl border border-slate-200 bg-slate-50 p-3" : "rounded-xl border border-white/12 bg-white/[0.03] p-3"}>
-                  <div className="text-xs uppercase tracking-wide mb-2 text-blue-500 font-semibold">Sources</div>
-                  <div className="space-y-1 text-sm">
-                    {Array.isArray(deepResearchData.sources) && deepResearchData.sources.length ? (
-                      deepResearchData.sources.map((src, i) => (
-                        <a
-                          key={`src-${i}`}
-                          href={String(src?.url || "#")}
-                          target="_blank"
-                          rel="noreferrer"
-                          className={isLight ? "block underline text-blue-700" : "block underline text-blue-300"}
-                        >
-                          {String(src?.name || src?.url || "Source")}
-                        </a>
-                      ))
-                    ) : (
-                      <div>No source links available.</div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      )}
-
       <div className="fixed bottom-5 right-5 z-50">
         {chatOpen ? (
           <div
