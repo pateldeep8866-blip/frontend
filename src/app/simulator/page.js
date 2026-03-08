@@ -362,6 +362,7 @@ function nextDcaRun(interval, fromTs = Date.now()) {
 
 export default function SimulatorPage() {
   const [theme, setTheme] = useState("dark");
+  const [botMode, setBotMode] = useState("quant");
   const [profile, setProfile] = useState(createDefaultProfile());
   const [simTab, setSimTab] = useState("manual");
   const [showEnableAutoModal, setShowEnableAutoModal] = useState(false);
@@ -2100,7 +2101,7 @@ export default function SimulatorPage() {
             >
               Back Home
             </Link>
-            <div className={`text-xs ${isLight ? "text-slate-500" : "text-white/60"} ${simSans.className}`}>Trading Simulator</div>
+            <div className={`text-xs ${isLight ? "text-slate-500" : "text-white/60"} ${simSans.className}`}>Bots</div>
           </div>
           <div className="flex items-center gap-2">
             <details className="relative">
@@ -2147,6 +2148,84 @@ export default function SimulatorPage() {
           </div>
         </div>
 
+        <section className={`${cardClass} mb-4`}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className={`text-xs uppercase tracking-wide ${isLight ? "text-slate-500" : "text-white/60"}`}>Bots Tab</div>
+              <div className={`text-sm ${isLight ? "text-slate-700" : "text-white/85"}`}>
+                Use QUANT for portfolio simulation and ARBI for arbitrage intelligence.
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setBotMode("quant")}
+                className={`px-3 py-1.5 rounded-lg border text-xs font-semibold ${
+                  botMode === "quant"
+                    ? "bg-blue-600 text-white border-blue-500"
+                    : isLight
+                      ? "border-slate-300 bg-white text-slate-700"
+                      : "border-white/15 bg-white/10 text-white/85"
+                }`}
+              >
+                QUANT
+              </button>
+              <button
+                onClick={() => setBotMode("arbi")}
+                className={`px-3 py-1.5 rounded-lg border text-xs font-semibold ${
+                  botMode === "arbi"
+                    ? "bg-blue-600 text-white border-blue-500"
+                    : isLight
+                      ? "border-slate-300 bg-white text-slate-700"
+                      : "border-white/15 bg-white/10 text-white/85"
+                }`}
+              >
+                ARBI
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {botMode === "arbi" && (
+          <section className={`${cardClass} mb-6`}>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className={`text-xs uppercase tracking-wide ${isLight ? "text-slate-500" : "text-white/60"}`}>ARBI Bot</div>
+                <h2 className={`text-2xl font-semibold ${isLight ? "text-slate-900" : "text-cyan-100"} ${simSerif.className}`}>Arbitrage Intelligence</h2>
+                <p className={`mt-1 text-sm ${isLight ? "text-slate-700" : "text-white/80"}`}>
+                  ARBI scans cross-market dislocations and highlights potential spread opportunities.
+                </p>
+              </div>
+              <Link
+                href="/home?mode=globalmarket"
+                className={`px-3 py-1.5 rounded-lg border text-xs font-semibold ${
+                  isLight ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-100" : "border-white/15 bg-white/10 text-white/85 hover:bg-white/15"
+                }`}
+              >
+                Open Global Market
+              </Link>
+            </div>
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-slate-50" : "border-white/12 bg-white/[0.03]"}`}>
+                <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-500" : "text-white/60"}`}>Status</div>
+                <div className={`mt-1 text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>Online</div>
+                <div className={`mt-1 text-xs ${isLight ? "text-slate-600" : "text-white/70"}`}>Ready to monitor spreads.</div>
+              </div>
+              <div className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-slate-50" : "border-white/12 bg-white/[0.03]"}`}>
+                <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-500" : "text-white/60"}`}>Universe</div>
+                <div className={`mt-1 text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>Stocks, ETFs, FX, Crypto</div>
+                <div className={`mt-1 text-xs ${isLight ? "text-slate-600" : "text-white/70"}`}>Cross-asset dislocation search.</div>
+              </div>
+              <div className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-slate-50" : "border-white/12 bg-white/[0.03]"}`}>
+                <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-500" : "text-white/60"}`}>Mode</div>
+                <div className={`mt-1 text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>Watchlist</div>
+                <div className={`mt-1 text-xs ${isLight ? "text-slate-600" : "text-white/70"}`}>Signal-only, no auto-execution.</div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {botMode === "quant" && (
+        <>
         <div className={`mb-4 rounded-xl border overflow-hidden ${isAlerik ? "border-[#c9a84c]/24 bg-[#0c0b09]/92" : isLight ? "border-slate-200 bg-white/90" : "border-white/12 bg-[#0d1117]/90"}`}>
           <div className="grid grid-cols-2 md:grid-cols-6 gap-px bg-black/5">
             <div className={`px-3 py-2 ${isLight ? "bg-white" : "bg-[#121821]"}`}>
@@ -3388,6 +3467,8 @@ export default function SimulatorPage() {
           <div className={`mt-2 text-xs ${isLight ? "text-slate-600" : "text-white/70"}`}>Your current rank: #{selfRank}</div>
         </section>
         )}
+        </>
+        )}
       </div>
 
       <style jsx global>{`
@@ -3645,7 +3726,7 @@ export default function SimulatorPage() {
         </div>
       )}
 
-      {showEnableAutoModal && (
+        {showEnableAutoModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <button
             type="button"
