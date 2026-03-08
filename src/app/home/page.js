@@ -601,6 +601,7 @@ const UI_TEXT = {
     news: "News",
     geoPolitics: "Geo Politics",
     globalMarket: "Global Market",
+    warRoom: "War Room",
     briefing: "Briefing",
   },
   es: {
@@ -637,6 +638,7 @@ const UI_TEXT = {
     news: "Noticias",
     geoPolitics: "Geopolitica",
     globalMarket: "Mercado Global",
+    warRoom: "War Room",
     briefing: "Briefing",
   },
   fr: {
@@ -673,6 +675,7 @@ const UI_TEXT = {
     news: "Actualites",
     geoPolitics: "Geopolitique",
     globalMarket: "Marche Global",
+    warRoom: "War Room",
     briefing: "Briefing",
   },
   hi: {
@@ -709,6 +712,7 @@ const UI_TEXT = {
     news: "समाचार",
     geoPolitics: "जियो पॉलिटिक्स",
     globalMarket: "ग्लोबल मार्केट",
+    warRoom: "वार रूम",
     briefing: "ब्रीफिंग",
   },
 };
@@ -4311,6 +4315,17 @@ export default function Home() {
             >
               {t("simulator")}
             </Link>
+            <Link
+              href="/warroom.html"
+              onClick={closeParentDropdown}
+              className={`px-3 py-1.5 rounded-lg border text-xs ${
+                isLight
+                  ? "border-slate-300 bg-white/90 text-slate-700 hover:bg-slate-100"
+                  : "border-white/15 bg-slate-900/60 text-white/85 hover:bg-slate-800/70"
+              }`}
+            >
+              {t("warRoom")}
+            </Link>
             {authUser && (
               <Link
                 href="/portfolio"
@@ -4811,6 +4826,14 @@ export default function Home() {
             >
               {t("globalMarket")}
             </button>
+            <Link
+              href="/warroom.html"
+              className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${
+                isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"
+              }`}
+            >
+              {t("warRoom")}
+            </Link>
             <Link
               href="/briefing"
               className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${
