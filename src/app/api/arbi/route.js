@@ -3,13 +3,34 @@
 
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+const ARBI_SUPABASE_URL =
+  process.env.SUPABASE_URL_ARBI ||
+  process.env.SUPABASE_URL ||
+  process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+const ARBI_SUPABASE_KEY =
+  process.env.SUPABASE_KEY_ARBI ||
+  process.env.SUPABASE_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+const supabase = ARBI_SUPABASE_URL && ARBI_SUPABASE_KEY
+  ? createClient(ARBI_SUPABASE_URL, ARBI_SUPABASE_KEY)
+  : null;
 
 export async function GET() {
   try {
+    if (!supabase) {
+      return Response.json(
+        {
+          status: "error",
+          message: "ARBI Supabase is not configured. Set SUPABASE_URL_ARBI and SUPABASE_KEY_ARBI.",
+          signals: [],
+          stats: { total_signals: 0, win_rate: 0, collective: { total_trades: 0 } },
+        },
+        { status: 500 }
+      );
+    }
+
     // Fetch latest signals
     const { data: signals, error: sigErr } = await supabase
       .from("signals")
