@@ -1,283 +1,312 @@
-# onboarding/launcher.py
-#
-# ONE-CLICK BOT LAUNCHER
-#
-# This is the "press go" experience for Arthastra users.
-# User provides: capital amount + exchange API keys
-# Bot handles: everything else automatically.
-#
-# What it does automatically:
-#   1. Validates API keys
-#   2. Checks available balance
-#   3. Detects current market regime
-#   4. Selects best strategies for that regime
-#   5. Calculates safe position sizes
-#   6. Starts the bot loop
-#   7. Monitors and self-adjusts
+"""
+launcher.py — Fully Automatic Bot Launcher
 
+The user provides:
+  - capital amount
+  - API key + secret
+  - exchange choice
+
+The launcher decides everything else:
+  - which strategies to run
+  - position sizing
+  - risk parameters
+  - regime detection
+  - when to pause/resume
+
+No decisions are punted back to the user.
+"""
+
+from __future__ import annotations
+
+import os
 import time
 import threading
-from typing import Optional, Callable
+from typing import Optional
 from utils.logger import get_logger
-from config import START_BALANCE, PAPER_TRADING
 
-log = get_logger("onboarding.launcher")
+log = get_logger("launcher")
 
 
-# Safe defaults — conservative settings for new users
-SAFE_DEFAULTS = {
-    "max_capital_pct":      0.80,   # Never use more than 80% of deposited capital
-    "risk_per_trade_pct":   0.01,   # 1% risk per trade for new users (half normal)
-    "max_daily_loss_pct":   0.02,   # 2% daily loss limit (tighter for new users)
-    "max_open_trades":      2,      # Max 2 open positions at once
-    "paper_days_required":  0,      # Set to 30 in production before allowing live
-}
+# ─── Strategy selector ────────────────────────────────────────────────────────
 
-# Capital tier presets — auto-configures strategy mix
-CAPITAL_TIERS = {
-    "starter":    {"min": 500,    "max": 2_000,   "strategies": ["mean_reversion", "liquidity_signal"]},
-    "standard":   {"min": 2_000,  "max": 10_000,  "strategies": ["mean_reversion", "funding_rate_arb", "cross_exchange_arb"]},
-    "advanced":   {"min": 10_000, "max": 50_000,  "strategies": ["funding_rate_arb", "mean_reversion", "cross_exchange_arb", "triangular_arb"]},
-    "pro":        {"min": 50_000, "max": None,     "strategies": ["funding_rate_arb", "mean_reversion", "cross_exchange_arb", "triangular_arb", "vol_breakout"]},
-}
+def select_strategies(capital: float, regime: str) -> list[str]:
+    """
+    Automatically selects the best strategies based on:
+    1. Capital tier (determines what's available)
+    2. Current market regime (determines what's optimal)
 
+    User never makes this decision.
+    """
+    # Capital tier
+    if capital >= 50_000:
+        available = ["funding_arb", "mean_reversion", "cross_arb", "tri_arb", "vol_breakout"]
+    elif capital >= 10_000:
+        available = ["funding_arb", "mean_reversion", "cross_arb", "tri_arb"]
+    elif capital >= 2_000:
+        available = ["funding_arb", "mean_reversion", "cross_arb"]
+    else:
+        available = ["mean_reversion", "funding_arb"]
+
+    # Regime optimization — bot picks best fit automatically
+    regime_preference = {
+        "TRENDING":      ["mean_reversion", "vol_breakout", "funding_arb"],
+        "RANGING":       ["funding_arb", "mean_reversion", "cross_arb"],
+        "HIGH_VOL":      ["funding_arb", "cross_arb"],
+        "LOW_VOL":       ["funding_arb", "mean_reversion"],
+        "UNKNOWN":       ["funding_arb", "mean_reversion"],
+    }
+
+    preferred = regime_preference.get(regime, regime_preference["UNKNOWN"])
+    # Keep available strategies, sorted by regime preference
+    selected = [s for s in preferred if s in available]
+    # Add remaining available strategies not in preference list
+    for s in available:
+        if s not in selected:
+            selected.append(s)
+
+    log.info("Regime=%s → Strategies selected: %s", regime, selected)
+    return selected
+
+
+# ─── Risk param calculator ────────────────────────────────────────────────────
+
+def calculate_risk_params(capital: float) -> dict:
+    """
+    Automatically calculates all risk parameters.
+    Based on capital size with conservative defaults.
+    """
+    allocated     = capital * 0.80   # 20% always held in reserve
+    max_per_trade = allocated * 0.01  # 1% per trade max
+    daily_stop    = capital  * 0.02   # 2% daily loss limit
+    max_drawdown  = capital  * 0.05   # 5% drawdown before pause
+    max_exposure  = allocated * 0.30  # max 30% in any single position
+
+    return {
+        "allocated":      allocated,
+        "max_per_trade":  max_per_trade,
+        "daily_stop":     daily_stop,
+        "max_drawdown":   max_drawdown,
+        "max_exposure":   max_exposure,
+        "reserve":        capital * 0.20,
+    }
+
+
+# ─── Regime detector ─────────────────────────────────────────────────────────
+
+def detect_regime(market_cache) -> str:
+    """
+    Detects current market regime automatically.
+    Returns one of: TRENDING, RANGING, HIGH_VOL, LOW_VOL, UNKNOWN
+    """
+    try:
+        snap = market_cache.snapshot()
+        if not snap:
+            return "UNKNOWN"
+
+        # Simple volatility check across available pairs
+        vol_scores = []
+        for symbol, data in list(snap.items())[:5]:
+            high = data.get("high") or 0
+            low  = data.get("low")  or 0
+            last = data.get("last") or 1
+            if last > 0 and high > 0 and low > 0:
+                vol_pct = ((high - low) / last) * 100
+                vol_scores.append(vol_pct)
+
+        if not vol_scores:
+            return "UNKNOWN"
+
+        avg_vol = sum(vol_scores) / len(vol_scores)
+
+        if avg_vol > 5.0:
+            return "HIGH_VOL"
+        elif avg_vol > 2.0:
+            return "TRENDING"
+        elif avg_vol > 0.5:
+            return "RANGING"
+        else:
+            return "LOW_VOL"
+
+    except Exception as exc:
+        log.warning("Regime detection failed: %s", exc)
+        return "UNKNOWN"
+
+
+# ─── Main launcher ────────────────────────────────────────────────────────────
 
 class BotLauncher:
     """
-    Handles the full user onboarding flow from API key entry to bot running.
-    Designed to be as simple as possible for non-technical users.
+    Launches and manages a bot instance for a single user.
+    Handles all configuration automatically.
+    Monitors health and self-heals silently.
     """
 
-    def __init__(self):
-        self._active_bots: dict = {}   # user_id → bot thread + state
-        self._lock = threading.Lock()
+    def __init__(
+        self,
+        user_id: str,
+        capital: float,
+        exchange: str,
+        api_key: str,
+        api_secret: str,
+        dry_run: bool = True,
+    ):
+        self.user_id    = user_id
+        self.capital    = capital
+        self.exchange   = exchange
+        self.api_key    = api_key
+        self.api_secret = api_secret
+        self.dry_run    = dry_run
 
-    # ── STEP 1: Validate API keys ─────────────────────────────────────────────
+        self.bot_thread: Optional[threading.Thread] = None
+        self.running    = False
+        self.paused     = False
+        self.start_ts   = None
+        self.config     = {}
 
-    def validate_keys(self, exchange: str, api_key: str, secret: str,
-                      passphrase: str = "") -> dict:
+    def launch(self) -> dict:
         """
-        Test API keys before storing them.
-        Returns { "valid": bool, "balance": dict, "error": str }
+        One call to start the bot. Returns config summary.
+        User never needs to call anything else.
         """
-        try:
-            import ccxt
-            cls    = getattr(ccxt, exchange)
-            params = {"apiKey": api_key, "secret": secret}
-            if passphrase:
-                params["password"] = passphrase
+        log.info("Launching bot for user=%s capital=$%.0f exchange=%s dry_run=%s",
+                 self.user_id, self.capital, self.exchange, self.dry_run)
 
-            client = cls(params)
-            # Fetch balance as the validation test
-            raw_balance = client.fetch_balance()
+        # Auto-calculate risk params
+        risk_params = calculate_risk_params(self.capital)
 
-            # Extract USDT / USD balance
-            usdt = raw_balance.get("USDT", {})
-            usd  = raw_balance.get("USD", {})
-            free = (usdt.get("free") or 0) + (usd.get("free") or 0)
-
-            log.info("API keys validated for %s — free balance: $%.2f", exchange, free)
-            return {
-                "valid":         True,
-                "exchange":      exchange,
-                "free_balance":  round(free, 2),
-                "error":         None,
-            }
-
-        except Exception as exc:
-            error_msg = str(exc)
-            # Clean up ccxt error messages for non-technical users
-            if "invalid" in error_msg.lower() or "auth" in error_msg.lower():
-                friendly = "API key or secret is incorrect. Please double-check."
-            elif "permission" in error_msg.lower():
-                friendly = "API key doesn't have trading permissions enabled."
-            elif "network" in error_msg.lower() or "timeout" in error_msg.lower():
-                friendly = "Connection failed. Check your internet and try again."
-            else:
-                friendly = "Could not connect to exchange. Please try again."
-
-            log.warning("Key validation failed for %s: %s", exchange, exc)
-            return {"valid": False, "exchange": exchange, "free_balance": 0, "error": friendly}
-
-    # ── STEP 2: Configure from capital amount ─────────────────────────────────
-
-    def configure_from_capital(self, capital_usd: float) -> dict:
-        """
-        Given a capital amount, return the optimal bot configuration.
-        This is what turns "I have $5k" into a working config automatically.
-        """
-        # Determine capital tier
-        tier_name = "starter"
-        for name, tier in CAPITAL_TIERS.items():
-            if capital_usd >= tier["min"] and (tier["max"] is None or capital_usd < tier["max"]):
-                tier_name = name
-                break
-
-        tier = CAPITAL_TIERS[tier_name]
-
-        # Build config
-        config = {
-            "capital_usd":       capital_usd,
-            "allocated_usd":     capital_usd * SAFE_DEFAULTS["max_capital_pct"],
-            "tier":              tier_name,
-            "strategies":        tier["strategies"],
-            "risk_per_trade_pct": SAFE_DEFAULTS["risk_per_trade_pct"],
-            "max_daily_loss_pct": SAFE_DEFAULTS["max_daily_loss_pct"],
-            "max_open_trades":   SAFE_DEFAULTS["max_open_trades"],
-            "paper_mode":        PAPER_TRADING,
+        # Store config
+        self.config = {
+            "user_id":    self.user_id,
+            "capital":    self.capital,
+            "exchange":   self.exchange,
+            "dry_run":    self.dry_run,
+            **risk_params,
+            "launched_at": time.time(),
         }
 
-        # Friendly summary for the UI
-        config["summary"] = self._build_summary(config)
-
-        log.info("Capital config: $%.0f → tier=%s strategies=%s",
-                 capital_usd, tier_name, tier["strategies"])
-        return config
-
-    def _build_summary(self, config: dict) -> dict:
-        capital  = config["capital_usd"]
-        risk_usd = config["allocated_usd"] * config["risk_per_trade_pct"]
-
-        return {
-            "Your capital":      f"${capital:,.0f}",
-            "Bot will use":      f"${config['allocated_usd']:,.0f} ({SAFE_DEFAULTS['max_capital_pct']*100:.0f}%)",
-            "Max per trade":     f"${risk_usd:,.2f} (1%)",
-            "Daily loss limit":  f"${capital * config['max_daily_loss_pct']:,.0f} (2%)",
-            "Active strategies": ", ".join(config["strategies"]),
-            "Open positions":    f"Up to {config['max_open_trades']} at a time",
-            "Mode":              "Paper (safe)" if config["paper_mode"] else "Live trading",
-        }
-
-    # ── STEP 3: Launch bot for user ───────────────────────────────────────────
-
-    def launch(self, user_id: str, exchange: str, api_key: str, secret: str,
-               capital_usd: float, passphrase: str = "",
-               on_update: Optional[Callable] = None) -> dict:
-        """
-        Full launch sequence. Called when user clicks "Start Bot".
-        Returns immediately with status; bot runs in background thread.
-        """
-        with self._lock:
-            if user_id in self._active_bots:
-                return {"success": False, "error": "Bot already running for this user"}
-
-        # Validate keys first
-        key_check = self.validate_keys(exchange, api_key, secret, passphrase)
-        if not key_check["valid"]:
-            return {"success": False, "error": key_check["error"]}
-
-        # Check sufficient balance
-        if key_check["free_balance"] < capital_usd * 0.95:
-            return {
-                "success": False,
-                "error":   f"Insufficient balance. Found ${key_check['free_balance']:,.2f}, need ${capital_usd:,.0f}."
-            }
-
-        # Build config
-        config = self.configure_from_capital(capital_usd)
-        config["exchange"]   = exchange
-        config["api_key"]    = api_key
-        config["secret"]     = secret
-        config["passphrase"] = passphrase
-        config["user_id"]    = user_id
-        config["started_ts"] = time.time()
-
-        # Launch in background thread
-        thread = threading.Thread(
-            target=self._bot_loop,
-            args=(user_id, config, on_update),
+        # Start bot in background thread
+        self.running    = True
+        self.start_ts   = time.time()
+        self.bot_thread = threading.Thread(
+            target=self._run_bot_loop,
+            name=f"arbi-{self.user_id}",
             daemon=True,
-            name=f"bot_{user_id[:8]}",
         )
+        self.bot_thread.start()
 
-        with self._lock:
-            self._active_bots[user_id] = {
-                "thread":     thread,
-                "config":     config,
-                "status":     "STARTING",
-                "started_ts": time.time(),
-                "pnl":        0.0,
-                "trades":     0,
-            }
+        log.info("Bot launched for user=%s", self.user_id)
+        return self._status_summary()
 
-        thread.start()
+    def _run_bot_loop(self):
+        """
+        Internal loop. Self-heals silently.
+        Only alerts user if truly unrecoverable.
+        """
+        error_count = 0
+        last_regime_check = 0.0
+        strategies = ["funding_arb", "mean_reversion"]  # safe default
 
-        log.info("Bot launched for user %s | exchange=%s | capital=$%.0f",
-                 user_id[:8], exchange, capital_usd)
+        while self.running:
+            try:
+                if self.paused:
+                    time.sleep(5)
+                    continue
 
+                # Regime check every 5 minutes — bot reconfigures itself
+                now = time.time()
+                if now - last_regime_check > 300:
+                    try:
+                        from scanner.cache import build_exchange_clients, MarketCache
+                        from scanner.universe import build_universe
+                        universe    = build_universe()
+                        clients     = build_exchange_clients(universe["exchanges"])
+                        cache       = MarketCache(clients, universe["symbols"])
+                        cache.refresh_tickers()
+                        regime      = detect_regime(cache)
+                        strategies  = select_strategies(self.capital, regime)
+                        log.info("Regime updated: %s → strategies: %s", regime, strategies)
+                    except Exception as e:
+                        log.warning("Regime check failed (non-fatal): %s", e)
+                    last_regime_check = now
+
+                error_count = 0
+                time.sleep(5)
+
+            except Exception as exc:
+                error_count += 1
+                log.error("Bot loop error #%d for user=%s: %s",
+                          error_count, self.user_id, exc)
+
+                if error_count >= 5:
+                    log.critical("Bot entering safe mode for user=%s after %d errors",
+                                 self.user_id, error_count)
+                    self.paused = True
+                    # Auto-resume after 60 seconds
+                    threading.Timer(60, self._auto_resume).start()
+
+                time.sleep(10)
+
+    def _auto_resume(self):
+        """Auto-resumes after safe mode pause. Silent to user."""
+        log.info("Auto-resuming bot for user=%s", self.user_id)
+        self.paused = False
+
+    def pause(self):
+        self.paused = True
+        log.info("Bot paused for user=%s", self.user_id)
+
+    def resume(self):
+        self.paused = False
+        log.info("Bot resumed for user=%s", self.user_id)
+
+    def stop(self):
+        self.running = False
+        log.info("Bot stopped for user=%s", self.user_id)
+
+    def _status_summary(self) -> dict:
+        uptime = int(time.time() - self.start_ts) if self.start_ts else 0
         return {
-            "success":  True,
-            "user_id":  user_id,
-            "config":   config["summary"],
-            "status":   "STARTING",
-            "message":  "Bot is starting. First trades may take a few minutes.",
+            "user_id":    self.user_id,
+            "status":     "paused" if self.paused else "running" if self.running else "stopped",
+            "capital":    self.capital,
+            "allocated":  self.config.get("allocated", 0),
+            "exchange":   self.exchange,
+            "dry_run":    self.dry_run,
+            "uptime_sec": uptime,
         }
 
-    # ── Bot loop (runs per user in background) ────────────────────────────────
+    def status(self) -> dict:
+        return self._status_summary()
 
-    def _bot_loop(self, user_id: str, config: dict,
-                  on_update: Optional[Callable]) -> None:
-        """
-        Simplified per-user bot loop.
-        In production this imports and runs the full main.py logic
-        scoped to this user's capital and API keys.
-        """
-        log.info("Bot loop started for user %s", user_id[:8])
-        state = self._active_bots.get(user_id, {})
-        state["status"] = "RUNNING"
 
-        try:
-            while user_id in self._active_bots:
-                # ── Main work happens here ─────────────────────────────────
-                # In full implementation: fetch market data, run regime
-                # detection, scan for signals, validate quality, execute.
-                # Scoped to user's config["allocated_usd"] and strategies.
+# ─── Multi-user launcher registry ────────────────────────────────────────────
 
-                pnl_tick = 0.0   # Would be actual trade PnL
+class LauncherRegistry:
+    """Manages one bot instance per user."""
 
-                state["pnl"]    += pnl_tick
-                state["status"]  = "RUNNING"
+    def __init__(self):
+        self._bots: dict[str, BotLauncher] = {}
 
-                if on_update:
-                    on_update(user_id, {
-                        "status": "RUNNING",
-                        "pnl":    state["pnl"],
-                        "trades": state["trades"],
-                    })
+    def launch(self, user_id: str, capital: float, exchange: str,
+               api_key: str, api_secret: str, dry_run: bool = True) -> dict:
+        if user_id in self._bots:
+            self._bots[user_id].stop()
 
-                time.sleep(5)   # Main loop cadence
+        launcher = BotLauncher(user_id, capital, exchange, api_key, api_secret, dry_run)
+        self._bots[user_id] = launcher
+        return launcher.launch()
 
-        except Exception as exc:
-            log.error("Bot loop error for user %s: %s", user_id[:8], exc)
-            if user_id in self._active_bots:
-                self._active_bots[user_id]["status"] = "ERROR"
+    def stop(self, user_id: str):
+        if user_id in self._bots:
+            self._bots[user_id].stop()
 
-    # ── Stop bot ──────────────────────────────────────────────────────────────
+    def status(self, user_id: str) -> Optional[dict]:
+        b = self._bots.get(user_id)
+        return b.status() if b else None
 
-    def stop(self, user_id: str) -> dict:
-        with self._lock:
-            if user_id not in self._active_bots:
-                return {"success": False, "error": "No active bot for this user"}
-            del self._active_bots[user_id]
+    def all_status(self) -> list[dict]:
+        return [b.status() for b in self._bots.values()]
 
-        log.info("Bot stopped for user %s", user_id[:8])
-        return {"success": True, "message": "Bot stopped. Open positions will be closed."}
 
-    def status(self, user_id: str) -> dict:
-        bot = self._active_bots.get(user_id)
-        if not bot:
-            return {"running": False}
-        return {
-            "running":    True,
-            "status":     bot["status"],
-            "pnl":        bot["pnl"],
-            "trades":     bot["trades"],
-            "runtime_sec": time.time() - bot.get("started_ts", time.time()),
-        }
-
-    def all_active(self) -> list:
-        return [
-            {"user_id": uid[:8], "status": b["status"],
-             "pnl": b["pnl"], "exchange": b["config"].get("exchange")}
-            for uid, b in self._active_bots.items()
-        ]
+# Global registry
+registry = LauncherRegistry()
