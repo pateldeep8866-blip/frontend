@@ -4446,13 +4446,14 @@ export default function Home() {
             >
               {t("disclaimer")}
             </Link>
-            <button
-              onClick={(e) => { closeParentDropdown(e); setInvestorOpen(true); }}
-              className="w-full px-3 py-1.5 rounded-lg border text-xs font-bold text-left"
+            <a
+              href="/investor-briefing.html"
+              onClick={closeParentDropdown}
+              className="w-full px-3 py-1.5 rounded-lg border text-xs font-bold text-left block"
               style={{ borderColor: 'rgba(255,215,0,0.5)', color: '#ffd700', background: 'rgba(255,215,0,0.07)' }}
             >
               ★ FOR INVESTORS
-            </button>
+            </a>
             <div className="relative">
               <button
                 onClick={(event) => {
