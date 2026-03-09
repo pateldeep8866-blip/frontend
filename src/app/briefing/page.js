@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import SakuraThemeBackground from "@/components/SakuraThemeBackground";
 
 function safeDomainFromUrl(rawUrl) {
   try {
@@ -90,7 +91,9 @@ export default function BriefingPage() {
     };
   }, [cadence]);
 
-  const isLight = theme === "light" || theme === "cherry" || theme === "azula";
+  const isCherry = theme === "cherry";
+  const isAzula = theme === "azula";
+  const isLight = theme === "light" || isCherry || isAzula;
   const pageClass = isLight ? "bg-[#f7f4ef] text-[#1f1b16]" : "bg-[#050a1a] text-[#f3f8ff]";
   const shellClass = isLight ? "border-[#d9d0c3] bg-[#fffdf8]" : "border-[#1c355f] bg-[linear-gradient(180deg,#07152f_0%,#050f23_100%)]";
   const strokeClass = isLight ? "border-[#d9d0c3]" : "border-[#17345f]";
@@ -138,6 +141,7 @@ export default function BriefingPage() {
 
   return (
     <div className={`min-h-screen relative overflow-hidden ${pageClass}`}>
+      {isCherry && <SakuraThemeBackground />}
       <div className="pointer-events-none absolute inset-0 opacity-[0.14] [background-image:radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.06),transparent_36%),radial-gradient(circle_at_80%_0%,rgba(0,180,255,0.08),transparent_28%),repeating-linear-gradient(0deg,rgba(148,163,184,0.07),rgba(148,163,184,0.07) 1px,transparent 1px,transparent 28px)]" />
       <main className="relative z-10 mx-auto w-full max-w-7xl px-5 py-8 md:py-10">
         <section className={`rounded-2xl border shadow-[0_20px_80px_-40px_rgba(0,0,0,0.55)] ${shellClass}`}>

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Cormorant_Garamond, IBM_Plex_Mono, Syne } from "next/font/google";
 import AutopilotPanel from "@/components/AutopilotPanel";
+import SakuraThemeBackground from "@/components/SakuraThemeBackground";
 
 const simSerif = Cormorant_Garamond({
   subsets: ["latin"],
@@ -2097,6 +2098,7 @@ export default function SimulatorPage() {
 
   return (
     <div className={`${pageClass} sim-pro ${simMono.className}`}>
+      {isCherry && <SakuraThemeBackground />}
       <div className="relative z-10 mx-auto w-full max-w-7xl px-6 py-8 md:py-10">
         <div className={`sticky top-2 z-40 mb-4 rounded-xl border px-3 py-2 backdrop-blur ${isLight ? "border-slate-200 bg-white/95" : "border-white/12 bg-[#0d1117]/90"}`}>
           <div className="flex items-center justify-between gap-3">

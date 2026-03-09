@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+import SakuraThemeBackground from "@/components/SakuraThemeBackground";
 
 const PILLARS = [
   {
@@ -97,6 +98,7 @@ export default function AboutPage() {
 
   return (
     <div className={`min-h-screen relative overflow-hidden ${pageClass}`}>
+      {isCherry && <SakuraThemeBackground />}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_10%,rgba(125,211,252,0.12),transparent_40%),radial-gradient(circle_at_80%_70%,rgba(147,197,253,0.08),transparent_42%)]" />
 
       <main className="relative z-10 mx-auto w-full max-w-6xl px-6 py-10 md:py-14">

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import SakuraThemeBackground from "@/components/SakuraThemeBackground";
 
 function toPct(v) {
   const n = Number(v);
@@ -85,6 +86,7 @@ export default function GlobalMarketPage() {
 
   return (
     <div className={`min-h-screen relative overflow-hidden ${pageClass}`}>
+      {isCherry && <SakuraThemeBackground />}
       <div className="pointer-events-none absolute inset-0 opacity-[0.16] [background-image:linear-gradient(to_right,rgba(148,163,184,0.18)_1px,transparent_1px),linear-gradient(to_bottom,rgba(148,163,184,0.18)_1px,transparent_1px)] [background-size:54px_54px]" />
 
       <main className="relative z-10 mx-auto w-full max-w-6xl px-6 py-10 md:py-14">

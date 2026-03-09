@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import SakuraThemeBackground from "@/components/SakuraThemeBackground";
 
 const GLOSSARY_TERMS = [
   {
@@ -505,6 +506,7 @@ export default function MarketSchoolPage() {
 
   return (
     <div className={pageClass}>
+      {isCherry && <SakuraThemeBackground />}
       <div className="relative z-10 mx-auto w-full max-w-6xl px-6 py-8 md:py-12">
         <div className="flex items-center justify-between gap-3 mb-8">
           <Link

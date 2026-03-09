@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import AzulaThemeBackground from "@/components/AzulaThemeBackground";
+import SakuraThemeBackground from "@/components/SakuraThemeBackground";
 
 export default function BotsPage() {
   const [theme, setTheme] = useState("dark");
@@ -15,7 +17,24 @@ export default function BotsPage() {
     } catch {}
   }, []);
 
-  const isLight = theme === "light" || theme === "cherry" || theme === "azula";
+  const isCherry = theme === "cherry";
+  const isAzula = theme === "azula";
+  const isAlerik = theme === "alerik";
+  const isLight = theme === "light" || isCherry || isAzula;
+  const pageClass = isCherry
+    ? "cherry-mode bg-[#fffefc] text-[#3a2530]"
+    : isAzula
+      ? "azula-mode bg-[#020508] text-[#e8f4ff]"
+      : isAlerik
+        ? "alerik-mode bg-[#050505] text-[#f5f0e8]"
+        : isLight
+          ? "bg-slate-50 text-slate-900"
+          : "bg-[#05070d] text-white";
+  const panelClass = isAlerik
+    ? "border-[#c9a84c]/26 bg-[#101010]/92 text-[#f5f0e8]"
+    : isLight
+      ? "border-slate-200 bg-white text-slate-900 hover:border-blue-300"
+      : "border-white/12 bg-white/[0.03] hover:border-cyan-300/40";
   const setThemeMode = (mode) => {
     const next = String(mode || "").toLowerCase();
     if (!["dark", "light", "cherry", "azula", "alerik"].includes(next)) return;
@@ -27,8 +46,10 @@ export default function BotsPage() {
   };
 
   return (
-    <div className={`min-h-screen ${isLight ? "bg-slate-50 text-slate-900" : "bg-[#05070d] text-white"}`}>
-      <div className="mx-auto max-w-4xl px-6 py-12">
+    <div className={`min-h-screen relative overflow-hidden ${pageClass}`}>
+      {isCherry && <SakuraThemeBackground />}
+      {isAzula && <AzulaThemeBackground />}
+      <div className="mx-auto max-w-4xl px-6 py-12 relative z-10">
         <div className="mb-8 flex items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-semibold">Bots</h1>
@@ -65,9 +86,7 @@ export default function BotsPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Link
             href="/simulator?bot=quant"
-            className={`rounded-2xl border p-6 transition ${
-              isLight ? "border-slate-200 bg-white hover:border-blue-300" : "border-white/12 bg-white/[0.03] hover:border-cyan-300/40"
-            }`}
+            className={`rounded-2xl border p-6 transition ${panelClass}`}
           >
             <div className="text-xs uppercase tracking-[0.14em] text-blue-500">QUANT</div>
             <h2 className="mt-2 text-xl font-semibold">Quant Simulator Bot</h2>
@@ -78,9 +97,7 @@ export default function BotsPage() {
 
           <Link
             href="/arbi-dashboard.html"
-            className={`rounded-2xl border p-6 transition ${
-              isLight ? "border-slate-200 bg-white hover:border-blue-300" : "border-white/12 bg-white/[0.03] hover:border-cyan-300/40"
-            }`}
+            className={`rounded-2xl border p-6 transition ${panelClass}`}
           >
             <div className="text-xs uppercase tracking-[0.14em] text-blue-500">ARBI</div>
             <h2 className="mt-2 text-xl font-semibold">Arbitrage Intelligence Bot</h2>
