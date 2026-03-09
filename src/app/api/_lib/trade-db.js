@@ -31,6 +31,22 @@ function ensureTradeColumns(conn) {
   if (!cols.includes("hold_days_target")) conn.exec("ALTER TABLE trades ADD COLUMN hold_days_target INTEGER;");
 }
 
+function ensureSystemLog(conn) {
+  conn.exec(`
+    CREATE TABLE IF NOT EXISTS system_log (
+      log_id TEXT PRIMARY KEY,
+      created_utc TEXT,
+      event_type TEXT,
+      ticker TEXT,
+      action TEXT,
+      confidence INTEGER,
+      reason TEXT,
+      detail TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_system_log_created ON system_log(created_utc);
+  `);
+}
+
 function ensureDb() {
   if (db) return db;
   mkdirSync(dirname(DB_PATH), { recursive: true });
@@ -121,6 +137,7 @@ function ensureDb() {
   `);
 
   ensureTradeColumns(db);
+  ensureSystemLog(db);
 
   const count = Number(db.prepare("SELECT COUNT(*) AS c FROM weight_history").get()?.c || 0);
   if (count === 0) {
@@ -131,18 +148,7 @@ function ensureDb() {
         sharpe_improvement, hit_rate_improvement, validated, notes
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      "v1",
-      nowIso(),
-      0.55,
-      0.35,
-      0.07,
-      0.03,
-      "manual",
-      0,
-      0,
-      0,
-      1,
-      "Initial default weights"
+      "v1", nowIso(), 0.55, 0.35, 0.07, 0.03, "manual", 0, 0, 0, 1, "Initial default weights"
     );
   }
 
@@ -195,6 +201,50 @@ export function insertTrade(raw) {
   const conn = ensureDb();
   const tradeId = String(raw?.trade_id || randomUUID());
   const created = String(raw?.created_utc || nowIso());
+  const ticker = String(raw?.ticker || "").toUpperCase();
+  const action = normalizeAction(raw?.action);
+  const confidence = Math.round(toNum(raw?.confidence, 0));
+
+  function logEvent(event_type, reason, detail = null) {
+    conn.prepare(`
+      INSERT INTO system_log (log_id, created_utc, event_type, ticker, action, confidence, reason, detail)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(randomUUID(), nowIso(), event_type, ticker, action, confidence, reason, detail);
+  }
+
+  // Gate 1: Confidence floor
+  // FIX 2026-03-09: picks <60 confidence had 0% win rate, -4.59% avg return. Floor set to 70.
+  if (action !== "HOLD" && confidence < 70) {
+    logEvent("PICK_REJECTED", "confidence_below_floor",
+      `confidence=${confidence} below threshold of 70. Pre-fix: 29 picks at <60 conf had 0% win rate, -4.59% avg return.`);
+    return null;
+  }
+
+  // Gate 2 + 3: Dedupe + direction lock
+  // FIX 2026-03-09: ASTRA emitted same signal every loop cycle (XOM BUY x17/day).
+  // Also generated conflicting BUY+SELL same ticker same day (XLK BUY 0% vs XLK SELL 100%).
+  if (action !== "HOLD") {
+    const today = created.slice(0, 10);
+    const existing = conn.prepare(`
+      SELECT action FROM trades
+      WHERE ticker = ?
+        AND DATE(created_utc) = ?
+        AND action IN ('BUY','SELL')
+      LIMIT 1
+    `).get(ticker, today);
+
+    if (existing) {
+      if (existing.action === action) {
+        logEvent("PICK_REJECTED", "duplicate_same_day",
+          `${action} ${ticker} already logged on ${today}.`);
+        return null;
+      } else {
+        logEvent("PICK_REJECTED", "direction_conflict",
+          `Cannot ${action} ${ticker} — conflicting ${existing.action} already exists on ${today}.`);
+        return null;
+      }
+    }
+  }
 
   const sectorPerf = raw?.sector_performance == null
     ? null
@@ -219,36 +269,26 @@ export function insertTrade(raw) {
       ?, ?, ?, ?
     )
   `).run(
-    tradeId,
-    created,
-    normalizeSource(raw?.source),
-    String(raw?.ticker || "").toUpperCase(),
-    normalizeAction(raw?.action),
-    toNum(raw?.shares, 0),
-    toNum(raw?.entry_price, 0),
-    toNum(raw?.total_value, 0),
+    tradeId, created,
+    normalizeSource(raw?.source), ticker, action,
+    toNum(raw?.shares, 0), toNum(raw?.entry_price, 0), toNum(raw?.total_value, 0),
     toNum(raw?.quant_composite_score, null),
     raw?.quant_signal ? String(raw.quant_signal) : null,
-    toNum(raw?.quant_momentum, null),
-    toNum(raw?.quant_mean_reversion, null),
+    toNum(raw?.quant_momentum, null), toNum(raw?.quant_mean_reversion, null),
     raw?.market_regime ? String(raw.market_regime) : null,
-    toNum(raw?.vix_at_entry, null),
-    toNum(raw?.dxy_at_entry, null),
-    sectorPerf,
-    toNum(raw?.weight_momentum, 0.55),
-    toNum(raw?.weight_mean_reversion, 0.35),
-    toNum(raw?.weight_volatility, 0.07),
-    toNum(raw?.weight_range, 0.03),
+    toNum(raw?.vix_at_entry, null), toNum(raw?.dxy_at_entry, null), sectorPerf,
+    toNum(raw?.weight_momentum, 0.55), toNum(raw?.weight_mean_reversion, 0.35),
+    toNum(raw?.weight_volatility, 0.07), toNum(raw?.weight_range, 0.03),
     raw?.user_risk_level ? String(raw.user_risk_level) : null,
     raw?.strategy_name ? String(raw.strategy_name) : null,
     toNum(raw?.strategy_conviction, null),
     Math.round(toNum(raw?.hold_days_target, 0)),
     raw?.reasoning ? String(raw.reasoning) : null,
-    Math.round(toNum(raw?.confidence, 0)),
-    toNum(raw?.stop_loss, null),
-    toNum(raw?.take_profit, null)
+    confidence,
+    toNum(raw?.stop_loss, null), toNum(raw?.take_profit, null)
   );
 
+  logEvent("PICK_ACCEPTED", "passed_all_gates", `confidence=${confidence}, action=${action}`);
   return conn.prepare("SELECT * FROM trades WHERE trade_id = ?").get(tradeId);
 }
 
@@ -268,8 +308,7 @@ export function getWeightHistory(limit = 200) {
   const conn = ensureDb();
   const lim = Math.max(1, Math.min(5000, Number(limit) || 200));
   return conn.prepare(`
-    SELECT *
-    FROM weight_history
+    SELECT * FROM weight_history
     ORDER BY created_utc DESC
     LIMIT ?
   `).all(lim);
@@ -278,10 +317,7 @@ export function getWeightHistory(limit = 200) {
 export function getLatestWeight() {
   const conn = ensureDb();
   return conn.prepare(`
-    SELECT *
-    FROM weight_history
-    ORDER BY created_utc DESC
-    LIMIT 1
+    SELECT * FROM weight_history ORDER BY created_utc DESC LIMIT 1
   `).get() || null;
 }
 
@@ -304,37 +340,29 @@ export async function evaluatePendingTradeOutcomes() {
   for (const trade of pending) {
     const ticker = String(trade?.ticker || "").toUpperCase();
     if (!ticker) continue;
-
     try {
       const [quote, chart, vixQuote] = await Promise.all([
         fetchYahooQuote(ticker),
         fetchYahooChart(ticker),
         fetchYahooQuote("^VIX"),
       ]);
-
       const entry = toNum(trade?.entry_price, 0);
       const exit = toNum(quote?.price, null);
       if (entry <= 0 || exit == null) continue;
-
       const createdMs = new Date(String(trade.created_utc)).getTime();
       const day1 = pickCloseAtOrAfter(chart, createdMs + 1 * 24 * 60 * 60 * 1000);
       const day5 = pickCloseAtOrAfter(chart, createdMs + 5 * 24 * 60 * 60 * 1000);
       const day21 = pickCloseAtOrAfter(chart, createdMs + 21 * 24 * 60 * 60 * 1000);
-
       const retPct = calcDirectionalReturn(String(trade.action || "BUY"), entry, exit);
       const ret1d = day1 == null ? null : calcDirectionalReturn(String(trade.action || "BUY"), entry, day1);
       const ret5d = day5 == null ? null : calcDirectionalReturn(String(trade.action || "BUY"), entry, day5);
       const ret21d = day21 == null ? null : calcDirectionalReturn(String(trade.action || "BUY"), entry, day21);
-
       const stop = toNum(trade?.stop_loss, null);
       const target = toNum(trade?.take_profit, null);
       const isBuy = String(trade.action || "BUY") !== "SELL";
       const hitStop = stop == null ? 0 : (isBuy ? Number(exit <= stop) : Number(exit >= stop));
       const hitTarget = target == null ? 0 : (isBuy ? Number(exit >= target) : Number(exit <= target));
-
-      const outcome =
-        retPct == null ? "NEUTRAL" : retPct > 0.002 ? "WIN" : retPct < -0.002 ? "LOSS" : "NEUTRAL";
-
+      const outcome = retPct == null ? "NEUTRAL" : retPct > 0.002 ? "WIN" : retPct < -0.002 ? "LOSS" : "NEUTRAL";
       conn.prepare(`
         INSERT INTO trade_outcomes (
           outcome_id, trade_id, evaluated_utc, days_held, exit_price,
@@ -343,28 +371,14 @@ export async function evaluatePendingTradeOutcomes() {
           market_regime_during_hold, vix_during_hold_avg
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
-        randomUUID(),
-        trade.trade_id,
-        nowIso(),
+        randomUUID(), trade.trade_id, nowIso(),
         Math.max(1, Math.floor((Date.now() - createdMs) / (24 * 60 * 60 * 1000))),
-        exit,
-        retPct,
-        ret1d,
-        ret5d,
-        ret21d,
-        hitStop,
-        hitTarget,
-        outcome,
-        trade.market_regime || "unknown",
-        toNum(vixQuote?.price, null)
+        exit, retPct, ret1d, ret5d, ret21d, hitStop, hitTarget, outcome,
+        trade.market_regime || "unknown", toNum(vixQuote?.price, null)
       );
-
       inserted += 1;
-    } catch {
-      // skip one ticker failure
-    }
+    } catch { }
   }
-
   return { evaluated: inserted, pending: pending.length };
 }
 
@@ -382,18 +396,15 @@ export function getPerformanceStats() {
   const conn = ensureDb();
   const totalTrades = Number(conn.prepare("SELECT COUNT(*) AS c FROM trades").get()?.c || 0);
   const dataStart = conn.prepare("SELECT MIN(created_utc) AS m FROM trades").get()?.m || null;
-
   const outcomes = conn.prepare(`
     SELECT t.trade_id, t.market_regime, o.return_pct, o.return_5d, o.outcome
     FROM trades t
     JOIN trade_outcomes o ON o.trade_id = t.trade_id
     WHERE t.action IN ('BUY','SELL')
   `).all();
-
   const totalEvaluated = outcomes.length;
   const wins = outcomes.filter((r) => String(r.outcome) === "WIN").length;
   const winRate = totalEvaluated > 0 ? wins / totalEvaluated : 0;
-
   const byRegimeRows = conn.prepare(`
     SELECT
       COALESCE(t.market_regime, 'unknown') AS regime,
@@ -406,7 +417,6 @@ export function getPerformanceStats() {
     WHERE t.action IN ('BUY','SELL')
     GROUP BY COALESCE(t.market_regime, 'unknown')
   `).all();
-
   const byRegime = byRegimeRows.map((r) => ({
     regime: String(r.regime),
     trades: Number(r.n || 0),
@@ -414,29 +424,15 @@ export function getPerformanceStats() {
     avg_return: toNum(r.avg_return, 0),
     avg_return_5d: toNum(r.avg_return_5d, 0),
   }));
-
   const best = [...byRegime].sort((a, b) => Number(b.avg_return || 0) - Number(a.avg_return || 0))[0] || null;
   const worst = [...byRegime].sort((a, b) => Number(a.avg_return || 0) - Number(b.avg_return || 0))[0] || null;
-
-  const latestWeights = conn.prepare(`
-    SELECT * FROM weight_history
-    ORDER BY created_utc DESC
-    LIMIT 1
-  `).get() || null;
-
-  const latestRun = conn.prepare(`
-    SELECT * FROM learning_runs
-    ORDER BY created_utc DESC
-    LIMIT 1
-  `).get() || null;
-
+  const latestWeights = conn.prepare(`SELECT * FROM weight_history ORDER BY created_utc DESC LIMIT 1`).get() || null;
+  const latestRun = conn.prepare(`SELECT * FROM learning_runs ORDER BY created_utc DESC LIMIT 1`).get() || null;
   const avg5d = outcomes.length
     ? outcomes.map((r) => toNum(r.return_5d, null)).filter((v) => v != null).reduce((s, v, _, arr) => s + v / arr.length, 0)
     : 0;
-
   const riskOn = byRegime.find((x) => x.regime === "risk_on") || null;
   const riskOff = byRegime.find((x) => x.regime === "risk_off") || null;
-
   return {
     total_trades_logged: totalTrades,
     data_collection_started: dataStart,
@@ -457,16 +453,14 @@ export function getPerformanceStats() {
       target: 200,
       pct: Math.min(100, (totalTrades / 200) * 100),
     },
-    latest_learning_run: latestRun
-      ? {
-          run_id: latestRun.run_id,
-          created_utc: latestRun.created_utc,
-          trades_analyzed: Number(latestRun.trades_analyzed || 0),
-          improvement_pct: toNum(latestRun.improvement_pct, 0),
-          passed_validation: Number(latestRun.passed_validation || 0),
-          deployed: Number(latestRun.deployed || 0),
-        }
-      : null,
+    latest_learning_run: latestRun ? {
+      run_id: latestRun.run_id,
+      created_utc: latestRun.created_utc,
+      trades_analyzed: Number(latestRun.trades_analyzed || 0),
+      improvement_pct: toNum(latestRun.improvement_pct, 0),
+      passed_validation: Number(latestRun.passed_validation || 0),
+      deployed: Number(latestRun.deployed || 0),
+    } : null,
   };
 }
 
@@ -478,16 +472,11 @@ export function getDbMeta() {
 export function cleanupBadCryptoTrades() {
   const conn = ensureDb();
   const targets = conn.prepare(`
-    SELECT trade_id
-    FROM trades
-    WHERE (ticker = 'BTC' OR ticker = 'ETH')
-      AND entry_price < 100
+    SELECT trade_id FROM trades
+    WHERE (ticker = 'BTC' OR ticker = 'ETH') AND entry_price < 100
   `).all();
   const tradeIds = targets.map((r) => String(r.trade_id || "")).filter(Boolean);
-  if (!tradeIds.length) {
-    return { deletedTrades: 0, deletedOutcomes: 0 };
-  }
-
+  if (!tradeIds.length) return { deletedTrades: 0, deletedOutcomes: 0 };
   let deletedOutcomes = 0;
   const deleteOutcomeStmt = conn.prepare("DELETE FROM trade_outcomes WHERE trade_id = ?");
   const deleteTradeStmt = conn.prepare("DELETE FROM trades WHERE trade_id = ?");
@@ -499,7 +488,6 @@ export function cleanupBadCryptoTrades() {
   }
   return { deletedTrades: tradeIds.length, deletedOutcomes };
 }
-
 
 export function getStrategyPerformance() {
   const conn = ensureDb();
@@ -516,27 +504,21 @@ export function getStrategyPerformance() {
     GROUP BY t.strategy_name
     ORDER BY win_rate DESC
   `).all();
-
   const byRegime = conn.prepare(`
     SELECT t.strategy_name, COALESCE(t.market_regime,'unknown') as regime,
-           COUNT(*) as total,
-           AVG(o.return_5d) as avg_return
+           COUNT(*) as total, AVG(o.return_5d) as avg_return
     FROM trades t
     LEFT JOIN trade_outcomes o ON t.trade_id = o.trade_id
     WHERE t.strategy_name IS NOT NULL
     GROUP BY t.strategy_name, COALESCE(t.market_regime,'unknown')
   `).all();
-
   const activeSet = new Set(
     conn.prepare(`
-      SELECT DISTINCT strategy_name
-      FROM trades
-      WHERE strategy_name IS NOT NULL
-        AND created_utc >= datetime('now','-7 days')
+      SELECT DISTINCT strategy_name FROM trades
+      WHERE strategy_name IS NOT NULL AND created_utc >= datetime('now','-7 days')
     `).all().map((r) => String(r.strategy_name || ""))
   );
-
-  const decorate = rows.map((r) => {
+  return rows.map((r) => {
     const name = String(r.strategy_name || "unknown");
     const regimes = byRegime.filter((x) => String(x.strategy_name || "") === name);
     const best = [...regimes].sort((a,b) => Number(b.avg_return || -999) - Number(a.avg_return || -999))[0] || null;
@@ -552,6 +534,12 @@ export function getStrategyPerformance() {
       active: activeSet.has(name),
     };
   });
+}
 
-  return decorate;
+export function getSystemLog(limit = 200) {
+  const conn = ensureDb();
+  const lim = Math.max(1, Math.min(2000, Number(limit) || 200));
+  return conn.prepare(`
+    SELECT * FROM system_log ORDER BY created_utc DESC LIMIT ?
+  `).all(lim);
 }
