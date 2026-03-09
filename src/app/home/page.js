@@ -4,6 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { Cormorant_Garamond, IBM_Plex_Mono, Syne } from "next/font/google";
 import { useEffect, useMemo, useState } from "react";
+import AzulaThemeBackground from "@/components/AzulaThemeBackground";
+import SakuraThemeBackground from "@/components/SakuraThemeBackground";
 
 const cormorant = Cormorant_Garamond({
   subsets: ["latin"],
@@ -83,7 +85,7 @@ export default function HomeTabPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const saved = localStorage.getItem("theme_mode");
-    if (saved === "dark" || saved === "light" || saved === "cherry" || saved === "azula") {
+    if (saved === "dark" || saved === "light" || saved === "cherry" || saved === "azula" || saved === "alerik") {
       setTheme(saved);
     }
   }, []);
@@ -110,26 +112,42 @@ export default function HomeTabPage() {
 
   const isCherry = theme === "cherry";
   const isAzula = theme === "azula";
+  const isAlerik = theme === "alerik";
   const isLight = theme === "light" || isCherry || isAzula;
+
+  const setThemeMode = (mode) => {
+    const next = String(mode || "").toLowerCase();
+    if (!["dark", "light", "cherry", "azula", "alerik"].includes(next)) return;
+    setTheme(next);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("theme_mode", next);
+      window.dispatchEvent(new Event("theme-updated"));
+    }
+  };
 
   const pageClass = useMemo(() => {
     if (isCherry) return "cherry-mode bg-[#fffefc] text-[#3a2530]";
     if (isAzula) return "azula-mode bg-[#050506] text-[#efe5cb]";
+    if (isAlerik) return "alerik-mode bg-[#050505] text-[#f5f0e8]";
     if (isLight) return "light-mode bg-[#fbfdff] text-slate-900";
     return "dark-mode bg-slate-950 text-white";
-  }, [isCherry, isAzula, isLight]);
+  }, [isAlerik, isCherry, isAzula, isLight]);
 
   const ctaClass = isAzula
     ? "bg-[#cfb06a] text-[#101012] hover:bg-[#dec284]"
     : isCherry
       ? "bg-rose-600 text-white hover:bg-rose-700"
+      : isAlerik
+        ? "bg-[#cfb06a] text-[#101012] hover:bg-[#dec284]"
       : isLight
         ? "bg-blue-600 text-white hover:bg-blue-700"
         : "bg-cyan-500 text-slate-950 hover:bg-cyan-400";
 
   const shellClass = isLight
     ? "border-slate-300 bg-white/90 text-slate-800"
-    : "border-white/15 bg-slate-900/60 text-white/85";
+    : isAlerik
+      ? "border-[#c9a84c]/35 bg-[#0b0b0b]/90 text-[#f5f0e8]"
+      : "border-white/15 bg-slate-900/60 text-white/85";
 
   const cardClass = isLight
     ? "border-slate-300 bg-white/90 shadow-sm"
@@ -171,6 +189,8 @@ export default function HomeTabPage() {
 
   return (
     <div className={`min-h-screen relative overflow-hidden ${pageClass} ${syne.className}`}>
+      {isCherry && <SakuraThemeBackground />}
+      {isAzula && <AzulaThemeBackground />}
       <div className="pointer-events-none absolute inset-0 opacity-[0.16] [background-image:linear-gradient(to_right,rgba(148,163,184,0.22)_1px,transparent_1px),linear-gradient(to_bottom,rgba(148,163,184,0.22)_1px,transparent_1px)] [background-size:54px_54px]" />
       <div className={`pointer-events-none absolute inset-0 ${heroGlowClass} animate-panGlow`} />
 
@@ -184,20 +204,17 @@ export default function HomeTabPage() {
                   <span className="text-[10px]">▼</span>
                 </summary>
                 <div className={`absolute left-0 top-full mt-2 w-40 rounded-xl border p-1.5 shadow-2xl ${shellClass}`}>
-                  {["dark", "light", "cherry", "azula"].map((mode) => (
+                  {["dark", "light", "cherry", "azula", "alerik"].map((mode) => (
                     <button
                       key={mode}
-                      onClick={() => {
-                        setTheme(mode);
-                        if (typeof window !== "undefined") localStorage.setItem("theme_mode", mode);
-                      }}
+                      onClick={() => setThemeMode(mode)}
                       className={`mt-1 first:mt-0 w-full rounded-lg px-3 py-2 text-left text-xs font-semibold ${
                         theme === mode
                           ? "bg-blue-600 text-white"
                           : isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/85 hover:bg-white/10"
                       }`}
                     >
-                      {mode === "cherry" ? "Sakura" : mode === "azula" ? "Azula" : mode[0].toUpperCase() + mode.slice(1)}
+                      {mode === "cherry" ? "Sakura" : mode === "azula" ? "Azula" : mode === "alerik" ? "Alerik" : mode[0].toUpperCase() + mode.slice(1)}
                     </button>
                   ))}
                 </div>
@@ -235,7 +252,8 @@ export default function HomeTabPage() {
                 <Link href="/home" className={`px-3 py-1.5 rounded-lg text-xs ${isLight ? "hover:bg-slate-100 text-slate-700" : "hover:bg-white/10 text-white/85"}`}>Home</Link>
                 <Link href="/about" className={`px-3 py-1.5 rounded-lg text-xs ${isLight ? "hover:bg-slate-100 text-slate-700" : "hover:bg-white/10 text-white/85"}`}>About</Link>
                 <Link href="/market-school" className={`px-3 py-1.5 rounded-lg text-xs ${isLight ? "hover:bg-slate-100 text-slate-700" : "hover:bg-white/10 text-white/85"}`}>Learn</Link>
-                <Link href="/simulator" className={`px-3 py-1.5 rounded-lg text-xs ${isLight ? "hover:bg-slate-100 text-slate-700" : "hover:bg-white/10 text-white/85"}`}>Simulator</Link>
+                <Link href="/bots" className={`px-3 py-1.5 rounded-lg text-xs ${isLight ? "hover:bg-slate-100 text-slate-700" : "hover:bg-white/10 text-white/85"}`}>Bots</Link>
+                <Link href="/global-market" className={`px-3 py-1.5 rounded-lg text-xs ${isLight ? "hover:bg-slate-100 text-slate-700" : "hover:bg-white/10 text-white/85"}`}>Global Market</Link>
               </div>
             </details>
           </div>
@@ -262,14 +280,14 @@ export default function HomeTabPage() {
 
           <div className={`mt-5 inline-flex rounded-xl overflow-hidden border reveal reveal-up delay-4 ${shellClass}`}>
             <Link href="/home" className="px-3 py-1.5 text-xs font-semibold inline-flex items-center bg-blue-600 text-white">Home</Link>
-            <Link href="/" className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"}`}>Stock</Link>
-            <Link href="/" className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"}`}>Crypto</Link>
-            <Link href="/" className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"}`}>Metals</Link>
-            <Link href="/" className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"}`}>FX</Link>
+            <Link href="/briefing" className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"}`}>Stock</Link>
+            <Link href="/briefing" className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"}`}>Crypto</Link>
+            <Link href="/global-market" className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"}`}>Metals</Link>
+            <Link href="/global-market" className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"}`}>FX</Link>
             <Link href="/market-school" className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"}`}>Learn</Link>
-            <Link href="/simulator" className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"}`}>Simulator</Link>
-            <Link href="/" className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"}`}>Geo Politics</Link>
-            <Link href="/" className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"}`}>Global Market</Link>
+            <Link href="/bots" className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"}`}>Bots</Link>
+            <Link href="/briefing" className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"}`}>Geo Politics</Link>
+            <Link href="/global-market" className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"}`}>Global Market</Link>
           </div>
         </section>
 
@@ -285,7 +303,7 @@ export default function HomeTabPage() {
                 <p className={`font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>Learn first. Invest second.</p>
               </div>
               <div className="mt-6 flex flex-wrap gap-3 reveal reveal-left delay-4">
-                <Link href="/" className={`inline-flex rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-300 hover:-translate-y-0.5 ${ctaClass}`}>Start Researching →</Link>
+                <Link href="/briefing" className={`inline-flex rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-300 hover:-translate-y-0.5 ${ctaClass}`}>Start Researching →</Link>
                 <Link href="/about" className={`inline-flex rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all duration-300 hover:-translate-y-0.5 ${isLight ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-50" : "border-white/15 bg-slate-900/50 text-white/85 hover:bg-white/10"}`}>Read Our Story →</Link>
               </div>
               <p className={`mt-4 text-xs ${isLight ? "text-slate-500" : "text-white/60"}`}>Paper trading simulator for educational purposes only. No real money required. Not financial advice.</p>
@@ -437,7 +455,7 @@ export default function HomeTabPage() {
           <h2 className={`text-2xl md:text-3xl font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>Start With Practice</h2>
           <p className={`mt-3 text-sm md:text-base ${mutedTextClass}`}>Make trades. Watch ASTRA. Read the reasoning. Learn in a safe environment. That is the whole point.</p>
           <div className="mt-5 flex flex-wrap justify-center gap-3">
-            <Link href="/simulator" className={`inline-flex rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-300 hover:-translate-y-0.5 ${ctaClass}`}>Open Simulator →</Link>
+            <Link href="/bots" className={`inline-flex rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-300 hover:-translate-y-0.5 ${ctaClass}`}>Open Bots →</Link>
             <Link href="/about" className={`inline-flex rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all duration-300 hover:-translate-y-0.5 ${isLight ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-50" : "border-white/15 bg-slate-900/50 text-white/85 hover:bg-white/10"}`}>Read Our Story →</Link>
           </div>
         </section>
