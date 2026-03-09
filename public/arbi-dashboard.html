@@ -655,7 +655,7 @@ tr:last-child td{border-bottom:none;}
 <script>
 // ── SUPABASE ──────────────────────────────────────────────────────────────────
 const SUPABASE_URL      = 'https://htnkjncvkzbberblhnve.supabase.co';
-const SUPABASE_ANON_KEY = window.__SUPABASE_ANON_KEY__ || '';  // injected at deploy or set below
+const SUPABASE_ANON_KEY = document.querySelector('meta[name="supabase-anon-key"]')?.content || '';
 const _sb = (typeof supabase !== 'undefined' && SUPABASE_ANON_KEY)
   ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
   : null;

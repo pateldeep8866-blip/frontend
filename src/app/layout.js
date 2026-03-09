@@ -27,6 +27,9 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
+      <head>
+        <meta name="supabase-anon-key" content={process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''} />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
