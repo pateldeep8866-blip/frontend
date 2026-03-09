@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import SakuraThemeBackground from "@/components/SakuraThemeBackground";
+import AzulaThemeBackground from "@/components/AzulaThemeBackground";
 
 const PILLARS = [
   {
@@ -99,6 +100,7 @@ export default function AboutPage() {
   return (
     <div className={`min-h-screen relative overflow-hidden ${pageClass}`}>
       {isCherry && <SakuraThemeBackground />}
+      {isAzula && <AzulaThemeBackground />}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_10%,rgba(125,211,252,0.12),transparent_40%),radial-gradient(circle_at_80%_70%,rgba(147,197,253,0.08),transparent_42%)]" />
 
       <main className="relative z-10 mx-auto w-full max-w-6xl px-6 py-10 md:py-14">
@@ -107,7 +109,7 @@ export default function AboutPage() {
             About Arthastra
           </div>
           <Link
-            href="/"
+            href="/home?mode=news"
             className={`px-3 py-1.5 rounded-lg border text-xs font-semibold ${
               isAlerik
                 ? "border-[#c9a84c]/28 bg-[#0b0b0b]/85 text-[#f5f0e8] hover:bg-[#16120c]"
