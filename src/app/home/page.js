@@ -4329,7 +4329,7 @@ export default function Home() {
               {t("marketSchool")}
             </Link>
             <Link
-              href="/simulator"
+              href="/bots"
               onClick={closeParentDropdown}
               className={`px-3 py-1.5 rounded-lg border text-xs ${
                 isLight
@@ -4814,7 +4814,7 @@ export default function Home() {
               {t("learn")}
             </Link>
             <Link
-              href="/simulator"
+              href="/bots"
               className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center gap-1 ${
                 isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"
               }`}

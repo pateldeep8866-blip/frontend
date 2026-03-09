@@ -25,6 +25,7 @@ import threading
 import random
 from datetime import datetime
 from utils.logger import get_logger
+from storage.supabase_writer import write_trade, write_stats
 
 log = get_logger("simulation.engine")
 
@@ -447,6 +448,8 @@ class SimulationEngine:
         conn.commit()
         conn.close()
 
+        write_trade(self.sim_user, sym, signal["strategy"], signal.get("action","BUY"), price, status="OPEN", score=signal.get("score",0))
+
         log.info("[SIM] ENTER %s %s @ $%.4f size=$%.2f score=%.0f",
                  signal.get("action","BUY"), sym, price, size_usd, signal.get("score",0))
 
@@ -505,6 +508,8 @@ class SimulationEngine:
               round(hold_hrs,2), self.sim_user, sym))
         conn.commit()
         conn.close()
+
+        write_trade(self.sim_user, sym, pos["strategy"], pos["side"], pos["entry_price"], status="CLOSED", exit_price=exit_price, pnl_pct=pnl_pct, profitable=pnl_pct>0, hold_hrs=hold_hrs)
 
         log.info("[SIM] EXIT %s pnl=%.2f%% ($%.2f) reason=%s | balance=$%.2f",
                  sym, pnl_pct*100, pnl_usd, reason, self.balance)
@@ -569,6 +574,7 @@ class SimulationEngine:
         """).fetchall()
         conn.close()
 
+        write_stats({"total_sim_trades": total, "win_rate_pct": round(wins/total*100,1) if total else 0})
         return {
             "total_sim_trades":  total,
             "win_rate_pct":      round(wins/total*100, 1) if total else 0,

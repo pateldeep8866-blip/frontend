@@ -479,6 +479,14 @@ export default function SimulatorPage() {
 
   useEffect(() => {
     try {
+      const params = new URLSearchParams(window.location.search);
+      const bot = String(params.get("bot") || "").toLowerCase().trim();
+      if (bot === "arbi" || bot === "quant") setBotMode(bot);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    try {
       localStorage.setItem(SIM_RISK_LEVEL_KEY, String(riskLevel || "MODERATE").toUpperCase());
     } catch {}
   }, [riskLevel]);
@@ -2094,7 +2102,7 @@ export default function SimulatorPage() {
           <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Link
-              href="/"
+              href="/home"
               className={`px-3 py-1.5 rounded-lg border text-xs ${
                 isLight ? "border-slate-300 bg-white/90 text-slate-700 hover:bg-slate-100" : "border-white/15 bg-slate-900/60 text-white/85 hover:bg-slate-800/70"
               }`}
@@ -2220,6 +2228,16 @@ export default function SimulatorPage() {
                 <div className={`mt-1 text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>Watchlist</div>
                 <div className={`mt-1 text-xs ${isLight ? "text-slate-600" : "text-white/70"}`}>Signal-only, no auto-execution.</div>
               </div>
+            </div>
+            <div className="mt-4 flex items-center gap-2">
+              <Link
+                href="/home"
+                className={`px-3 py-1.5 rounded-lg border text-xs font-semibold ${
+                  isLight ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-100" : "border-white/15 bg-white/10 text-white/85 hover:bg-white/15"
+                }`}
+              >
+                Back Home
+              </Link>
             </div>
           </section>
         )}
