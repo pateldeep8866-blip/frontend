@@ -6364,61 +6364,6 @@ export default function Home() {
             </div>
         )}
 
-        {isNewsMode && (
-          <div className="mb-6">
-            <Card
-              title={tx("World Market Impact News")}
-              right={
-                <button
-                  onClick={fetchMarketNews}
-                  className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs"
-                >
-                  {tx("Refresh")}
-                </button>
-              }
-            >
-              <SummaryPanel label={tx("Summary")} text={marketNewsDigest} isLight={isLight} className="mb-4" />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {localizedMarketNewsWithSummary.slice(0, 24).map((n, idx) => (
-                  <a
-                    key={`${n.url}-${idx}`}
-                    href={n.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="group block rounded-xl border border-white/10 bg-white/5 p-3 hover:bg-white/10 transition-all"
-                  >
-                    <div className="flex gap-3">
-                      <div className="relative w-20 h-20 shrink-0 rounded-lg overflow-hidden border border-white/10">
-                        <div className="absolute inset-0 bg-gradient-to-br from-blue-600/35 via-cyan-500/20 to-slate-800/30" />
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          {faviconUrlFor(n.url) ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={faviconUrlFor(n.url)}
-                              alt="Source"
-                              className="h-9 w-9 rounded-full bg-white/90 p-1.5 ring-1 ring-white/30"
-                            />
-                          ) : (
-                            <div className="h-9 w-9 rounded-full bg-white/20" />
-                          )}
-                        </div>
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-sm text-blue-300 group-hover:underline line-clamp-3">{n.headlineDisplay}</div>
-                        <div className="mt-1 text-xs text-white/70 line-clamp-3">{n.laymanSummary}</div>
-                        <div className="mt-2 text-[11px] text-white/50">
-                          {[n.source || safeDomainFromUrl(n.url), n.datetime].filter(Boolean).join(" • ") || "Global feed"}
-                        </div>
-                        <div className="mt-1 text-[11px] text-white/40 truncate">{safeDomainFromUrl(n.url)}</div>
-                      </div>
-                    </div>
-                  </a>
-                ))}
-                {localizedMarketNewsWithSummary.length === 0 && <div className="text-sm text-white/60">{tx("No world-impact headlines yet.")}</div>}
-              </div>
-            </Card>
-          </div>
-        )}
 
         {isGlobalMarketMode && (
           <div className="mb-6">
