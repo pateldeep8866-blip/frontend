@@ -694,6 +694,39 @@
   </div>
 </section>
 
+
+<!-- ═══════════════════ SYSTEM CHANGELOG ═══════════════════ -->
+<section class="section" id="sec-changelog">
+  <div class="section-hd">
+    <h2 class="section-title">System Changelog</h2>
+    <span class="section-sub">How we improve ASTRA's pick quality — documented</span>
+  </div>
+
+  <div id="changelog-fixes"></div>
+
+  <div class="card" style="margin-top:24px;">
+    <div class="card-title" style="margin-bottom:16px;">Live Signal Gate Activity</div>
+    <div class="table-stats" id="gate-summary" style="margin-bottom:16px;">
+      <div class="tstat">Accepted <span id="gate-accepted">—</span></div>
+      <div class="tstat">Rejected <span id="gate-rejected">—</span></div>
+      <div class="tstat">Low Confidence Blocked <span id="gate-conf">—</span></div>
+      <div class="tstat">Duplicates Blocked <span id="gate-dupe">—</span></div>
+      <div class="tstat">Conflicts Blocked <span id="gate-conflict">—</span></div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Time</th><th>Ticker</th><th>Action</th>
+          <th>Confidence</th><th>Status</th><th>Reason</th>
+        </tr>
+      </thead>
+      <tbody id="changelog-tbody">
+        <tr class="no-data-row"><td colspan="6">Loading gate activity…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
 <!-- ═══════════════════ QUANT MODEL ═══════════════════ -->
 <section class="section" id="sec-quant">
   <div class="section-hd">
@@ -1119,9 +1152,82 @@ const obs = new IntersectionObserver(entries => {
 }, { threshold: 0.07 });
 document.querySelectorAll('.section').forEach(s => obs.observe(s));
 
+
+// ── CHANGELOG ────────────────────────────────────────────────────────
+async function loadChangelog() {
+  try {
+    const res = await fetch('/api/investors/changelog', { cache: 'no-store' });
+    if (!res.ok) return;
+    const d = await res.json();
+    if (!d.ok) return;
+
+    // Render fixes
+    const fixContainer = document.getElementById('changelog-fixes');
+    if (fixContainer && d.fixes) {
+      fixContainer.innerHTML = d.fixes.map(f => `
+        <div class="roadmap-card" style="margin-bottom:16px;border-left:3px solid var(--green-dim);">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+            <div class="roadmap-tag" style="background:rgba(61,138,92,.15);color:var(--green-bright);">✓ Deployed ${f.date}</div>
+            <div class="roadmap-title" style="margin:0;">${f.title}</div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;">
+            <div style="background:rgba(196,80,80,.08);border:1px solid rgba(196,80,80,.2);border-radius:6px;padding:10px;">
+              <div style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.12em;color:#c45050;margin-bottom:4px;">PROBLEM</div>
+              <div style="font-size:12px;color:var(--text-muted);">${f.problem}</div>
+              <div style="font-family:'DM Mono',monospace;font-size:10px;color:#c45050;margin-top:6px;">${f.stat_before}</div>
+            </div>
+            <div style="background:rgba(61,138,92,.08);border:1px solid rgba(61,138,92,.2);border-radius:6px;padding:10px;">
+              <div style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.12em;color:var(--green-bright);margin-bottom:4px;">FIX</div>
+              <div style="font-size:12px;color:var(--text-muted);">${f.fix}</div>
+              <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--green-bright);margin-top:6px;">${f.stat_after}</div>
+            </div>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);font-style:italic;">Impact: ${f.impact}</div>
+        </div>
+      `).join('');
+    }
+
+    // Gate summary
+    const s = d.summary || {};
+    document.getElementById('gate-accepted').textContent  = s.accepted ?? '—';
+    document.getElementById('gate-rejected').textContent  = s.rejected ?? '—';
+    document.getElementById('gate-conf').textContent      = s.byReason?.confidence_below_floor ?? '—';
+    document.getElementById('gate-dupe').textContent      = s.byReason?.duplicate_same_day ?? '—';
+    document.getElementById('gate-conflict').textContent  = s.byReason?.direction_conflict ?? '—';
+
+    // Recent log table
+    const tbody = document.getElementById('changelog-tbody');
+    if (!d.recentLog || d.recentLog.length === 0) {
+      tbody.innerHTML = '<tr class="no-data-row"><td colspan="6">No gate activity yet — awaiting next ASTRA cycle.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = d.recentLog.map(r => {
+      const accepted = r.event_type === 'PICK_ACCEPTED';
+      const time = new Date(r.created_utc).toLocaleString();
+      const reasonLabel = {
+        confidence_below_floor: 'Low confidence',
+        duplicate_same_day: 'Duplicate',
+        direction_conflict: 'Direction conflict',
+        passed_all_gates: 'Passed',
+      }[r.reason] || r.reason;
+      return `<tr>
+        <td style="color:var(--text-muted);font-size:11px;">${time}</td>
+        <td class="ticker">${r.ticker}</td>
+        <td>${r.action}</td>
+        <td><div class="conf-bar"><div class="conf-track"><div class="conf-fill ${r.confidence>=70?'hi':''}" style="width:${Math.min(r.confidence,100)}%"></div></div><span class="conf-pct">${r.confidence}%</span></div></td>
+        <td><span class="${accepted?'badge-win':'badge-loss'}">${accepted?'Accepted':'Blocked'}</span></td>
+        <td style="font-size:11px;color:var(--text-muted);">${reasonLabel}</td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    console.error('Changelog load error:', e);
+  }
+}
+
 // ── INIT ─────────────────────────────────────────────────────────────
 loadStats();
 loadPicks('7d');
+loadChangelog();
 </script>
 </body>
 </html>
