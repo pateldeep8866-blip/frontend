@@ -45,6 +45,7 @@
     overflow-x: hidden;
   }
 
+  /* grain */
   body::after {
     content:'';
     position:fixed; inset:0;
@@ -132,6 +133,7 @@
     margin-bottom:18px; font-weight:300;
   }
 
+  /* ── DATA DISCLAIMER ── */
   .data-disclaimer {
     display:inline-flex; align-items:center; gap:8px;
     border:1px solid var(--green-mid);
@@ -180,8 +182,13 @@
     font-size:36px; font-weight:600; color:var(--cream);
     line-height:1; margin-bottom:6px;
   }
+  .metric-value .up { color:var(--green-bright); font-size:15px; vertical-align:super; }
   .metric-sub { font-size:11px; color:var(--text-muted); font-family:'DM Mono',monospace; }
 
+  .loading-val {
+    font-family:'DM Mono',monospace; font-size:14px;
+    color:var(--text-muted); letter-spacing:.08em;
+  }
   .shimmer {
     display:inline-block; width:80px; height:14px;
     background:linear-gradient(90deg,var(--border) 25%,var(--border-light) 50%,var(--border) 75%);
@@ -454,7 +461,7 @@
   .success-title { font-family:'Playfair Display',serif; font-size:24px; color:var(--cream); margin-bottom:10px; }
   .success-sub { font-size:14px; color:var(--text-dim); }
 
-  /* ── CTA ── */
+  /* ── CTA SECTION ── */
   .cta-section {
     padding:72px 52px;
     border-top:1px solid var(--border);
@@ -519,6 +526,15 @@
   .hero > *:nth-child(5){animation-delay:.7s}
   .hero > *:nth-child(6){animation-delay:.85s}
 
+  /* ── DATA NOTE ── */
+  .data-note {
+    display:inline-flex; align-items:center; gap:7px;
+    font-family:'DM Mono',monospace; font-size:9px;
+    letter-spacing:.12em; color:var(--green-bright);
+    text-transform:uppercase; margin-bottom:28px;
+  }
+  .data-note::before { content:'◆'; font-size:8px; }
+
   .no-data-row td {
     text-align:center; padding:40px;
     color:var(--text-muted); font-family:'DM Mono',monospace;
@@ -528,7 +544,7 @@
 </head>
 <body>
 
-<!-- ── NAV ── -->
+<!-- ═══════════════════════════════ NAV ═══════════════════════════════ -->
 <nav>
   <div class="nav-logo">Arthastra</div>
   <div class="nav-center">
@@ -546,7 +562,7 @@
   </div>
 </nav>
 
-<!-- ── HERO ── -->
+<!-- ═══════════════════════════════ HERO ═══════════════════════════════ -->
 <section class="hero">
   <div class="hero-eyebrow">Restricted // Investor Briefing</div>
   <h1 class="hero-title">
@@ -567,7 +583,7 @@
     <div class="tag">Category: Fintech / Defense Intel</div>
   </div>
 
-  <div class="metrics-strip">
+  <div class="metrics-strip" id="metrics-strip">
     <div class="metric">
       <div class="metric-label">Total Picks Logged</div>
       <div class="metric-value" id="stat-picks"><span class="shimmer"></span></div>
@@ -591,7 +607,7 @@
   </div>
 </section>
 
-<!-- ── OPPORTUNITY ── -->
+<!-- ═══════════════════ OPPORTUNITY ═══════════════════ -->
 <section class="section" id="sec-opportunity">
   <div class="section-hd">
     <h2 class="section-title">The Opportunity</h2>
@@ -599,7 +615,7 @@
   </div>
   <div class="pos-grid">
     <div class="pos-card market">
-      <div class="pos-icon">↗ Market Opportunity</div>
+      <div class="pos-icon">◆ Market Opportunity</div>
       <div class="pos-title">$2.4T Retail Investment Market</div>
       <div class="pos-body">Bloomberg Terminal costs $24,000/yr. We deliver institutional-grade signal at 1% of the price — AI analytics and defense intelligence purpose-built for the retail investor.</div>
       <div class="pos-tags"><span class="pos-tag">TAM: $24B addressable</span></div>
@@ -611,7 +627,7 @@
       <div class="pos-tags"><span class="pos-tag">30 days</span><span class="pos-tag">Production</span><span class="pos-tag">Live</span></div>
     </div>
     <div class="pos-card comps">
-      <div class="pos-icon">◈ Comparables</div>
+      <div class="pos-icon">● Comparables</div>
       <div class="pos-title">Bloomberg + Palantir + Koyfin</div>
       <div class="pos-body">Bloomberg built market data infrastructure. Palantir built defense analytics. Koyfin built beautiful data. Arthastra merges all three — for the retail investor, at retail price.</div>
       <div class="pos-tags"><span class="pos-tag">Bloomberg</span><span class="pos-tag">Palantir</span><span class="pos-tag">Koyfin</span></div>
@@ -619,7 +635,7 @@
   </div>
 </section>
 
-<!-- ── ASTRA PICKS ── -->
+<!-- ═══════════════════ ASTRA PICKS ═══════════════════ -->
 <section class="section" id="sec-picks">
   <div class="section-hd">
     <h2 class="section-title">ASTRA Picks Performance</h2>
@@ -677,14 +693,14 @@
   </div>
 </section>
 
-<!-- ── QUANT MODEL ── -->
+<!-- ═══════════════════ QUANT MODEL ═══════════════════ -->
 <section class="section" id="sec-quant">
   <div class="section-hd">
     <h2 class="section-title">Quant Model</h2>
     <span class="section-sub">Multi-asset performance breakdown</span>
   </div>
   <div class="roadmap-card">
-    <div class="roadmap-tag">🔬 Live Soon</div>
+    <div class="roadmap-tag">🗓 Live Soon</div>
     <div class="roadmap-title">Full Quant Breakdown — In Development</div>
     <div class="roadmap-body">
       The quant model is actively processing picks across equities, crypto, commodities, and FX. Asset-class accuracy breakdowns, rolling accuracy trend charts, and pick volume analytics will populate here automatically as sufficient data accumulates. We show nothing until the numbers are real.
@@ -698,14 +714,14 @@
   </div>
 </section>
 
-<!-- ── ARBI SIGNALS ── -->
+<!-- ═══════════════════ ARBI ═══════════════════ -->
 <section class="section" id="sec-arbi">
   <div class="section-hd">
     <h2 class="section-title">Arbi Signals — Crypto Arbitrage</h2>
     <span class="section-sub">Cross-exchange inefficiencies</span>
   </div>
   <div class="roadmap-card">
-    <div class="roadmap-tag">🔬 Live Soon</div>
+    <div class="roadmap-tag">🗓 Live Soon</div>
     <div class="roadmap-title">Cross-Exchange Arbitrage Engine — In Development</div>
     <div class="roadmap-body">
       The Arbi engine identifies price inefficiencies across exchanges in real time. Signal accuracy, pair-level performance, and profit opportunity tracking will surface here once the engine goes live. We are building the infrastructure to ensure signal quality before we open access.
@@ -718,14 +734,14 @@
   </div>
 </section>
 
-<!-- ── WAR ROOM ── -->
+<!-- ═══════════════════ WAR ROOM ═══════════════════ -->
 <section class="section" id="sec-warroom">
   <div class="section-hd">
     <h2 class="section-title">War Room Alpha — Defense Sector Intelligence</h2>
     <span class="section-sub">Geopolitical signal mapping</span>
   </div>
   <div class="roadmap-card">
-    <div class="roadmap-tag">🔬 Live Soon</div>
+    <div class="roadmap-tag">🗓 Live Soon</div>
     <div class="roadmap-title">Geopolitical → Market Correlation Engine — In Development</div>
     <div class="roadmap-body">
       War Room Alpha maps active geopolitical conflicts to defense sector equities, tracking the lag between conflict escalation and stock price movement. This is Arthastra's core differentiator — institutional-grade defense intelligence made accessible. Signal data will populate here as the engine goes live.
@@ -739,7 +755,7 @@
   </div>
 </section>
 
-<!-- ── PLATFORM STATS ── -->
+<!-- ═══════════════════ PLATFORM STATS ═══════════════════ -->
 <section class="section" id="sec-platform">
   <div class="section-hd">
     <h2 class="section-title">Platform Stats — Live Metrics</h2>
@@ -760,8 +776,8 @@
       <div class="p-lbl">Days Live</div>
     </div>
     <div class="p-stat">
-      <div class="p-val" id="plat-cumret"><span class="shimmer"></span></div>
-      <div class="p-lbl">Cumulative Return</div>
+      <div class="p-val" id="plat-wl"><span class="shimmer"></span></div>
+      <div class="p-lbl">Waitlist Users</div>
     </div>
   </div>
 
@@ -791,7 +807,7 @@
   </div>
 </section>
 
-<!-- ── CTA ── -->
+<!-- ═══════════════════ CTA ═══════════════════ -->
 <section class="cta-section section" id="sec-cta">
   <div class="cta-left">
     <h2 class="cta-title">Ready to discuss an investment in Arthastra?</h2>
@@ -808,7 +824,7 @@
   </div>
 </section>
 
-<!-- ── FOOTER ── -->
+<!-- ═══════════════════ FOOTER ═══════════════════ -->
 <footer>
   <div class="footer-logo">Arthastra</div>
   <div class="footer-note">
@@ -818,7 +834,7 @@
   <div class="footer-right">FEB 2026 · SEED STAGE</div>
 </footer>
 
-<!-- ── INVEST MODAL ── -->
+<!-- ═══════════════════ INVEST MODAL ═══════════════════ -->
 <div class="modal-overlay" id="invest-modal" onclick="closeModalOutside(event)">
   <div class="modal">
     <button class="modal-close" onclick="closeModal()">✕ CLOSE</button>
@@ -879,7 +895,7 @@
   </div>
 </div>
 
-<!-- ── SCRIPTS ── -->
+<!-- ═══════════════════ SCRIPTS ═══════════════════ -->
 <script>
 // ── EMAILJS CONFIG ──────────────────────────────────────────────────
 // Sign up at emailjs.com, create a Gmail service + template with vars:
@@ -894,7 +910,7 @@ const EMAILJS_TEMPLATE_ID = 'YOUR_TEMPLATE_ID';  // ← replace
 try { emailjs.init(EMAILJS_PUBLIC_KEY); } catch(e) { console.warn('EmailJS init skipped:', e); }
 
 // ── DATA LAYER ───────────────────────────────────────────────────────
-// All data comes from /api/investors/briefing (wired to the trade DB)
+// All stats and pick data come from /api/investors/briefing
 
 async function fetchBriefing(window = 'all') {
   try {
@@ -908,7 +924,7 @@ async function fetchBriefing(window = 'all') {
 
 function fmtVal(val, suffix = '', prefix = '') {
   if (val === null || val === undefined) {
-    return '<span style="color:var(--text-muted);font-size:18px;font-family:\'DM Mono\',monospace;letter-spacing:.06em;">—</span>';
+    return '<span style="color:var(--text-muted);font-size:16px;font-family:\'DM Mono\',monospace">Awaiting data</span>';
   }
   return `${prefix}${val}${suffix}`;
 }
@@ -928,24 +944,15 @@ async function loadStats() {
   document.getElementById('plat-picks').innerHTML   = fmtVal(d.totalPicks);
   document.getElementById('plat-winrate').innerHTML = fmtVal(d.winRatePct, '%');
   document.getElementById('plat-days').innerHTML    = fmtVal(d.days);
+  document.getElementById('plat-wl').innerHTML      = fmtVal(d.waitlistCount);
 
   const cumRet = d.cumulativeReturnPct;
-  document.getElementById('plat-cumret').innerHTML  = fmtVal(
-    cumRet != null ? (cumRet > 0 ? '+' : '') + cumRet : null, '%'
-  );
   document.getElementById('equity-gain').innerHTML  = fmtVal(
     cumRet != null ? (cumRet > 0 ? '+' : '') + cumRet : null, '%'
   );
 
-  // Draw equity curve if we have pick data
-  if (d.picks && d.picks.length > 1) {
-    drawEquityCurve(d.picks);
-  }
-
-  // Monthly bars
+  if (d.picks && d.picks.length > 1) drawEquityCurve(d.picks);
   renderMonthlyBars(d.monthlyWinRates || []);
-
-  // Render scatter from all picks
   renderScatter(d.picks || []);
 }
 
@@ -960,7 +967,7 @@ async function loadPicks(window = '7d') {
 
   const tbody = document.getElementById('picks-tbody');
   if (!d.picks || d.picks.length === 0) {
-    tbody.innerHTML = `<tr class="no-data-row"><td colspan="6">No pick data for this window — check back as picks close.</td></tr>`;
+    tbody.innerHTML = `<tr class="no-data-row"><td colspan="6">No pick data available yet — check back as picks close.</td></tr>`;
     return;
   }
 
@@ -1006,33 +1013,25 @@ function renderScatter(picks) {
   const svg = document.getElementById('scatter-svg');
   const label = document.getElementById('scatter-label');
   if (!picks || picks.length === 0) return;
-
   const withData = picks.filter(p => p.confidence != null && p.returnPct != null);
   if (withData.length === 0) return;
-
   if (label) label.remove();
-
-  // Map confidence (50–100) → x(40–340), returnPct (-20 to +20) → y(160–20)
   const dots = withData.map(p => {
     const x = 40 + ((p.confidence - 50) / 50) * 300;
     const y = 90 - Math.min(Math.max(p.returnPct, -20), 20) * 3.5;
     const col = p.outcome === 'win' ? '#5cb87a' : '#c45050';
     return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="${col}" opacity=".7"/>`;
   }).join('');
-
-  const g = document.getElementById('equity-path-group') || document.createElementNS('http://www.w3.org/2000/svg', 'g');
-  g.setAttribute('id', 'scatter-dots');
+  const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
   g.innerHTML = dots;
   svg.appendChild(g);
 }
 
 function drawEquityCurve(picks) {
   if (!picks || picks.length < 2) return;
-
   const group = document.getElementById('equity-path-group');
   const msg   = document.getElementById('equity-msg');
   if (msg) msg.remove();
-
   let running = 100;
   const points = picks.slice().reverse().map((p, i) => {
     running += (p.returnPct || 0);
@@ -1041,17 +1040,14 @@ function drawEquityCurve(picks) {
     const y = 122 - ((Math.min(Math.max(running, minV), maxV) - minV) / (maxV - minV)) * 100;
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   });
-
   const polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
   polyline.setAttribute('points', points.join(' '));
   polyline.setAttribute('fill', 'none');
   polyline.setAttribute('stroke', '#3d8a5c');
   polyline.setAttribute('stroke-width', '1.5');
-
   const fill = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
   fill.setAttribute('points', `10,122 ${points.join(' ')} ${(10 + 740).toFixed(1)},122`);
   fill.setAttribute('fill', 'url(#eq)');
-
   group.appendChild(fill);
   group.appendChild(polyline);
 }
