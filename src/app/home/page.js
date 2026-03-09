@@ -4781,14 +4781,14 @@ export default function Home() {
           <div className={`mt-5 inline-flex rounded-xl overflow-hidden border ${
             isLight ? "border-slate-300 bg-white/85 shadow-sm" : "border-white/15 bg-slate-900/60"
           }`}>
-            <Link
-              href="/home"
-              className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${
-                isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"
+            <button
+              onClick={() => setAssetMode("news")}
+              className={`px-3 py-1.5 text-xs font-semibold ${
+                assetMode === "news" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-700" : "bg-transparent text-white/80"
               }`}
             >
               {t("home")}
-            </Link>
+            </button>
             <button
               onClick={() => setAssetMode("stock")}
               className={`px-3 py-1.5 text-xs font-semibold ${
