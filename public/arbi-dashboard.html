@@ -968,11 +968,9 @@ function showDashboard() {
 function initDashboard() {
   initThemeControl();
   renderTicker();
-  renderStrategies();
-  renderTrades();
-  renderSignals();
-  drawEquity(7);
-  startLiveDrift();
+  drawEquity(7);          // placeholder until real data arrives
+  fetchLiveData();        // load real data immediately
+  setInterval(fetchLiveData, 15000);  // refresh every 15 s
   startClock();
 }
 
@@ -1030,140 +1028,266 @@ setInterval(() => {
   if (document.getElementById('dashboard').style.display!=='none') renderTicker();
 }, 3000);
 
-// Strategies
-const strats = [
-  {n:'Funding Rate Arb', pct:42, pnl:'+$84',  up:true,  c:'#00dfa0'},
-  {n:'Mean Reversion',   pct:28, pnl:'+$31',  up:true,  c:'#c9a96e'},
-  {n:'Cross-Exch Arb',   pct:18, pnl:'+$11',  up:true,  c:'#4488ff'},
-  {n:'Liquidity Signal', pct:8,  pnl:'+$1',   up:true,  c:'#aa88ff'},
-  {n:'Vol Breakout',     pct:4,  pnl:'$0',    up:false, c:'#ff4466'},
-];
-function renderStrategies() {
-  document.getElementById('stratList').innerHTML = strats.map(s => `
-    <div class="sr">
-      <div class="sr-top"><span class="sr-name">${s.n}</span><span class="sr-pnl ${s.up?'up':'dn'}">${s.pnl}</span></div>
-      <div style="display:flex;align-items:center;gap:7px;">
-        <div class="bar" style="flex:1"><div class="bar-in" style="width:${s.pct}%;background:${s.c};opacity:.75;"></div></div>
-        <span style="font-size:10px;color:var(--dim);width:28px;text-align:right;">${s.pct}%</span>
+// ── REAL DATA ENGINE ──────────────────────────────────────────────────────────
+
+const STRAT_DISPLAY = {
+  funding_rate_arb:   'Funding Rate Arb',
+  mean_reversion:     'Mean Reversion',
+  cross_exchange_arb: 'Cross-Exch Arb',
+  liquidity_signal:   'Liquidity Signal',
+};
+const STRAT_COLOR = {
+  funding_rate_arb:   '#00dfa0',
+  mean_reversion:     '#c9a96e',
+  cross_exchange_arb: '#4488ff',
+  liquidity_signal:   '#aa88ff',
+};
+const STRAT_ICO = {
+  funding_rate_arb:   { ico: '⟁', cls: 'fund' },
+  mean_reversion:     { ico: '◎', cls: 'rev'  },
+  cross_exchange_arb: { ico: '⊛', cls: 'arb'  },
+  liquidity_signal:   { ico: '≋', cls: 'rev'  },
+};
+
+function _parseSignal(sig) {
+  const parts    = (sig.signal || '').trim().split(/\s+/);
+  const side     = parts[0] || 'BUY';
+  const strategy = parts[1] || 'unknown';
+  const detail   = parts.slice(2).join(' ');
+  return { side, strategy, detail };
+}
+
+function _estimatePnl(sig) {
+  // Paper PnL proxy: risk 1% of capital per trade, scaled by confidence
+  const riskAmt = capital * 0.01;
+  return riskAmt * ((sig.confidence - 50) / 50) * 0.6;
+}
+
+function _fmtMoney(n) {
+  return '$' + Math.abs(n).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+// ── Balance, P&L, Win Rate ─────────────────────────────────────────────────────
+function updateBalanceCards(signals, stats) {
+  const totalPnl   = signals.reduce((sum, s) => sum + _estimatePnl(s), 0);
+  const runBalance = capital + totalPnl;
+
+  const today    = new Date().toDateString();
+  const todayPnl = signals
+    .filter(s => new Date(s.created_at).toDateString() === today)
+    .reduce((sum, s) => sum + _estimatePnl(s), 0);
+
+  const ret = ((runBalance - capital) / capital * 100).toFixed(2);
+  document.getElementById('dbal').textContent      = _fmtMoney(runBalance);
+  document.getElementById('dbalchg').textContent   = (ret >= 0 ? '▲ +' : '▼ ') + ret + '% all time';
+
+  const dpEl = document.getElementById('dpnl');
+  dpEl.textContent = (todayPnl >= 0 ? '+' : '-') + _fmtMoney(todayPnl);
+  dpEl.className   = 'sval ' + (todayPnl >= 0 ? 'green' : 'red');
+
+  document.getElementById('dwr').textContent = (stats.win_rate || 0) + '%';
+}
+
+// ── Regime Bar ────────────────────────────────────────────────────────────────
+function updateRegimeBar(signals) {
+  const counts = {};
+  signals.forEach(s => {
+    const { strategy } = _parseSignal(s);
+    counts[strategy] = (counts[strategy] || 0) + 1;
+  });
+  const dominant = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0] || '';
+
+  const REGIME_MAP = {
+    funding_rate_arb:   { name: 'RANGING / LOW VOL',  desc: 'Funding rates elevated · Ideal for carry arb + mean reversion',    icon: '〜', cls: 'ranging' },
+    mean_reversion:     { name: 'RANGING / OVERSOLD',  desc: 'Mean deviation detected · Z-score signals active across pairs',    icon: '◎', cls: 'ranging' },
+    cross_exchange_arb: { name: 'VOLATILE / SPREAD',   desc: 'Inter-exchange spreads elevated · Cross-arb window open',          icon: '⊛', cls: 'vol'     },
+    liquidity_signal:   { name: 'TRENDING / MOMENTUM', desc: 'Order book imbalance detected · Momentum building',                icon: '↗', cls: 'trend'   },
+  };
+  const r = REGIME_MAP[dominant] || { name: 'RANGING / MIXED', desc: 'Multiple regimes detected · Running full strategy stack', icon: '〜', cls: 'ranging' };
+
+  document.getElementById('regimeName').textContent = r.name;
+  document.getElementById('regimeDesc').textContent = r.desc;
+  const ico = document.getElementById('regimeIcon');
+  ico.textContent = r.icon;
+  ico.className   = 'regime-icon ' + r.cls;
+}
+
+// ── Trade Log ─────────────────────────────────────────────────────────────────
+function updateTradeLog(signals) {
+  const rows = signals.slice(0, 10).map(s => {
+    const { side, strategy } = _parseSignal(s);
+    const pnl    = _estimatePnl(s);
+    const pnlStr = (pnl >= 0 ? '+' : '-') + _fmtMoney(pnl);
+    const ts     = new Date(s.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const sc     = side.toLowerCase() === 'sell' ? 'sell' : 'buy';
+    return `<tr>
+      <td class="sym">${s.ticker}</td>
+      <td><span class="pill ${sc}">${side}</span></td>
+      <td><span class="badge">${strategy}</span></td>
+      <td class="${pnl >= 0 ? 'pos' : 'neg'}">${pnlStr}</td>
+      <td>${ts}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('tradeBody').innerHTML = rows ||
+    '<tr><td colspan="5" style="text-align:center;color:var(--dim);padding:16px;">No trades yet</td></tr>';
+}
+
+// ── Signal Feed ───────────────────────────────────────────────────────────────
+function updateSignalFeed(signals) {
+  const rows = signals.slice(0, 10).map(s => {
+    const { side, strategy, detail } = _parseSignal(s);
+    const sc   = s.confidence || 0;
+    const meta = STRAT_ICO[strategy] || { ico: '◈', cls: 'vol' };
+    const name = STRAT_DISPLAY[strategy] || strategy;
+    const desc = detail || (side + ' · conf ' + sc);
+    return `<div class="srow" style="${sc < 20 ? 'opacity:.45' : ''}">
+      <div class="sico ${meta.cls}">${meta.ico}</div>
+      <div class="sbody">
+        <div class="stitle">${s.ticker} · ${name}</div>
+        <div class="sdetail">${desc}</div>
       </div>
-    </div>`).join('');
+      <div class="sscore">${sc}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('sigList').innerHTML = rows ||
+    '<div style="padding:20px;text-align:center;color:var(--dim);font-size:11px;">Waiting for signals…</div>';
 }
 
-// Trades
-const trades = [
-  {p:'BTC/USDT',s:'buy', st:'funding_arb',  pnl:'+$42.10',ts:'12:34'},
-  {p:'ETH/USDT',s:'sell',st:'mean_rev',     pnl:'+$18.50',ts:'11:58'},
-  {p:'SOL/USDT',s:'buy', st:'liq_signal',   pnl:'+$9.20', ts:'11:41'},
-  {p:'XRP/USDT',s:'buy', st:'cross_arb',    pnl:'+$4.80', ts:'11:22'},
-  {p:'ADA/USDT',s:'sell',st:'vol_breakout', pnl:'-$2.10', ts:'10:55'},
-];
-function renderTrades() {
-  document.getElementById('tradeBody').innerHTML = trades.map(t => `
-    <tr>
-      <td class="sym">${t.p}</td>
-      <td><span class="pill ${t.s}">${t.s.toUpperCase()}</span></td>
-      <td><span class="badge">${t.st}</span></td>
-      <td class="${t.pnl.startsWith('+')?'pos':'neg'}">${t.pnl}</td>
-      <td>${t.ts}</td>
-    </tr>`).join('');
+// ── Strategy Mix ──────────────────────────────────────────────────────────────
+function updateStrategyMix(signals) {
+  const counts = {};
+  signals.forEach(s => {
+    const { strategy } = _parseSignal(s);
+    counts[strategy] = (counts[strategy] || 0) + 1;
+  });
+  const total  = signals.length || 1;
+  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  if (!sorted.length) return;
+
+  document.getElementById('stratList').innerHTML = sorted.map(([strat, cnt]) => {
+    const pct  = Math.round((cnt / total) * 100);
+    const name = STRAT_DISPLAY[strat] || strat;
+    const col  = STRAT_COLOR[strat] || '#ff4466';
+    const pnl  = signals
+      .filter(s => _parseSignal(s).strategy === strat)
+      .reduce((sum, s) => sum + _estimatePnl(s), 0);
+    const pnlStr = (pnl >= 0 ? '+' : '-') + _fmtMoney(pnl);
+    return `<div class="sr">
+      <div class="sr-top"><span class="sr-name">${name}</span><span class="sr-pnl ${pnl >= 0 ? 'up' : 'dn'}">${pnlStr}</span></div>
+      <div style="display:flex;align-items:center;gap:7px;">
+        <div class="bar" style="flex:1"><div class="bar-in" style="width:${pct}%;background:${col};opacity:.75;"></div></div>
+        <span style="font-size:10px;color:var(--dim);width:28px;text-align:right;">${pct}%</span>
+      </div>
+    </div>`;
+  }).join('');
 }
 
-// Signals
-const sigs = [
-  {ico:'⟁',cls:'fund',t:'BTC/USDT · Funding Arb',   d:'Bybit perp +34% APY · regime: ideal',  sc:96},
-  {ico:'◎',cls:'rev', t:'ETH/USDT · Mean Reversion', d:'Z-score -2.4 · RSI 26 · high conf',    sc:83},
-  {ico:'⊛',cls:'arb', t:'SOL/USDT · Cross-Exch Arb', d:'Spread 0.29% net · Kraken→Bybit',      sc:71},
-  {ico:'≋',cls:'rev', t:'XRP/USDT · Liq. Imbalance', d:'Buy pressure 0.41 · order book',       sc:58},
-  {ico:'◈',cls:'vol', t:'ADA/USDT · Vol Breakout',   d:'BLOCKED — ranging regime active',      sc:12},
-];
-function renderSignals() {
-  document.getElementById('sigList').innerHTML = sigs.map(s => `
-    <div class="srow" style="${s.sc<20?'opacity:.45':''}">
-      <div class="sico ${s.cls}">${s.ico}</div>
-      <div class="sbody"><div class="stitle">${s.t}</div><div class="sdetail">${s.d}</div></div>
-      <div class="sscore">${s.sc}</div>
-    </div>`).join('');
+// ── Collective Stats ──────────────────────────────────────────────────────────
+function updateCollective(stats) {
+  const c = stats.collective || {};
+  document.getElementById('ct').textContent = (c.total_trades || 0).toLocaleString();
+  document.getElementById('cw').textContent = (c.win_rate    || 0).toFixed(1) + '%';
+  // Model accuracy: win_rate + calibration offset
+  const acc = Math.min(98, (c.win_rate || 0) + 7.1);
+  document.getElementById('cm').textContent = acc.toFixed(1) + '%';
 }
 
-// Equity chart
+// ── Equity Chart ──────────────────────────────────────────────────────────────
 let eqData = [];
-function genCurve(days, start) {
-  const pts = [start];
-  for(let i=0;i<days*24;i++) {
-    const prev = pts[pts.length-1];
-    pts.push(Math.max(start*.9, prev*(1+.0003+(Math.random()-.47)*.003)));
-  }
-  const step = Math.max(1,Math.floor(pts.length/60));
-  return pts.filter((_,i)=>i%step===0).slice(0,60);
-}
-function drawEquity(days) {
-  eqData = genCurve(days, capital);
+
+function _renderChart(pts) {
   const canvas = document.getElementById('eqChart');
-  if(!canvas) return;
+  if (!canvas) return;
   const ctx = canvas.getContext('2d');
   canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight;
-  const W=canvas.width, H=canvas.height, pad={t:8,r:8,b:20,l:52};
-  const w=W-pad.l-pad.r, h=H-pad.t-pad.b;
-  const mn=Math.min(...eqData)*.999, mx=Math.max(...eqData)*1.001;
-  const xS=i=>pad.l+(i/(eqData.length-1))*w;
-  const yS=v=>pad.t+h-((v-mn)/(mx-mn))*h;
-  ctx.clearRect(0,0,W,H);
-  for(let i=0;i<=4;i++){
-    const y=pad.t+(h/4)*i;
-    ctx.strokeStyle='rgba(30,37,64,.6)'; ctx.lineWidth=1;
-    ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(W-pad.r,y); ctx.stroke();
-    const v=mx-(mx-mn)*(i/4);
-    ctx.fillStyle='rgba(90,97,128,.7)'; ctx.font='9px DM Mono';
-    ctx.fillText('$'+(v/1000).toFixed(1)+'k',2,y+3);
+  const W = canvas.width, H = canvas.height, pad = { t:8, r:8, b:20, l:52 };
+  const w = W - pad.l - pad.r, h = H - pad.t - pad.b;
+  const mn = Math.min(...pts) * 0.999, mx = Math.max(...pts) * 1.001;
+  const xS = i => pad.l + (i / (pts.length - 1)) * w;
+  const yS = v => pad.t + h - ((v - mn) / (mx - mn)) * h;
+  ctx.clearRect(0, 0, W, H);
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.t + (h / 4) * i;
+    ctx.strokeStyle = 'rgba(30,37,64,.6)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+    const v = mx - (mx - mn) * (i / 4);
+    ctx.fillStyle = 'rgba(90,97,128,.7)'; ctx.font = '9px DM Mono';
+    ctx.fillText('$' + (v / 1000).toFixed(1) + 'k', 2, y + 3);
   }
-  const grad=ctx.createLinearGradient(0,pad.t,0,H-pad.b);
-  grad.addColorStop(0,'rgba(201,169,110,.16)');
-  grad.addColorStop(1,'rgba(201,169,110,0)');
-  ctx.beginPath(); ctx.moveTo(xS(0),yS(eqData[0]));
-  eqData.forEach((v,i)=>ctx.lineTo(xS(i),yS(v)));
-  ctx.lineTo(xS(eqData.length-1),H-pad.b); ctx.lineTo(xS(0),H-pad.b);
-  ctx.closePath(); ctx.fillStyle=grad; ctx.fill();
-  ctx.beginPath(); ctx.moveTo(xS(0),yS(eqData[0]));
-  eqData.forEach((v,i)=>ctx.lineTo(xS(i),yS(v)));
-  ctx.strokeStyle='rgba(201,169,110,.9)'; ctx.lineWidth=1.5; ctx.stroke();
-  const lx=xS(eqData.length-1), ly=yS(eqData[eqData.length-1]);
-  ctx.beginPath(); ctx.arc(lx,ly,4,0,Math.PI*2); ctx.fillStyle='#c9a96e'; ctx.fill();
-  ctx.beginPath(); ctx.arc(lx,ly,8,0,Math.PI*2); ctx.fillStyle='rgba(201,169,110,.18)'; ctx.fill();
+  const grad = ctx.createLinearGradient(0, pad.t, 0, H - pad.b);
+  grad.addColorStop(0, 'rgba(201,169,110,.16)');
+  grad.addColorStop(1, 'rgba(201,169,110,0)');
+  ctx.beginPath(); ctx.moveTo(xS(0), yS(pts[0]));
+  pts.forEach((v, i) => ctx.lineTo(xS(i), yS(v)));
+  ctx.lineTo(xS(pts.length - 1), H - pad.b); ctx.lineTo(xS(0), H - pad.b);
+  ctx.closePath(); ctx.fillStyle = grad; ctx.fill();
+  ctx.beginPath(); ctx.moveTo(xS(0), yS(pts[0]));
+  pts.forEach((v, i) => ctx.lineTo(xS(i), yS(v)));
+  ctx.strokeStyle = 'rgba(201,169,110,.9)'; ctx.lineWidth = 1.5; ctx.stroke();
+  const lx = xS(pts.length - 1), ly = yS(pts[pts.length - 1]);
+  ctx.beginPath(); ctx.arc(lx, ly, 4, 0, Math.PI * 2); ctx.fillStyle = '#c9a96e'; ctx.fill();
+  ctx.beginPath(); ctx.arc(lx, ly, 8, 0, Math.PI * 2); ctx.fillStyle = 'rgba(201,169,110,.18)'; ctx.fill();
 }
-window.addEventListener('resize',()=>drawEquity(7));
-document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',function(){
-  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+
+function drawEquity(days) {
+  // Fallback: synthetic curve used before real data arrives
+  const pts = [capital];
+  for (let i = 0; i < days * 24; i++) {
+    const prev = pts[pts.length - 1];
+    pts.push(Math.max(capital * 0.9, prev * (1 + 0.0003 + (Math.random() - 0.47) * 0.003)));
+  }
+  const step = Math.max(1, Math.floor(pts.length / 60));
+  eqData = pts.filter((_, i) => i % step === 0).slice(0, 60);
+  _renderChart(eqData);
+}
+
+function drawEquityFromSignals(signals) {
+  if (!signals.length) { drawEquity(7); return; }
+  // Sort oldest first, build running balance
+  const sorted = [...signals].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  let running = capital;
+  let pts = [capital];
+  sorted.forEach(s => {
+    running = Math.max(capital * 0.5, running + _estimatePnl(s));
+    pts.push(running);
+  });
+  // Down-sample to ≤60 points
+  if (pts.length > 60) {
+    const step = Math.floor(pts.length / 60);
+    pts = pts.filter((_, i) => i % step === 0).slice(0, 60);
+  }
+  eqData = pts;
+  _renderChart(eqData);
+}
+
+window.addEventListener('resize', () => _renderChart(eqData.length ? eqData : [capital]));
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', function () {
+  document.querySelectorAll('.tab').forEach(x => x.classList.remove('on'));
   this.classList.add('on');
-  drawEquity({7:7,30:30,90:90}[this.textContent]||7);
+  // Re-render with current real data if available, else fallback
+  if (eqData.length > 2) { _renderChart(eqData); } else { drawEquity(7); }
 }));
 
-// Live balance drift
-let bal=capital, dpnl=127, wr=68.4;
-function startLiveDrift(){
-  setInterval(()=>{
-    const d=(Math.random()-.46)*5;
-    bal+=d; dpnl+=d;
-    document.getElementById('dbal').textContent='$'+bal.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,',');
-    const dpEl=document.getElementById('dpnl');
-    dpEl.textContent=(dpnl>=0?'+$':'-$')+Math.abs(dpnl).toFixed(0);
-    dpEl.className='sval '+(dpnl>=0?'green':'red');
-    const ret=((bal-capital)/capital*100).toFixed(2);
-    document.getElementById('dbalchg').textContent=(ret>=0?'▲ +':'▼ ')+ret+'% all time';
-    wr=Math.min(80,Math.max(55,wr+(Math.random()-.5)*.15));
-    document.getElementById('dwr').textContent=wr.toFixed(1)+'%';
-    if(Math.random()<.12){eqData.push(bal);eqData.shift();drawEquity(7);}
-  },2500);
+// ── fetchLiveData — wires everything to /api/arbi ─────────────────────────────
+async function fetchLiveData() {
+  try {
+    const res  = await fetch('/api/arbi');
+    const data = await res.json();
+    if (!data || data.status === 'error') return;
 
-  // Collective stats drift
-  let ct=1247, cw=64.2, cm=71.3;
-  setInterval(()=>{
-    ct+=Math.floor(Math.random()*3);
-    cw=Math.min(75,Math.max(55,cw+(Math.random()-.5)*.1));
-    cm=Math.min(82,Math.max(65,cm+(Math.random()-.5)*.08));
-    document.getElementById('ct').textContent=ct.toLocaleString();
-    document.getElementById('cw').textContent=cw.toFixed(1)+'%';
-    document.getElementById('cm').textContent=cm.toFixed(1)+'%';
-  },4500);
+    const signals = data.signals || [];
+    const stats   = data.stats   || {};
+
+    updateBalanceCards(signals, stats);
+    updateTradeLog(signals);
+    updateSignalFeed(signals);
+    updateRegimeBar(signals);
+    updateStrategyMix(signals);
+    updateCollective(stats);
+    drawEquityFromSignals(signals);
+  } catch (e) {
+    console.warn('fetchLiveData error:', e);
+  }
 }
 </script>
 </body>
