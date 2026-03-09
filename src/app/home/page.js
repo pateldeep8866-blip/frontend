@@ -8,6 +8,7 @@ import geopoliticalRelations from "@/data/geopolitical-relations.json";
 import AzulaThemeBackground from "@/components/AzulaThemeBackground";
 import SakuraThemeBackground from "@/components/SakuraThemeBackground";
 
+
 function Badge({ value, light = false }) {
   const v = (value || "").toUpperCase();
   const cls =
@@ -1092,7 +1093,7 @@ function SummaryPanel({ label = "Summary", text, isLight, className = "" }) {
 }
 
 export default function Home() {
-  const [assetMode, setAssetMode] = useState("stock");
+  const [assetMode, setAssetMode] = useState("home");
   const [ticker, setTicker] = useState("");
   const [usingTicker, setUsingTicker] = useState("");
   const [usingAssetId, setUsingAssetId] = useState("");
@@ -1275,7 +1276,7 @@ export default function Home() {
   };
 
   useEffect(() => {
-    const VALID_ASSET_MODES = new Set(["stock", "crypto", "metals", "fx", "geopolitics", "globalmarket", "news"]);
+    const VALID_ASSET_MODES = new Set(["stock", "crypto", "metals", "fx", "geopolitics", "globalmarket", "news", "home"]);
     try {
       const h = JSON.parse(localStorage.getItem("search_history") || "[]");
       if (Array.isArray(h)) setSearchHistory(h.map(normalizeHistoryEntry).filter(Boolean).slice(0, 8));
@@ -1359,6 +1360,18 @@ export default function Home() {
     }, 25);
     return () => clearInterval(tid);
   }, [investorOpen]);
+
+  useEffect(() => {
+    if (assetMode !== "home") return;
+    const nodes = Array.from(document.querySelectorAll(".home-reveal"));
+    if (!nodes.length) return;
+    const observer = new IntersectionObserver(
+      (entries) => { entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("in-view"); observer.unobserve(e.target); } }); },
+      { threshold: 0.12 }
+    );
+    nodes.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, [assetMode]);
 
   useEffect(() => {
     localStorage.setItem("search_history", JSON.stringify(searchHistory.slice(0, 8)));
@@ -2178,7 +2191,7 @@ export default function Home() {
   }
 
   async function fetchMarketNews() {
-    if (assetMode === "fx") {
+    if (assetMode === "fx" || assetMode === "home") {
       setMarketNews([]);
       return;
     }
@@ -2203,7 +2216,7 @@ export default function Home() {
   }
 
   async function fetchMovers() {
-    if (assetMode === "fx" || assetMode === "news" || assetMode === "globalmarket" || assetMode === "geopolitics") {
+    if (assetMode === "fx" || assetMode === "news" || assetMode === "globalmarket" || assetMode === "geopolitics" || assetMode === "home") {
       setMovers({ gainers: [], losers: [] });
       return;
     }
@@ -3830,7 +3843,14 @@ export default function Home() {
   const isNewsMode = assetMode === "news";
   const isGlobalMarketMode = assetMode === "globalmarket";
   const isGeoPoliticsMode = assetMode === "geopolitics";
-  const isNarrativeMode = isNewsMode || isGlobalMarketMode || isGeoPoliticsMode;
+  const isHomeMode = assetMode === "home";
+  const isNarrativeMode = isNewsMode || isGlobalMarketMode || isGeoPoliticsMode || isHomeMode;
+  const hCtaClass = isAzula ? "bg-[#cfb06a] text-[#101012] hover:bg-[#dec284]" : isCherry ? "bg-rose-600 text-white hover:bg-rose-700" : isLight ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-cyan-500 text-slate-950 hover:bg-cyan-400";
+  const hCard = isLight ? "border-slate-300 bg-white/90 shadow-sm" : isAzula ? "border-[#b99654]/40 bg-[#0f1013]/85" : "border-white/12 bg-slate-900/55";
+  const hSoft = isLight ? "border-slate-300 bg-white/85" : isAzula ? "border-[#b99654]/25 bg-[#16171b]/70" : "border-white/10 bg-white/5";
+  const hMuted = isLight ? "text-slate-600" : isAzula ? "text-[#d9ccaa]/80" : "text-white/75";
+  const hAccent = isCherry ? "text-rose-700" : isAzula ? "text-[#d6be86]" : isLight ? "text-slate-500" : "text-cyan-200/80";
+  const hHonest = isCherry ? "border-rose-300 bg-rose-50 text-rose-800" : isAzula ? "border-[#c8a865]/30 bg-[#c8a865]/10 text-[#e8d7ac]" : isLight ? "border-amber-300 bg-amber-50 text-amber-800" : "border-cyan-400/25 bg-cyan-500/10 text-cyan-200";
   const isMetalsMode = assetMode === "metals";
   const overviewLoop = overview.length ? [...overview, ...overview] : [];
   const supabaseConfigured = Boolean(getSupabaseClient());
@@ -4781,9 +4801,9 @@ export default function Home() {
             isLight ? "border-slate-300 bg-white/85 shadow-sm" : "border-white/15 bg-slate-900/60"
           }`}>
             <button
-              onClick={() => setAssetMode("news")}
+              onClick={() => setAssetMode("home")}
               className={`px-3 py-1.5 text-xs font-semibold ${
-                assetMode === "news" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-700" : "bg-transparent text-white/80"
+                assetMode === "home" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-700" : "bg-transparent text-white/80"
               }`}
             >
               {t("home")}
@@ -6173,6 +6193,175 @@ export default function Home() {
             )}
           </Card>
         </div>
+        )}
+
+        {isHomeMode && (
+            <div className="space-y-6 mb-6">
+              {/* Hero */}
+              <div className={`rounded-2xl border backdrop-blur-md p-6 md:p-8 shadow-[0_14px_40px_-22px_rgba(15,23,42,0.9)] home-reveal ${hCard}`}>
+                <div className="grid grid-cols-1 lg:grid-cols-[1.35fr_0.9fr] gap-6 items-start">
+                  <div>
+                    <p className={`text-[11px] uppercase tracking-[0.22em] font-semibold ${hAccent}`}>Home · Research First</p>
+                    <h2 className={`mt-2 text-5xl md:text-7xl font-semibold leading-[0.95] ${isLight ? "text-slate-900" : "text-white"}`} style={{fontFamily: '"Cormorant Garamond", "Georgia", serif'}}>Learn Before You Earn</h2>
+                    <p className={`mt-3 text-xl md:text-2xl font-medium ${isLight ? "text-slate-700" : isAzula ? "text-[#eadfbf]" : "text-white/90"}`}>It&apos;s time everyday investors can earn too.</p>
+                    <div className={`mt-5 max-w-4xl text-sm md:text-base leading-7 space-y-4 ${hMuted}`}>
+                      <p>Making one good trade should not require hours of searching through financial reports, charts, APIs, videos, and news only to end with an educated guess.</p>
+                      <p>Investors spend more time collecting information than actually understanding it. Arthastra brings fundamentals, technical analysis, market sentiment, and news together into one research-driven platform.</p>
+                      <p className={`font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>Learn first. Invest second.</p>
+                    </div>
+                    <div className="mt-6 flex flex-wrap gap-3">
+                      <button onClick={() => setAssetMode("stock")} className={`inline-flex rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-300 hover:-translate-y-0.5 ${hCtaClass}`}>Start Researching →</button>
+                      <Link href="/about" className={`inline-flex rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all duration-300 hover:-translate-y-0.5 ${isLight ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-50" : "border-white/15 bg-slate-900/50 text-white/85 hover:bg-white/10"}`}>Read Our Story →</Link>
+                    </div>
+                    <p className={`mt-4 text-xs ${isLight ? "text-slate-500" : "text-white/60"}`}>Paper trading simulator for educational purposes only. No real money required. Not financial advice.</p>
+                  </div>
+                  <div className={`rounded-2xl border p-4 md:p-5 ${hSoft}`}>
+                    <h3 className={`text-sm font-semibold uppercase tracking-wide ${isLight ? "text-slate-700" : isAzula ? "text-[#d6be86]" : "text-cyan-100/90"}`}>Market Overview</h3>
+                    <div className="mt-3 space-y-2">
+                      {[{label:"Coverage",value:"47 Instruments"},{label:"Simulator Capital",value:"$100,000"},{label:"Core Positioning",value:"Research-First"},{label:"Operating Mode",value:"Educational"}].map((item) => (
+                        <div key={item.label} className={`rounded-lg border px-3 py-2.5 flex items-center justify-between ${hSoft}`}>
+                          <span className={`text-xs ${isLight ? "text-slate-600" : "text-white/65"}`}>{item.label}</span>
+                          <span className={`text-xs font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{item.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Honest banner */}
+              <div className={`rounded-xl border px-4 py-2 text-xs md:text-sm text-center home-reveal ${hHonest}`}>
+                Free to use · No real money required · Not financial advice · Built to teach and research — not to profit from your losses
+              </div>
+
+              {/* What You Get */}
+              <div className={`rounded-2xl border backdrop-blur-md p-6 md:p-8 shadow-[0_14px_40px_-22px_rgba(15,23,42,0.9)] home-reveal ${hCard}`}>
+                <div className="flex items-center justify-between gap-3 mb-4">
+                  <h2 className={`text-2xl md:text-3xl font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>What You Get Inside Arthastra</h2>
+                  <span className={`text-[11px] uppercase tracking-[0.18em] font-semibold hidden sm:inline ${hAccent}`}>Research Workflow</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {[{title:"What you can do today",body:"Track stocks, crypto, metals, and FX in one workspace. Use ASTRA for guided analysis and test decisions safely in paper trading."},{title:"How to use it effectively",body:"Start with Market School, build a watchlist, write a thesis before each trade, and review outcomes weekly to improve decision quality."},{title:"Why this is different",body:"Most apps optimize for clicks and speed. Arthastra is designed for structured research, risk visibility, and long-term learning discipline."}].map((block) => (
+                    <div key={block.title} className={`rounded-xl border p-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${hSoft}`}>
+                      <div className={`text-base font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{block.title}</div>
+                      <p className={`mt-2 text-sm leading-6 ${hMuted}`}>{block.body}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Why We Built This */}
+              <div className={`rounded-2xl border backdrop-blur-md p-6 md:p-10 shadow-[0_14px_40px_-22px_rgba(15,23,42,0.9)] home-reveal ${hCard}`}>
+                <p className={`text-[11px] uppercase tracking-[0.24em] ${hAccent}`}>Why We Built This</p>
+                <h2 style={{fontFamily: '"Cormorant Garamond", "Georgia", serif'}} className={`mt-2 text-4xl md:text-6xl leading-[0.98] ${isLight ? "text-slate-900" : "text-white"}`}>
+                  Investing without understanding is just{" "}
+                  <em className={`${isAzula ? "text-[#d6be86]" : isLight ? "text-amber-700" : "text-yellow-300"} italic`}>gambling with extra steps.</em>
+                </h2>
+                <div className={`mt-4 text-sm md:text-base leading-7 space-y-3 ${hMuted}`}>
+                  <p>Making one good trade used to require hours of research. Financial statements. Charts. News. Market sentiment. All spread across different places.</p>
+                  <p>Deciding what stock to buy and what not to buy should not require digging through the entire internet.</p>
+                  <p>So we built Arthastra: a research-first investing platform for everyday investors. We bring everything together in one place — you bring your brain.</p>
+                </div>
+                <p className={`mt-5 text-base md:text-lg font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>Most platforms optimize for trading speed. We optimize for decision quality.</p>
+              </div>
+
+              {/* Truth Cards */}
+              <div className={`rounded-2xl border backdrop-blur-md p-6 md:p-10 shadow-[0_14px_40px_-22px_rgba(15,23,42,0.9)] home-reveal ${hCard}`}>
+                <p className={`text-[11px] uppercase tracking-[0.24em] ${hAccent}`}>Truth Section</p>
+                <h2 style={{fontFamily: '"Cormorant Garamond", "Georgia", serif'}} className={`mt-2 text-4xl md:text-6xl leading-[0.98] mb-6 ${isLight ? "text-slate-900" : "text-white"}`}>Research Is The Real Edge</h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border rounded-xl overflow-hidden">
+                  {[{title:"Understanding Beats Guessing",text:"It is knowing why you bought it and when to sell."},{title:"Research Takes Time",text:"A single trade can require hours of reading, analysis, and comparison. Arthastra brings that research into one place."},{title:"Practice Before Risk",text:"Make mistakes with simulated capital first. Every mistake becomes a lesson instead of a loss."}].map((card, idx) => (
+                    <div key={card.title} className={`border p-5 md:p-6 transition-all duration-300 hover:-translate-y-1 ${hSoft}`}>
+                      <div className={`text-6xl leading-none ${isLight ? "text-slate-300" : isAzula ? "text-[#8e7a4d]/35" : "text-white/10"}`}>{String(idx + 1).padStart(2, "0")}</div>
+                      <div className={`mt-2 text-xl font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{card.title}</div>
+                      <p className={`mt-3 text-sm leading-7 ${hMuted}`}>{card.text}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* How It Works */}
+              <div className={`rounded-2xl border backdrop-blur-md p-6 md:p-10 shadow-[0_14px_40px_-22px_rgba(15,23,42,0.9)] home-reveal ${hCard}`}>
+                <p className={`text-[11px] uppercase tracking-[0.24em] ${hAccent}`}>How It Works</p>
+                <h2 style={{fontFamily: '"Cormorant Garamond", "Georgia", serif'}} className={`mt-2 text-4xl md:text-6xl leading-[0.98] mb-6 ${isLight ? "text-slate-900" : "text-white"}`}>
+                  Four steps from{" "}
+                  <em className={`${isAzula ? "text-[#d6be86]" : isLight ? "text-amber-700" : "text-yellow-300"} italic`}>curious</em>{" "}
+                  to confident.
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                  {[{title:"Learn the Basics",text:"Start in Market School. Know what you are trading before you trade it."},{title:"Explore the Research",text:"Click the tabs. Read the executive briefs. Understand the market context."},{title:"Make Your Own Trades",text:"Use simulated capital. Research first. Then decide."},{title:"Build Real Instinct",text:"Weeks of practice build pattern recognition. Experience becomes confidence."},{title:"Ask ASTRA",text:"Use ASTRA to analyze trades and understand signals."}].map((step, idx) => (
+                    <div key={step.title} className={`rounded-xl border p-4 text-center ${hSoft}`}>
+                      <div className={`mx-auto mb-3 h-10 w-10 rounded-full border flex items-center justify-center text-[11px] tracking-[0.08em] ${isLight ? "border-slate-400 text-slate-600" : isAzula ? "border-[#b99654]/60 text-[#d6be86]" : "border-white/30 text-white/70"}`}>{String(idx + 1).padStart(2, "0")}</div>
+                      <div className={`mt-1 text-base font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{step.title}</div>
+                      <p className={`mt-2 text-sm leading-6 ${hMuted}`}>{step.text}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Features */}
+              <div className={`rounded-2xl border backdrop-blur-md p-6 md:p-10 shadow-[0_14px_40px_-22px_rgba(15,23,42,0.9)] home-reveal ${hCard}`}>
+                <p className={`text-[11px] uppercase tracking-[0.24em] ${hAccent}`}>Features Inside</p>
+                <h2 style={{fontFamily: '"Cormorant Garamond", "Georgia", serif'}} className={`mt-2 text-4xl md:text-6xl leading-[0.98] mb-3 ${isLight ? "text-slate-900" : "text-white"}`}>
+                  Built with tools that{" "}
+                  <em className={`${isAzula ? "text-[#d6be86]" : isLight ? "text-amber-700" : "text-yellow-300"} italic`}>explain themselves.</em>
+                </h2>
+                <p className={`text-sm md:text-base max-w-3xl mb-6 ${hMuted}`}>Every feature was designed around one question: will this help someone understand investing better?</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {[{icon:"🧮",title:"QUANT_LAB Engine",text:"Scores market instruments using quantitative models and real market data.",tag:"Under The Hood"},{icon:"🤖",title:"ASTRA Auto-Pilot",text:"AI-powered analysis and simulated trades with clear explanations.",tag:"Educational AI"},{icon:"📊",title:"Paper Trading",text:"Practice with simulated capital before risking real money.",tag:"Zero Risk Practice"},{icon:"₿",title:"Crypto Coverage",text:"Research digital assets alongside stocks and global markets.",tag:"Coverage"},{icon:"📚",title:"Market School",text:"Learn investing fundamentals without jargon.",tag:"Education"},{icon:"🌍",title:"Global Markets",text:"Understand stocks, commodities, crypto, and macro conditions together.",tag:"Coverage"},{icon:"🛡",title:"Risk Scores",text:"Transparent confidence and risk ratings.",tag:"Research"}].map((feature) => (
+                    <div key={feature.title} className={`border p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${hSoft}`}>
+                      <div className="text-lg mb-1">{feature.icon}</div>
+                      <div className={`text-base font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{feature.title}</div>
+                      <p className={`mt-2 text-sm leading-6 ${hMuted}`}>{feature.text}</p>
+                      <div className={`mt-3 inline-block text-[10px] uppercase tracking-[0.2em] px-2 py-1 border rounded-sm ${hAccent} ${isLight ? "border-slate-300 bg-slate-50" : "border-white/20 bg-white/5"}`}>{feature.tag}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Who Built This */}
+              <div className={`rounded-2xl border backdrop-blur-md p-6 md:p-10 shadow-[0_14px_40px_-22px_rgba(15,23,42,0.9)] home-reveal ${hCard}`}>
+                <p className={`text-[11px] uppercase tracking-[0.24em] ${hAccent}`}>Who Built This</p>
+                <h2 style={{fontFamily: '"Cormorant Garamond", "Georgia", serif'}} className={`mt-2 text-4xl md:text-6xl leading-[0.98] ${isLight ? "text-slate-900" : "text-white"}`}>
+                  Two builders who got{" "}
+                  <em className={`${isAzula ? "text-[#d6be86]" : isLight ? "text-amber-700" : "text-yellow-300"} italic`}>tired of the gap.</em>
+                </h2>
+                <p className={`mt-2 text-sm ${hMuted}`}>We built the platform we wished existed when we started researching trades ourselves.</p>
+                <div className={`mt-4 rounded-xl border p-3 ${hSoft}`}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/founders-team.jpg" alt="Deep Patel and Juan M. Ramirez" className="w-full h-auto rounded-lg object-cover" />
+                  <p className={`mt-2 text-xs ${isLight ? "text-slate-500" : "text-white/60"}`}>Deep Patel and Juan M. Ramirez</p>
+                </div>
+                <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className={`border p-5 ${hSoft}`}>
+                    <div className={`mb-2 inline-block text-[10px] uppercase tracking-[0.2em] px-2 py-1 border rounded-sm ${hAccent} ${isLight ? "border-slate-300 bg-slate-50" : "border-white/20 bg-white/5"}`}>Founder</div>
+                    <div className={`text-base font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>Deep Patel</div>
+                    <div className={`text-xs mt-1 ${isLight ? "text-slate-500" : "text-white/60"}`}>Founder · Systems Architect</div>
+                    <p className={`mt-3 text-sm leading-6 ${hMuted}`}>Deep started Arthastra and designed the original platform architecture and research infrastructure. With a cybersecurity and systems design background, he focuses on reliable foundations and disciplined research workflows.</p>
+                    <p className={`mt-3 text-sm font-semibold ${isLight ? "text-slate-800" : "text-white"}`}>Build the foundation correctly and everything else follows.</p>
+                  </div>
+                  <div className={`border p-5 ${hSoft}`}>
+                    <div className={`mb-2 inline-block text-[10px] uppercase tracking-[0.2em] px-2 py-1 border rounded-sm ${hAccent} ${isLight ? "border-slate-300 bg-slate-50" : "border-white/20 bg-white/5"}`}>Co-Founder</div>
+                    <div className={`text-base font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>Juan M. Ramirez</div>
+                    <div className={`text-xs mt-1 ${isLight ? "text-slate-500" : "text-white/60"}`}>Co-Founder · Systems Architect</div>
+                    <p className={`mt-3 text-sm leading-6 ${hMuted}`}>Juan designed the quant-like research engines and AI analysis systems that power Arthastra. With cybersecurity and penetration testing experience, he focuses on turning complexity into clear decisions for everyday investors.</p>
+                    <p className={`mt-3 text-sm font-semibold ${isLight ? "text-slate-800" : "text-white"}`}>Information is the edge. Research first. Then decide.</p>
+                  </div>
+                </div>
+                <p className={`mt-4 text-sm font-semibold ${isLight ? "text-slate-800" : "text-white"}`}>Deep builds it right. Juan researches deeply. Together, that is Arthastra.</p>
+              </div>
+
+              {/* CTA */}
+              <div className={`rounded-2xl border backdrop-blur-md p-6 md:p-8 text-center shadow-[0_14px_40px_-22px_rgba(15,23,42,0.9)] home-reveal ${hCard}`}>
+                <h2 className={`text-2xl md:text-3xl font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>Start With Practice</h2>
+                <p className={`mt-3 text-sm md:text-base ${hMuted}`}>Make trades. Watch ASTRA. Read the reasoning. Learn in a safe environment. That is the whole point.</p>
+                <div className="mt-5 flex flex-wrap justify-center gap-3">
+                  <Link href="/simulator" className={`inline-flex rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-300 hover:-translate-y-0.5 ${hCtaClass}`}>Open Simulator →</Link>
+                  <Link href="/about" className={`inline-flex rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all duration-300 hover:-translate-y-0.5 ${isLight ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-50" : "border-white/15 bg-slate-900/50 text-white/85 hover:bg-white/10"}`}>Read Our Story →</Link>
+                </div>
+              </div>
+
+            </div>
         )}
 
         {isNewsMode && (
