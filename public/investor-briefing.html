@@ -702,7 +702,67 @@
     <span class="section-sub">How we improve ASTRA's pick quality — documented</span>
   </div>
 
-  <div id="changelog-fixes"></div>
+  <div id="changelog-fixes">
+  <div class="roadmap-card" style="margin-bottom:16px;border-left:3px solid var(--green-dim);">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+      <div class="roadmap-tag" style="background:rgba(61,138,92,.15);color:var(--green-bright);">✓ Deployed 2026-03-09</div>
+      <div class="roadmap-title" style="margin:0;">Confidence Floor Added</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;">
+      <div style="background:rgba(196,80,80,.08);border:1px solid rgba(196,80,80,.2);border-radius:6px;padding:10px;">
+        <div style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.12em;color:#c45050;margin-bottom:4px;">PROBLEM</div>
+        <div style="font-size:12px;color:var(--text-muted);">29 picks below 60% confidence had a 0% win rate and -4.59% average return. ASTRA was executing low-conviction signals with no edge.</div>
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:#c45050;margin-top:6px;">0% win rate on 29 low-confidence picks</div>
+      </div>
+      <div style="background:rgba(61,138,92,.08);border:1px solid rgba(61,138,92,.2);border-radius:6px;padding:10px;">
+        <div style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.12em;color:var(--green-bright);margin-bottom:4px;">FIX</div>
+        <div style="font-size:12px;color:var(--text-muted);">All BUY/SELL picks below 70% confidence are now blocked before reaching the trade log.</div>
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--green-bright);margin-top:6px;">Only 70%+ confidence picks accepted</div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--text-muted);font-style:italic;">Impact: Eliminates the worst-performing tier. High confidence (80+) picks historically show 97% win rate.</div>
+  </div>
+
+  <div class="roadmap-card" style="margin-bottom:16px;border-left:3px solid var(--green-dim);">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+      <div class="roadmap-tag" style="background:rgba(61,138,92,.15);color:var(--green-bright);">✓ Deployed 2026-03-09</div>
+      <div class="roadmap-title" style="margin:0;">Duplicate Pick Guard Added</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;">
+      <div style="background:rgba(196,80,80,.08);border:1px solid rgba(196,80,80,.2);border-radius:6px;padding:10px;">
+        <div style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.12em;color:#c45050;margin-bottom:4px;">PROBLEM</div>
+        <div style="font-size:12px;color:var(--text-muted);">ASTRA's signal loop was emitting the same pick on every cycle. XOM BUY appeared 17 times in one day, GDXJ BUY 11 times — inflating pick count and distorting the track record.</div>
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:#c45050;margin-top:6px;">Up to 17 identical picks per ticker per day</div>
+      </div>
+      <div style="background:rgba(61,138,92,.08);border:1px solid rgba(61,138,92,.2);border-radius:6px;padding:10px;">
+        <div style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.12em;color:var(--green-bright);margin-bottom:4px;">FIX</div>
+        <div style="font-size:12px;color:var(--text-muted);">One BUY or SELL per ticker per day. Any duplicate is blocked and logged with the reason.</div>
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--green-bright);margin-top:6px;">Maximum 1 pick per ticker per day</div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--text-muted);font-style:italic;">Impact: Pick count now reflects unique decisions, not loop noise.</div>
+  </div>
+
+  <div class="roadmap-card" style="margin-bottom:16px;border-left:3px solid var(--green-dim);">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+      <div class="roadmap-tag" style="background:rgba(61,138,92,.15);color:var(--green-bright);">✓ Deployed 2026-03-09</div>
+      <div class="roadmap-title" style="margin:0;">Direction Conflict Lock Added</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;">
+      <div style="background:rgba(196,80,80,.08);border:1px solid rgba(196,80,80,.2);border-radius:6px;padding:10px;">
+        <div style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.12em;color:#c45050;margin-bottom:4px;">PROBLEM</div>
+        <div style="font-size:12px;color:var(--text-muted);">ASTRA generated both BUY and SELL signals on XLK the same day. The SELL was correct (100% win rate). The BUY was wrong (0% win rate). Conflicting signals cancelled each other out.</div>
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:#c45050;margin-top:6px;">BUY and SELL on same ticker same day was possible</div>
+      </div>
+      <div style="background:rgba(61,138,92,.08);border:1px solid rgba(61,138,92,.2);border-radius:6px;padding:10px;">
+        <div style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.12em;color:var(--green-bright);margin-bottom:4px;">FIX</div>
+        <div style="font-size:12px;color:var(--text-muted);">If a BUY exists for a ticker today, a SELL is blocked, and vice versa. First signal wins.</div>
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--green-bright);margin-top:6px;">Direction locked per ticker per day</div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--text-muted);font-style:italic;">Impact: Eliminates contradictory positions on the same ticker.</div>
+  </div>
+</div>
 
   <div class="card" style="margin-top:24px;">
     <div class="card-title" style="margin-bottom:16px;">Live Signal Gate Activity</div>
