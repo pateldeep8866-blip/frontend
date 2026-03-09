@@ -3810,7 +3810,7 @@ export default function Home() {
         ? "metals"
           : assetMode === "fx"
             ? "FX"
-            : assetMode === "stock" || assetMode === "globalmarket"
+            : assetMode === "news" || assetMode === "globalmarket"
               ? "world news"
               : assetMode === "geopolitics"
                 ? "geopolitics"
@@ -3822,12 +3822,12 @@ export default function Home() {
         ? "Ask anything (metals, crypto, stocks, FX, news, geopolitics)..."
           : assetMode === "fx"
             ? "Ask anything (FX, stocks, crypto, metals, news, geopolitics)..."
-            : assetMode === "stock" || assetMode === "globalmarket"
+            : assetMode === "news" || assetMode === "globalmarket"
               ? "Ask anything (world news, markets, crypto, FX, metals, geopolitics)..."
             : assetMode === "geopolitics"
               ? "Ask anything (global conflicts, diplomacy, sanctions, trade, markets)..."
               : "Ask anything (stocks, crypto, metals, FX, news, geopolitics)...";
-  const isNewsMode = assetMode === "stock";
+  const isNewsMode = assetMode === "news";
   const isGlobalMarketMode = assetMode === "globalmarket";
   const isGeoPoliticsMode = assetMode === "geopolitics";
   const isNarrativeMode = isNewsMode || isGlobalMarketMode || isGeoPoliticsMode;
@@ -4781,14 +4781,14 @@ export default function Home() {
           <div className={`mt-5 inline-flex rounded-xl overflow-hidden border ${
             isLight ? "border-slate-300 bg-white/85 shadow-sm" : "border-white/15 bg-slate-900/60"
           }`}>
-            <button
-              onClick={() => setAssetMode("stock")}
-              className={`px-3 py-1.5 text-xs font-semibold ${
-                assetMode === "stock" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-700" : "bg-transparent text-white/80"
+            <Link
+              href="/home"
+              className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${
+                isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"
               }`}
             >
               {t("home")}
-            </button>
+            </Link>
             <button
               onClick={() => setAssetMode("stock")}
               className={`px-3 py-1.5 text-xs font-semibold ${
