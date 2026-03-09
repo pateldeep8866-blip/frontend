@@ -523,6 +523,13 @@ tr:last-child td{border-bottom:none;}
       <div class="ticker-strip" id="tickers"></div>
     </div>
     <div class="topbar-right">
+      <select id="themeSelect" class="btn btn-ghost" style="width:auto;padding:7px 10px;font-size:10px;">
+        <option value="dark">Theme: Dark</option>
+        <option value="light">Theme: Light</option>
+        <option value="cherry">Theme: Sakura</option>
+        <option value="azula">Theme: Azula</option>
+        <option value="alerik">Theme: Alerik</option>
+      </select>
       <a href="/home" class="btn btn-ghost" style="width:auto;padding:7px 12px;font-size:10px;text-decoration:none;display:inline-flex;align-items:center;">← Back Home</a>
       <span id="clock"></span>
       <div class="user-chip" id="userChip" onclick="handleUserChipClick()" title="Click to sign out"><div class="avatar" id="userAvatar">JU</div><span id="userLabel">Juan</span></div>
@@ -919,6 +926,7 @@ function showDashboard() {
 
 // ── DASHBOARD ─────────────────────────────────────────────────────────────────
 function initDashboard() {
+  initThemeControl();
   renderTicker();
   renderStrategies();
   renderTrades();
@@ -936,6 +944,23 @@ function startClock() {
       d.toUTCString().split(' ').slice(1,5).join(' ') + ' UTC';
   }
   tick(); setInterval(tick, 1000);
+}
+
+function initThemeControl() {
+  const select = document.getElementById('themeSelect');
+  if (!select) return;
+  try {
+    const saved = localStorage.getItem('theme_mode');
+    if (saved && ['dark','light','cherry','azula','alerik'].includes(saved)) {
+      select.value = saved;
+    }
+  } catch {}
+  select.addEventListener('change', function () {
+    const value = String(this.value || 'dark');
+    try {
+      localStorage.setItem('theme_mode', value);
+    } catch {}
+  });
 }
 
 // Ticker

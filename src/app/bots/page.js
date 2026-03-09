@@ -16,6 +16,15 @@ export default function BotsPage() {
   }, []);
 
   const isLight = theme === "light" || theme === "cherry" || theme === "azula";
+  const setThemeMode = (mode) => {
+    const next = String(mode || "").toLowerCase();
+    if (!["dark", "light", "cherry", "azula", "alerik"].includes(next)) return;
+    setTheme(next);
+    try {
+      localStorage.setItem("theme_mode", next);
+      window.dispatchEvent(new Event("theme-updated"));
+    } catch {}
+  };
 
   return (
     <div className={`min-h-screen ${isLight ? "bg-slate-50 text-slate-900" : "bg-[#05070d] text-white"}`}>
@@ -27,14 +36,30 @@ export default function BotsPage() {
               Choose one bot. No market tabs here.
             </p>
           </div>
-          <Link
-            href="/home"
-            className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${
-              isLight ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-100" : "border-white/15 bg-white/10 text-white/85 hover:bg-white/15"
-            }`}
-          >
-            Back Home
-          </Link>
+          <div className="flex items-center gap-2">
+            <select
+              value={theme}
+              onChange={(e) => setThemeMode(e.target.value)}
+              className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold ${
+                isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/15 bg-white/10 text-white/85"
+              }`}
+              aria-label="Theme"
+            >
+              <option value="dark">Theme: Dark</option>
+              <option value="light">Theme: Light</option>
+              <option value="cherry">Theme: Sakura</option>
+              <option value="azula">Theme: Azula</option>
+              <option value="alerik">Theme: Alerik</option>
+            </select>
+            <Link
+              href="/home"
+              className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${
+                isLight ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-100" : "border-white/15 bg-white/10 text-white/85 hover:bg-white/15"
+              }`}
+            >
+              Back Home
+            </Link>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
