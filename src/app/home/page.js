@@ -1299,6 +1299,7 @@ export default function Home() {
       }
       const rawWarRoom = localStorage.getItem("warroom_context_v1");
       const warRoomContext = rawWarRoom ? JSON.parse(rawWarRoom) : null;
+      if (rawWarRoom) localStorage.removeItem("warroom_context_v1");
       const modeFromWarRoom = String(warRoomContext?.suggestedMode || "").toLowerCase().trim();
       if (!modeFromQuery && VALID_ASSET_MODES.has(modeFromWarRoom)) {
         setAssetMode(modeFromWarRoom);
