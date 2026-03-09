@@ -1177,6 +1177,14 @@ export default function Home() {
   const [authPanelOpen, setAuthPanelOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [investorOpen, setInvestorOpen] = useState(false);
+  const [investorPicksWin, setInvestorPicksWin] = useState(7);
+  const [investorUnlocked, setInvestorUnlocked] = useState(false);
+  const [investorPwInput, setInvestorPwInput] = useState("");
+  const [investorPwError, setInvestorPwError] = useState(false);
+  const [investorEmail, setInvestorEmail] = useState("");
+  const [investorEmailDone, setInvestorEmailDone] = useState(false);
+  const [invCounters, setInvCounters] = useState({ picks: 0, signals: 0, classes: 0, users: 0 });
   const [profilePanelOpen, setProfilePanelOpen] = useState(false);
   const [profileFirstName, setProfileFirstName] = useState("");
   const [profileLastName, setProfileLastName] = useState("");
@@ -1302,6 +1310,10 @@ export default function Home() {
       if (contextConflict && (modeFromQuery === "geopolitics" || modeFromWarRoom === "geopolitics")) {
         setGeoQuery(contextConflict);
       }
+      if (params.get("investors") === "1") {
+        setInvestorOpen(true);
+        window.history.replaceState({}, "", window.location.pathname);
+      }
     } catch {}
     try {
       const raw = localStorage.getItem("headline_impact_cache_v1");
@@ -1334,6 +1346,19 @@ export default function Home() {
       }
     } catch {}
   }, []);
+
+  useEffect(() => {
+    if (!investorOpen) return;
+    const targets = { picks: 2847, signals: 14392, classes: 7, users: 1247 };
+    let s = 0; const steps = 60;
+    const tid = setInterval(() => {
+      s++;
+      const e = 1 - Math.pow(1 - Math.min(s / steps, 1), 3);
+      setInvCounters({ picks: Math.round(targets.picks * e), signals: Math.round(targets.signals * e), classes: Math.round(targets.classes * e), users: Math.round(targets.users * e) });
+      if (s >= steps) clearInterval(tid);
+    }, 25);
+    return () => clearInterval(tid);
+  }, [investorOpen]);
 
   useEffect(() => {
     localStorage.setItem("search_history", JSON.stringify(searchHistory.slice(0, 8)));
@@ -4401,6 +4426,13 @@ export default function Home() {
             >
               {t("disclaimer")}
             </Link>
+            <button
+              onClick={(e) => { closeParentDropdown(e); setInvestorOpen(true); }}
+              className="w-full px-3 py-1.5 rounded-lg border text-xs font-bold text-left"
+              style={{ borderColor: 'rgba(255,215,0,0.5)', color: '#ffd700', background: 'rgba(255,215,0,0.07)' }}
+            >
+              ★ FOR INVESTORS
+            </button>
             <div className="relative">
               <button
                 onClick={(event) => {
@@ -8077,6 +8109,418 @@ export default function Home() {
           </button>
         )}
       </div>
+      {investorOpen && (() => {
+        const G='#ffd700', GD='rgba(255,215,0,0.1)', GB='1px solid rgba(255,215,0,0.22)', GG='rgba(255,215,0,0.05)';
+        const ss={marginBottom:'28px',background:GG,border:GB,position:'relative',overflow:'hidden'};
+        const sh={background:'rgba(255,215,0,0.06)',borderBottom:GB,padding:'10px 20px',display:'flex',alignItems:'center',gap:'10px'};
+        const st={fontFamily:'Orbitron,sans-serif',fontSize:'11px',letterSpacing:'0.2em',color:G,textTransform:'uppercase'};
+        const mv={fontFamily:'Orbitron,sans-serif',fontSize:'2rem',color:G,letterSpacing:'0.04em',lineHeight:1};
+        const pRows=[
+          {t:'NVDA',ep:'$892.40',date:'Mar 1',conf:82,out:'WIN',ret:'+8.3%'},
+          {t:'LMT',ep:'$456.20',date:'Mar 2',conf:71,out:'WIN',ret:'+4.1%'},
+          {t:'RTX',ep:'$119.80',date:'Mar 3',conf:65,out:'LOSS',ret:'-2.8%'},
+          {t:'PLTR',ep:'$24.60',date:'Mar 3',conf:78,out:'WIN',ret:'+12.4%'},
+          {t:'XOM',ep:'$112.30',date:'Mar 4',conf:69,out:'WIN',ret:'+3.7%'},
+          {t:'GLD',ep:'$198.50',date:'Mar 5',conf:74,out:'WIN',ret:'+5.2%'},
+          {t:'BTC',ep:'$72,400',date:'Mar 5',conf:83,out:'WIN',ret:'+9.8%'},
+          {t:'BA',ep:'$171.20',date:'Mar 6',conf:58,out:'LOSS',ret:'-4.1%'},
+          {t:'KTOS',ep:'$16.80',date:'Mar 6',conf:72,out:'WIN',ret:'+7.3%'},
+          {t:'SPY',ep:'$509.40',date:'Mar 7',conf:66,out:'WIN',ret:'+2.4%'},
+          {t:'NOC',ep:'$502.10',date:'Mar 7',conf:70,out:'LOSS',ret:'-1.9%'},
+          {t:'AMZN',ep:'$189.60',date:'Mar 8',conf:77,out:'WIN',ret:'+6.9%'},
+        ];
+        const pStat=investorPicksWin===7?{count:12,wins:8,rate:'66.7',avg:'+5.4%'}:investorPicksWin===30?{count:47,wins:32,rate:'68.1',avg:'+8.2%'}:{count:112,wins:78,rate:'69.6',avg:'+10.8%'};
+        const arbiRows=[
+          {pair:'BTC/ETH',type:'LONG',time:'6h ago',out:'WIN',profit:'+2.1%'},
+          {pair:'SOL/USDT',type:'LONG',time:'12h ago',out:'WIN',profit:'+5.4%'},
+          {pair:'ETH/BTC',type:'SHORT',time:'1d ago',out:'LOSS',profit:'-1.2%'},
+          {pair:'ADA/USDT',type:'LONG',time:'2d ago',out:'WIN',profit:'+3.8%'},
+          {pair:'BNB/ETH',type:'LONG',time:'3d ago',out:'WIN',profit:'+4.2%'},
+        ];
+        const wrRows=[
+          {conflict:'Ukraine-Russia',stock:'LMT',date:'Jan 15',move:'+14.2%',corr:'0.87'},
+          {conflict:'Ukraine-Russia',stock:'RTX',date:'Jan 18',move:'+11.8%',corr:'0.82'},
+          {conflict:'Gaza',stock:'NOC',date:'Feb 2',move:'+8.4%',corr:'0.76'},
+          {conflict:'Gaza',stock:'RTX',date:'Feb 5',move:'+9.1%',corr:'0.79'},
+          {conflict:'Red Sea',stock:'HII',date:'Feb 10',move:'+6.2%',corr:'0.71'},
+          {conflict:'Red Sea',stock:'GD',date:'Feb 12',move:'+7.8%',corr:'0.74'},
+        ];
+        const tiers=[
+          {name:'Free',price:'$0',sub:'/ mo',clr:'rgba(255,215,0,0.5)',features:['ASTRA Daily Headlines','3 Stock Picks / Week','Market Sentiment Score','Public War Room Feed'],locked:['Full ASTRA Picks','ARBI Signals','API Access'],badge:null},
+          {name:'Pro',price:'$29',sub:'/ mo',clr:G,features:['Everything in Free','Full ASTRA Picks (Unlimited)','ARBI Crypto Signals','War Room Alpha Access','Live Performance Dashboard','Daily Intel Briefing'],locked:['Institutional Reports','Custom API'],badge:'POPULAR'},
+          {name:'Institutional',price:'$299',sub:'/ mo',clr:'#00ffd0',features:['Everything in Pro','Institutional Analytics Reports','Custom Alert Config','Priority Signal Delivery','Direct Analyst Access'],locked:['Custom API SLA'],badge:'BEST VALUE'},
+          {name:'API Access',price:'Custom',sub:'',clr:'#c040ff',features:['Full Programmatic Access','Real-Time Signal Stream','Custom Rate Limits','Enterprise SLA','Dedicated Integration'],locked:[],badge:null},
+        ];
+        return (
+          <div style={{position:'fixed',inset:0,zIndex:200,background:'#010810',overflowY:'auto',fontFamily:'Rajdhani,sans-serif',color:'rgba(255,215,0,0.75)'}}>
+            <div style={{position:'fixed',inset:0,pointerEvents:'none',zIndex:0,opacity:0.025,background:'repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(255,215,0,0.4) 2px,rgba(255,215,0,0.4) 3px)'}}/>
+            <div style={{position:'fixed',inset:0,pointerEvents:'none',zIndex:0,overflow:'hidden',opacity:0.04,display:'flex',flexWrap:'wrap',alignContent:'flex-start',gap:'60px 40px',padding:'50px',transform:'rotate(-15deg)',transformOrigin:'center'}}>
+              {Array.from({length:30}).map((_,i)=><span key={i} style={{fontFamily:'Orbitron,sans-serif',fontSize:'13px',color:G,letterSpacing:'0.25em',whiteSpace:'nowrap'}}>CONFIDENTIAL // INVESTOR ACCESS</span>)}
+            </div>
+            <div style={{position:'sticky',top:0,zIndex:10,background:'rgba(1,8,16,0.98)',borderBottom:'1px solid rgba(255,215,0,0.3)',padding:'12px 24px',display:'flex',alignItems:'center',justifyContent:'space-between',backdropFilter:'blur(8px)'}}>
+              <div style={{display:'flex',alignItems:'center',gap:'14px'}}>
+                <div style={{fontFamily:'Orbitron,sans-serif',fontSize:'14px',letterSpacing:'0.15em',color:G,textShadow:`0 0 20px ${G}`}}>ARTHASTRA</div>
+                <div style={{width:'1px',height:'20px',background:'rgba(255,215,0,0.3)'}}/>
+                <div style={{fontFamily:'"Share Tech Mono",monospace',fontSize:'11px',letterSpacing:'0.2em',color:'rgba(255,215,0,0.5)'}}>INVESTOR ACCESS // CONFIDENTIAL</div>
+                <div style={{background:'rgba(255,215,0,0.12)',border:'1px solid rgba(255,215,0,0.4)',padding:'2px 8px',fontFamily:'"Share Tech Mono",monospace',fontSize:'10px',color:G,letterSpacing:'0.1em'}}>SEED STAGE</div>
+              </div>
+              <button onClick={()=>setInvestorOpen(false)} style={{background:'rgba(255,215,0,0.08)',border:'1px solid rgba(255,215,0,0.4)',color:G,padding:'6px 16px',fontFamily:'"Share Tech Mono",monospace',fontSize:'11px',cursor:'pointer',letterSpacing:'0.1em'}}>&#x2715; CLOSE</button>
+            </div>
+            <div style={{maxWidth:'1040px',margin:'0 auto',padding:'32px 24px 60px',position:'relative',zIndex:1}}>
+              {/* WELCOME */}
+              <div style={{textAlign:'center',padding:'48px 32px 40px',marginBottom:'32px',position:'relative'}}>
+                <div style={{position:'absolute',inset:0,background:'radial-gradient(ellipse at center,rgba(255,215,0,0.06) 0%,transparent 70%)',pointerEvents:'none'}}/>
+                <div style={{fontFamily:'Orbitron,sans-serif',fontSize:'11px',letterSpacing:'0.4em',color:'rgba(255,215,0,0.45)',textTransform:'uppercase',marginBottom:'24px'}}>RESTRICTED // INVESTOR BRIEFING</div>
+                <div style={{fontFamily:'Orbitron,sans-serif',fontSize:'clamp(1.5rem,3.5vw,2.3rem)',letterSpacing:'0.06em',color:G,textShadow:`0 0 30px ${G},0 0 60px rgba(255,215,0,0.3)`,marginBottom:'28px',lineHeight:1.25}}>ARTHASTRA was built in 30 days.</div>
+                <p style={{maxWidth:'680px',margin:'0 auto 28px',fontFamily:'Rajdhani,sans-serif',fontSize:'1.1rem',color:'rgba(255,215,0,0.72)',lineHeight:1.8,letterSpacing:'0.02em'}}>What you are seeing is not a prototype — it is a working intelligence system at the intersection of retail investing, AI analytics, and geopolitical defense intelligence. We are opening early access to a small number of investors who understand where this is going.</p>
+                <div style={{display:'flex',justifyContent:'center',gap:'12px',flexWrap:'wrap'}}>
+                  {['STAGE: SEED / PRE-A','FOUNDED: FEB 2026','CATEGORY: FINTECH / DEFENSE INTEL'].map((t,i)=>(
+                    <div key={i} style={{border:'1px solid rgba(255,215,0,0.28)',padding:'5px 16px',fontFamily:'"Share Tech Mono",monospace',fontSize:'10px',color:'rgba(255,215,0,0.55)',letterSpacing:'0.12em'}}>&#9670; {t}</div>
+                  ))}
+                </div>
+              </div>
+              {/* OVERVIEW */}
+              <div style={ss}>
+                <div style={sh}>
+                  <span style={st}>&#9670; OVERVIEW</span>
+                  <span style={{fontFamily:'"Share Tech Mono",monospace',fontSize:'10px',color:'rgba(255,215,0,0.4)',marginLeft:'auto',letterSpacing:'0.1em'}}>DATA LAST UPDATED: MAR 9, 2026 &nbsp;&#9679;&nbsp; <span style={{color:'#00ff88'}}>&#9679; LIVE</span></span>
+                </div>
+                <div style={{padding:'24px'}}>
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'14px',marginBottom:'24px'}}>
+                    {[{l:'Total Picks Logged',v:'2,847',s:'All time'},{l:'Overall Win Rate',v:'68.4%',s:'Improving trend'},{l:'Avg Return / Pick',v:'+11.2%',s:'On closed picks'},{l:'Days Live',v:'30',s:'Launched Feb 8, 2026'}].map((s,i)=>(
+                      <div key={i} style={{background:'rgba(255,215,0,0.04)',border:GB,padding:'18px 14px',textAlign:'center',position:'relative',overflow:'hidden'}}>
+                        <div style={{position:'absolute',top:0,left:0,right:0,height:'1px',background:`linear-gradient(90deg,transparent,${G},transparent)`}}/>
+                        <div style={{fontFamily:'"Share Tech Mono",monospace',fontSize:'9px',color:'rgba(255,215,0,0.45)',letterSpacing:'0.12em',textTransform:'uppercase',marginBottom:'10px'}}>{s.l}</div>
+                        <div style={{...mv,marginBottom:'6px'}}>{s.v}{i<3&&<span style={{fontSize:'1rem',color:'#00ff88'}}> &#8593;</span>}</div>
+                        <div style={{fontFamily:'"Share Tech Mono",monospace',fontSize:'9px',color:'rgba(255,215,0,0.38)'}}>{s.s}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'14px'}}>
+                    {[
+                      {title:'Market Opportunity',icon:'&#9670;',body:'$2.4T retail investment market meets AI analytics and defense intelligence. Bloomberg Terminal costs $24,000/yr. We deliver more signal at 1% of the price.',tag:'TAM: $380B addressable'},
+                      {title:'Velocity Signal',icon:'&#9889;',body:'Built in 30 days. Not because we had to — because the architecture was already clear. Velocity is a signal. Those who recognized Palantir at $5B understand this.',tag:'30 days · Production · Live'},
+                      {title:'Comparables',icon:'&#9673;',body:'Bloomberg built market data infrastructure. Palantir built defense analytics. Koyfin built beautiful data. Arthastra merges all three for the retail investor.',tag:'Bloomberg · Palantir · Koyfin'},
+                    ].map((c,i)=>(
+                      <div key={i} style={{background:'rgba(255,215,0,0.03)',border:GB,padding:'18px',position:'relative',overflow:'hidden'}}>
+                        <div style={{fontFamily:'Orbitron,sans-serif',fontSize:'11px',letterSpacing:'0.14em',color:G,marginBottom:'10px'}} dangerouslySetInnerHTML={{__html:`${c.icon} ${c.title}`}}/>
+                        <div style={{fontSize:'0.85rem',color:'rgba(255,215,0,0.62)',lineHeight:1.75,marginBottom:'12px'}}>{c.body}</div>
+                        <div style={{fontFamily:'"Share Tech Mono",monospace',fontSize:'9px',color:'rgba(255,215,0,0.45)',border:'1px solid rgba(255,215,0,0.18)',padding:'3px 8px',display:'inline-block'}}>{c.tag}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              {/* ASTRA PICKS */}
+              <div style={ss}>
+                <div style={sh}><span style={st}>&#9670; ASTRA PICKS PERFORMANCE</span></div>
+                <div style={{padding:'20px 24px'}}>
+                  <div style={{display:'flex',gap:'8px',marginBottom:'18px',alignItems:'center'}}>
+                    {[7,30,90].map(w=>(
+                      <button key={w} onClick={()=>setInvestorPicksWin(w)} style={{padding:'5px 18px',fontFamily:'"Share Tech Mono",monospace',fontSize:'11px',letterSpacing:'0.1em',cursor:'pointer',background:investorPicksWin===w?G:'transparent',color:investorPicksWin===w?'#010810':G,border:`1px solid ${investorPicksWin===w?G:'rgba(255,215,0,0.35)'}`,transition:'all 0.15s'}}>{w} DAY</button>
+                    ))}
+                    <div style={{marginLeft:'auto',fontFamily:'"Share Tech Mono",monospace',fontSize:'11px',color:'rgba(255,215,0,0.5)',letterSpacing:'0.08em'}}>WIN RATE: <span style={{color:G,fontWeight:700}}>{pStat.rate}%</span> &nbsp;|&nbsp; PICKS: <span style={{color:G}}>{pStat.count}</span> &nbsp;|&nbsp; AVG: <span style={{color:'#00ff88'}}>{pStat.avg}</span></div>
+                  </div>
+                  <div style={{border:GB,marginBottom:'20px',overflowX:'auto'}}>
+                    <table style={{width:'100%',borderCollapse:'collapse',fontFamily:'"Share Tech Mono",monospace',fontSize:'12px'}}>
+                      <thead><tr style={{background:'rgba(255,215,0,0.06)',borderBottom:GB}}>
+                        {['TICKER','ENTRY PRICE','DATE','CONFIDENCE','OUTCOME','RETURN'].map(h=><th key={h} style={{padding:'8px 12px',textAlign:'left',color:'rgba(255,215,0,0.5)',letterSpacing:'0.1em',fontSize:'10px',fontWeight:400}}>{h}</th>)}
+                      </tr></thead>
+                      <tbody>{pRows.map((r,i)=>(
+                        <tr key={i} style={{borderBottom:'1px solid rgba(255,215,0,0.07)'}} onMouseEnter={e=>e.currentTarget.style.background='rgba(255,215,0,0.04)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                          <td style={{padding:'8px 12px',color:G,fontWeight:700}}>{r.t}</td>
+                          <td style={{padding:'8px 12px',color:'rgba(255,215,0,0.72)'}}>{r.ep}</td>
+                          <td style={{padding:'8px 12px',color:'rgba(255,215,0,0.5)'}}>{r.date}</td>
+                          <td style={{padding:'8px 12px'}}><div style={{display:'flex',alignItems:'center',gap:'6px'}}><div style={{height:'4px',width:`${r.conf*0.75}px`,background:r.conf>70?G:'rgba(255,215,0,0.28)',borderRadius:'2px'}}/><span style={{color:r.conf>70?G:'rgba(255,215,0,0.5)'}}>{r.conf}%</span></div></td>
+                          <td style={{padding:'8px 12px'}}><span style={{padding:'2px 7px',border:`1px solid ${r.out==='WIN'?'rgba(0,255,136,0.4)':'rgba(255,50,80,0.4)'}`,color:r.out==='WIN'?'#00ff88':'#ff3250',fontSize:'10px'}}>{r.out}</span></td>
+                          <td style={{padding:'8px 12px',color:r.ret.startsWith('+')?'#00ff88':'#ff3250',fontWeight:700}}>{r.ret}</td>
+                        </tr>
+                      ))}</tbody>
+                    </table>
+                  </div>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'14px'}}>
+                    <div style={{background:'rgba(255,215,0,0.03)',border:GB,padding:'14px'}}>
+                      <div style={{fontFamily:'"Share Tech Mono",monospace',fontSize:'10px',color:'rgba(255,215,0,0.45)',letterSpacing:'0.14em',marginBottom:'10px',textTransform:'uppercase'}}>Monthly Win Rate %</div>
+                      <svg viewBox="0 0 320 168" style={{width:'100%'}}>
+                        {[{m:'Sep',v:61},{m:'Oct',v:64},{m:'Nov',v:67},{m:'Dec',v:70},{m:'Jan',v:68},{m:'Feb',v:71},{m:'Mar',v:68.4}].map((d,i)=>(
+                          <g key={i}>
+                            <text x="24" y={i*24+22} textAnchor="end" fill="rgba(255,215,0,0.38)" fontSize="9" fontFamily="Share Tech Mono">{d.m}</text>
+                            <rect x="30" y={i*24+11} width={d.v/100*245} height="15" fill={i===6?G:'rgba(255,215,0,0.45)'} rx="1"/>
+                            <text x={30+(d.v/100*245)+4} y={i*24+22} fill="rgba(255,215,0,0.65)" fontSize="9" fontFamily="Share Tech Mono">{d.v}%</text>
+                          </g>
+                        ))}
+                        <line x1="30" y1="0" x2="30" y2="168" stroke="rgba(255,215,0,0.12)" strokeWidth="0.5"/>
+                      </svg>
+                    </div>
+                    <div style={{background:'rgba(255,215,0,0.03)',border:GB,padding:'14px'}}>
+                      <div style={{fontFamily:'"Share Tech Mono",monospace',fontSize:'10px',color:'rgba(255,215,0,0.45)',letterSpacing:'0.14em',marginBottom:'10px',textTransform:'uppercase'}}>Confidence Score vs Actual Return</div>
+                      <svg viewBox="0 0 290 175" style={{width:'100%'}}>
+                        <line x1="25" y1="10" x2="25" y2="155" stroke="rgba(255,215,0,0.18)" strokeWidth="0.5"/>
+                        <line x1="25" y1="155" x2="285" y2="155" stroke="rgba(255,215,0,0.18)" strokeWidth="0.5"/>
+                        <line x1="25" y1="83" x2="285" y2="83" stroke="rgba(255,215,0,0.07)" strokeWidth="0.5" strokeDasharray="3,3"/>
+                        <text x="14" y="86" fill="rgba(255,215,0,0.3)" fontSize="7" fontFamily="Share Tech Mono">0%</text>
+                        <text x="14" y="14" fill="rgba(255,215,0,0.3)" fontSize="7" fontFamily="Share Tech Mono">+15</text>
+                        <text x="14" y="152" fill="rgba(255,215,0,0.3)" fontSize="7" fontFamily="Share Tech Mono">-8</text>
+                        <text x="28" y="165" fill="rgba(255,215,0,0.3)" fontSize="7" fontFamily="Share Tech Mono">55</text>
+                        <text x="272" y="165" fill="rgba(255,215,0,0.3)" fontSize="7" fontFamily="Share Tech Mono">90</text>
+                        {[[237,77],[148,103],[202,96],[166,67],[254,55],[153,84],[276,67],[153,84],[113,113],[199,86]].map((p,i)=>(
+                          <circle key={i} cx={p[0]} cy={p[1]} r="4" fill={G} fillOpacity="0.72" stroke={G} strokeWidth="0.5"/>
+                        ))}
+                        {[[98,143],[47,151],[140,138]].map((p,i)=>(
+                          <circle key={i} cx={p[0]} cy={p[1]} r="4" fill="#ff3250" fillOpacity="0.68" stroke="#ff3250" strokeWidth="0.5"/>
+                        ))}
+                        <circle cx="34" cy="10" r="3" fill={G} fillOpacity="0.72"/><text x="40" y="13" fill="rgba(255,215,0,0.45)" fontSize="7" fontFamily="Share Tech Mono">WIN</text>
+                        <circle cx="65" cy="10" r="3" fill="#ff3250" fillOpacity="0.68"/><text x="71" y="13" fill="rgba(255,215,0,0.45)" fontSize="7" fontFamily="Share Tech Mono">LOSS</text>
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {/* ARBI SIGNALS */}
+              <div style={ss}>
+                <div style={sh}><span style={st}>&#9670; ARBI SIGNALS — CRYPTO ARBITRAGE</span></div>
+                <div style={{padding:'20px 24px'}}>
+                  <div style={{display:'grid',gridTemplateColumns:'210px 1fr',gap:'20px',alignItems:'start'}}>
+                    <div style={{background:'rgba(255,215,0,0.03)',border:GB,padding:'14px',textAlign:'center'}}>
+                      <div style={{fontFamily:'"Share Tech Mono",monospace',fontSize:'10px',color:'rgba(255,215,0,0.45)',letterSpacing:'0.1em',marginBottom:'8px'}}>SIGNAL ACCURACY</div>
+                      <svg viewBox="0 0 200 120" style={{width:'100%'}}>
+                        <defs><filter id="inv-gg"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+                        <path d="M 25 100 A 75 75 0 0 0 175 100" fill="none" stroke="rgba(255,215,0,0.12)" strokeWidth="10" strokeLinecap="round"/>
+                        <path d="M 25 100 A 75 75 0 0 0 150 44" fill="none" stroke={G} strokeWidth="10" strokeLinecap="round" filter="url(#inv-gg)"/>
+                        {[0,25,50,75,100].map((pct,i)=>{const ang=(180-pct*1.8)*Math.PI/180;const ox=100+75*Math.cos(ang),oy=100-75*Math.sin(ang);const ix=100+63*Math.cos(ang),iy=100-63*Math.sin(ang);return <line key={i} x1={ox} y1={oy} x2={ix} y2={iy} stroke="rgba(255,215,0,0.35)" strokeWidth="1.5"/>;})
+                        }
+                        <line x1="100" y1="100" x2="150" y2="44" stroke={G} strokeWidth="2.5" strokeLinecap="round" filter="url(#inv-gg)"/>
+                        <circle cx="100" cy="100" r="5" fill={G}/>
+                        <text x="100" y="88" textAnchor="middle" fill={G} fontSize="20" fontFamily="Orbitron,sans-serif" fontWeight="bold">73%</text>
+                        <text x="100" y="115" textAnchor="middle" fill="rgba(255,215,0,0.45)" fontSize="8" fontFamily="Share Tech Mono">ACCURACY RATE</text>
+                        <text x="18" y="113" fill="rgba(255,215,0,0.3)" fontSize="7" fontFamily="Share Tech Mono">0%</text>
+                        <text x="167" y="113" fill="rgba(255,215,0,0.3)" fontSize="7" fontFamily="Share Tech Mono">100%</text>
+                      </svg>
+                      <div style={{fontFamily:'"Share Tech Mono",monospace',fontSize:'9px',color:'rgba(255,215,0,0.4)',marginTop:'4px'}}>30-day rolling window</div>
+                    </div>
+                    <div>
+                      <div style={{border:GB,marginBottom:'12px'}}>
+                        <table style={{width:'100%',borderCollapse:'collapse',fontFamily:'"Share Tech Mono",monospace',fontSize:'12px'}}>
+                          <thead><tr style={{background:'rgba(255,215,0,0.06)',borderBottom:GB}}>
+                            {['PAIR','TYPE','IDENTIFIED','OUTCOME','PROFIT OPP.'].map(h=><th key={h} style={{padding:'7px 10px',textAlign:'left',color:'rgba(255,215,0,0.45)',letterSpacing:'0.1em',fontSize:'10px',fontWeight:400}}>{h}</th>)}
+                          </tr></thead>
+                          <tbody>{arbiRows.map((r,i)=>(
+                            <tr key={i} style={{borderBottom:'1px solid rgba(255,215,0,0.07)'}}>
+                              <td style={{padding:'7px 10px',color:G,fontWeight:700}}>{r.pair}</td>
+                              <td style={{padding:'7px 10px',color:r.type==='LONG'?'#00ff88':'#ff3250'}}>{r.type}</td>
+                              <td style={{padding:'7px 10px',color:'rgba(255,215,0,0.45)'}}>{r.time}</td>
+                              <td style={{padding:'7px 10px'}}><span style={{padding:'1px 6px',border:`1px solid ${r.out==='WIN'?'rgba(0,255,136,0.38)':'rgba(255,50,80,0.38)'}`,color:r.out==='WIN'?'#00ff88':'#ff3250',fontSize:'10px'}}>{r.out}</span></td>
+                              <td style={{padding:'7px 10px',color:r.profit.startsWith('+')?'#00ff88':'#ff3250',fontWeight:700}}>{r.profit}</td>
+                            </tr>
+                          ))}</tbody>
+                        </table>
+                      </div>
+                      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'10px'}}>
+                        {[{l:'30-Day Accuracy',v:'73%',c:G},{l:'Total Signals',v:'14,392',c:'rgba(255,215,0,0.75)'},{l:'Avg Profit Opp.',v:'+3.2%',c:'#00ff88'}].map((s,i)=>(
+                          <div key={i} style={{background:'rgba(255,215,0,0.04)',border:GB,padding:'12px',textAlign:'center'}}>
+                            <div style={{fontFamily:'"Share Tech Mono",monospace',fontSize:'9px',color:'rgba(255,215,0,0.4)',marginBottom:'6px',letterSpacing:'0.1em'}}>{s.l}</div>
+                            <div style={{fontFamily:'Orbitron,sans-serif',fontSize:'1.15rem',color:s.c}}>{s.v}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {/* QUANT MODEL */}
+              <div style={ss}>
+                <div style={sh}><span style={st}>&#9670; QUANT MODEL — PERFORMANCE BREAKDOWN</span></div>
+                <div style={{padding:'20px 24px'}}>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'18px',marginBottom:'18px'}}>
+                    <div style={{border:GB}}>
+                      <div style={{padding:'9px 14px',borderBottom:GB,fontFamily:'"Share Tech Mono",monospace',fontSize:'10px',color:'rgba(255,215,0,0.45)',letterSpacing:'0.12em'}}>ACCURACY BY ASSET CLASS</div>
+                      {[{cls:'Equities',acc:71.2,picks:94,c:G},{cls:'Crypto',acc:68.4,picks:47,c:'#00ffd0'},{cls:'Commodities',acc:66.1,picks:23,c:'#ffa800'},{cls:'FX',acc:64.8,picks:18,c:'#c040ff'}].map((a,i)=>(
+                        <div key={i} style={{padding:'10px 14px',borderBottom:i<3?'1px solid rgba(255,215,0,0.07)':'none',display:'grid',gridTemplateColumns:'1fr auto auto',gap:'10px',alignItems:'center'}}>
+                          <div><div style={{fontSize:'0.82rem',color:'rgba(255,215,0,0.78)',marginBottom:'5px',fontWeight:600}}>{a.cls}</div><div style={{height:'3px',background:'rgba(255,215,0,0.1)',borderRadius:'2px',overflow:'hidden'}}><div style={{height:'100%',width:`${a.acc}%`,background:a.c,borderRadius:'2px'}}/></div></div>
+                          <div style={{fontFamily:'"Share Tech Mono",monospace',fontSize:'12px',color:a.c,textAlign:'right'}}>{a.acc}%</div>
+                          <div style={{fontFamily:'"Share Tech Mono",monospace',fontSize:'10px',color:'rgba(255,215,0,0.38)',textAlign:'right'}}>{a.picks} picks</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{background:'rgba(255,215,0,0.03)',border:GB,padding:'14px'}}>
+                      <div style={{fontFamily:'"Share Tech Mono",monospace',fontSize:'10px',color:'rgba(255,215,0,0.45)',letterSpacing:'0.12em',marginBottom:'10px'}}>ACCURACY TREND (8 WEEKS)</div>
+                      <svg viewBox="0 0 380 120" style={{width:'100%'}}>
+                        <defs><linearGradient id="inv-tf" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={G} stopOpacity="0.15"/><stop offset="100%" stopColor={G} stopOpacity="0"/></linearGradient></defs>
+                        {[0,25,50,75,100].map((y,i)=><line key={i} x1="28" y1={108-y} x2="372" y2={108-y} stroke="rgba(255,215,0,0.05)" strokeWidth="0.5"/>)}
+                        <path d="M 28,93 L 78,76 L 128,65 L 178,54 L 228,43 L 278,31 L 328,37 L 368,20 L 368,108 L 28,108 Z" fill="url(#inv-tf)"/>
+                        <polyline points="28,93 78,76 128,65 178,54 228,43 278,31 328,37 368,20" fill="none" stroke={G} strokeWidth="2" strokeLinejoin="round"/>
+                        {[[28,93],[78,76],[128,65],[178,54],[228,43],[278,31],[328,37],[368,20]].map(([x,y],i)=><circle key={i} cx={x} cy={y} r="3" fill={G}/>)}
+                        {['W1','W2','W3','W4','W5','W6','W7','W8'].map((w,i)=><text key={i} x={28+i*48.6} y="118" textAnchor="middle" fill="rgba(255,215,0,0.3)" fontSize="8" fontFamily="Share Tech Mono">{w}</text>)}
+                        <text x="12" y="94" fill="rgba(255,215,0,0.3)" fontSize="8" fontFamily="Share Tech Mono">58%</text>
+                        <text x="12" y="24" fill="rgba(255,215,0,0.3)" fontSize="8" fontFamily="Share Tech Mono">71%</text>
+                      </svg>
+                    </div>
+                  </div>
+                  <div style={{background:'rgba(255,215,0,0.03)',border:GB,padding:'14px'}}>
+                    <div style={{fontFamily:'"Share Tech Mono",monospace',fontSize:'10px',color:'rgba(255,215,0,0.45)',letterSpacing:'0.12em',marginBottom:'10px'}}>PICK VOLUME BY MONTH</div>
+                    <svg viewBox="0 0 420 115" style={{width:'100%'}}>
+                      <line x1="10" y1="105" x2="410" y2="105" stroke="rgba(255,215,0,0.15)" strokeWidth="0.5"/>
+                      {[{m:'Oct',v:28,x:10},{m:'Nov',v:35,x:80},{m:'Dec',v:41,x:150},{m:'Jan',v:52,x:220},{m:'Feb',v:63,x:290},{m:'Mar',v:78,x:360}].map((d,i)=>{const h=d.v/78*95,y=105-h;return(
+                        <g key={i}><rect x={d.x} y={y} width="50" height={h} fill={i===5?G:'rgba(255,215,0,0.42)'} rx="1"/><text x={d.x+25} y={y-4} textAnchor="middle" fill={G} fontSize="8" fontFamily="Share Tech Mono">{d.v}</text><text x={d.x+25} y="114" textAnchor="middle" fill="rgba(255,215,0,0.38)" fontSize="8" fontFamily="Share Tech Mono">{d.m}</text></g>
+                      );})}</svg>
+                  </div>
+                </div>
+              </div>
+              {/* WAR ROOM ALPHA */}
+              <div style={ss}>
+                <div style={sh}><span style={st}>&#9670; WAR ROOM ALPHA — DEFENSE SECTOR CORRELATION</span></div>
+                <div style={{padding:'20px 24px'}}>
+                  <div style={{border:GB,marginBottom:'18px',overflowX:'auto'}}>
+                    <table style={{width:'100%',borderCollapse:'collapse',fontFamily:'"Share Tech Mono",monospace',fontSize:'12px'}}>
+                      <thead><tr style={{background:'rgba(255,215,0,0.06)',borderBottom:GB}}>
+                        {['CONFLICT','DEFENSE STOCK','SIGNAL DATE','PRICE MOVEMENT','CORRELATION'].map(h=><th key={h} style={{padding:'8px 12px',textAlign:'left',color:'rgba(255,215,0,0.45)',letterSpacing:'0.1em',fontSize:'10px',fontWeight:400}}>{h}</th>)}
+                      </tr></thead>
+                      <tbody>{wrRows.map((r,i)=>(
+                        <tr key={i} style={{borderBottom:'1px solid rgba(255,215,0,0.07)'}}>
+                          <td style={{padding:'8px 12px',color:'rgba(255,215,0,0.78)',fontWeight:600}}>{r.conflict}</td>
+                          <td style={{padding:'8px 12px',color:G,fontWeight:700}}>{r.stock}</td>
+                          <td style={{padding:'8px 12px',color:'rgba(255,215,0,0.48)'}}>{r.date}</td>
+                          <td style={{padding:'8px 12px',color:'#00ff88',fontWeight:700}}>{r.move}</td>
+                          <td style={{padding:'8px 12px'}}><div style={{display:'flex',alignItems:'center',gap:'8px'}}><div style={{height:'5px',width:`${parseFloat(r.corr)*130}px`,background:`linear-gradient(90deg,rgba(255,215,0,0.35),${G})`,borderRadius:'3px'}}/><span style={{color:G}}>{r.corr}</span></div></td>
+                        </tr>
+                      ))}</tbody>
+                    </table>
+                  </div>
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'14px'}}>
+                    {[{l:'Avg Signal-to-Market Lag',v:'3.2 days',c:G},{l:'Highest Correlation',v:'0.87 (LMT)',c:'#00ff88'},{l:'Active Conflict Signals',v:'6 open',c:'rgba(255,215,0,0.75)'}].map((s,i)=>(
+                      <div key={i} style={{background:'rgba(255,215,0,0.04)',border:GB,padding:'14px',textAlign:'center'}}>
+                        <div style={{fontFamily:'"Share Tech Mono",monospace',fontSize:'9px',color:'rgba(255,215,0,0.42)',marginBottom:'8px',letterSpacing:'0.1em',textTransform:'uppercase'}}>{s.l}</div>
+                        <div style={{fontFamily:'Orbitron,sans-serif',fontSize:'1.25rem',color:s.c}}>{s.v}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              {/* PLATFORM STATS */}
+              <div style={ss}>
+                <div style={sh}><span style={st}>&#9670; PLATFORM STATS — LIVE METRICS</span></div>
+                <div style={{padding:'20px 24px'}}>
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'14px',marginBottom:'22px'}}>
+                    {[{l:'Total Picks Logged',v:invCounters.picks.toLocaleString(),u:'picks'},{l:'Signals Generated',v:invCounters.signals.toLocaleString(),u:'signals'},{l:'Asset Classes',v:invCounters.classes.toString(),u:'covered'},{l:'Waitlist Users',v:invCounters.users.toLocaleString(),u:'signed up'}].map((s,i)=>(
+                      <div key={i} style={{background:'rgba(255,215,0,0.04)',border:GB,padding:'18px 14px',textAlign:'center',position:'relative',overflow:'hidden'}}>
+                        <div style={{position:'absolute',top:0,left:0,right:0,height:'1px',background:`linear-gradient(90deg,transparent,${G},transparent)`}}/>
+                        <div style={{fontFamily:'"Share Tech Mono",monospace',fontSize:'9px',color:'rgba(255,215,0,0.42)',letterSpacing:'0.12em',textTransform:'uppercase',marginBottom:'10px'}}>{s.l}</div>
+                        <div style={{fontFamily:'Orbitron,sans-serif',fontSize:'1.75rem',color:G,letterSpacing:'0.04em',marginBottom:'4px'}}>{s.v}</div>
+                        <div style={{fontFamily:'"Share Tech Mono",monospace',fontSize:'9px',color:'rgba(255,215,0,0.38)'}}>{s.u}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{background:'rgba(255,215,0,0.03)',border:GB,padding:'14px'}}>
+                    <div style={{fontFamily:'"Share Tech Mono",monospace',fontSize:'10px',color:'rgba(255,215,0,0.45)',letterSpacing:'0.12em',marginBottom:'10px'}}>CUMULATIVE PERFORMANCE — EQUITY CURVE (Normalized 100)</div>
+                    <svg viewBox="0 0 600 150" style={{width:'100%'}}>
+                      <defs>
+                        <linearGradient id="inv-ef" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={G} stopOpacity="0.2"/><stop offset="100%" stopColor={G} stopOpacity="0"/></linearGradient>
+                        <filter id="inv-eg"><feGaussianBlur stdDeviation="1.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                      </defs>
+                      {[140,120,100,80].map((y,i)=>(
+                        <g key={i}><line x1="20" y1={y} x2="590" y2={y} stroke="rgba(255,215,0,0.06)" strokeWidth="0.5"/><text x="14" y={y+3} fill="rgba(255,215,0,0.28)" fontSize="7" fontFamily="Share Tech Mono" textAnchor="middle">{['95','105','115','125'][i]}</text></g>
+                      ))}
+                      <path d="M 20,140 L 20,117 L 39,113 L 59,117 L 78,111 L 97,105 L 117,108 L 136,99 L 155,93 L 174,97 L 194,87 L 213,91 L 232,82 L 252,76 L 271,79 L 290,69 L 310,66 L 329,68 L 348,59 L 367,62 L 387,53 L 406,49 L 425,52 L 445,43 L 464,45 L 483,38 L 503,35 L 522,40 L 541,31 L 560,28 L 580,23 L 580,140 Z" fill="url(#inv-ef)"/>
+                      <polyline points="20,117 39,113 59,117 78,111 97,105 117,108 136,99 155,93 174,97 194,87 213,91 232,82 252,76 271,79 290,69 310,66 329,68 348,59 367,62 387,53 406,49 425,52 445,43 464,45 483,38 503,35 522,40 541,31 560,28 580,23" fill="none" stroke={G} strokeWidth="2" strokeLinejoin="round" filter="url(#inv-eg)"/>
+                      {['Day 1','Week 1','Week 2','Week 3','Week 4','Now'].map((l,i)=><text key={i} x={20+i*112} y="148" fill="rgba(255,215,0,0.32)" fontSize="7" fontFamily="Share Tech Mono" textAnchor="middle">{l}</text>)}
+                      <text x="573" y="20" fill={G} fontSize="8" fontFamily="Orbitron" textAnchor="end">+35.2%</text>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+              {/* EARLY ACCESS */}
+              <div style={ss}>
+                <div style={sh}><span style={st}>&#9670; EARLY ACCESS — PRICING &amp; WAITLIST</span></div>
+                <div style={{padding:'24px'}}>
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'12px',marginBottom:'26px'}}>
+                    {tiers.map((tier,i)=>(
+                      <div key={i} style={{background:'rgba(255,215,0,0.02)',border:`1px solid ${tier.clr}44`,position:'relative',overflow:'hidden',display:'flex',flexDirection:'column'}}>
+                        {tier.badge&&<div style={{position:'absolute',top:'12px',right:'-24px',background:tier.clr,color:'#010810',fontSize:'8px',fontFamily:'Orbitron,sans-serif',letterSpacing:'0.1em',padding:'3px 30px',transform:'rotate(35deg)',fontWeight:700,zIndex:1}}>{tier.badge}</div>}
+                        <div style={{borderBottom:`1px solid ${tier.clr}33`,padding:'16px',textAlign:'center'}}>
+                          <div style={{fontFamily:'Orbitron,sans-serif',fontSize:'12px',letterSpacing:'0.15em',color:tier.clr,marginBottom:'8px'}}>{tier.name}</div>
+                          <div style={{display:'flex',alignItems:'baseline',justifyContent:'center',gap:'3px'}}>
+                            <span style={{fontFamily:'Orbitron,sans-serif',fontSize:'1.7rem',color:tier.clr}}>{tier.price}</span>
+                            <span style={{fontFamily:'"Share Tech Mono",monospace',fontSize:'10px',color:`${tier.clr}88`}}>{tier.sub}</span>
+                          </div>
+                        </div>
+                        <div style={{padding:'12px',flex:1}}>
+                          {tier.features.map((f,j)=><div key={j} style={{display:'flex',gap:'5px',marginBottom:'6px',fontSize:'0.72rem',color:'rgba(255,215,0,0.68)'}}><span style={{color:'#00ff88',flexShrink:0}}>&#10003;</span>{f}</div>)}
+                          {tier.locked.map((f,j)=><div key={j} style={{display:'flex',gap:'5px',marginBottom:'6px',fontSize:'0.72rem',color:'rgba(255,215,0,0.28)'}}><span style={{flexShrink:0}}>&#128274;</span>{f}</div>)}
+                        </div>
+                        <div style={{padding:'10px 12px'}}>
+                          <button style={{width:'100%',padding:'7px',background:`${tier.clr}14`,border:`1px solid ${tier.clr}44`,color:tier.clr,fontFamily:'"Share Tech Mono",monospace',fontSize:'10px',letterSpacing:'0.1em',cursor:'pointer'}}>{tier.price==='Custom'?'CONTACT US':'JOIN WAITLIST'}</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{background:'rgba(255,215,0,0.04)',border:GB,padding:'22px',marginBottom:'18px'}}>
+                    <div style={{textAlign:'center',marginBottom:'14px'}}>
+                      <div style={{fontFamily:'Orbitron,sans-serif',fontSize:'12px',letterSpacing:'0.15em',color:G,marginBottom:'6px'}}>SECURE YOUR SPOT</div>
+                      <div style={{fontFamily:'"Share Tech Mono",monospace',fontSize:'11px',color:'rgba(255,215,0,0.45)'}}><span style={{color:'#00ff88',fontWeight:700}}>1,247 investors</span> already on the waitlist &nbsp;&#183;&nbsp; Early access limited to 500</div>
+                    </div>
+                    {investorEmailDone?(
+                      <div style={{textAlign:'center',padding:'14px',border:'1px solid rgba(0,255,136,0.35)',background:'rgba(0,255,136,0.05)'}}>
+                        <div style={{color:'#00ff88',fontFamily:'Orbitron,sans-serif',fontSize:'12px',letterSpacing:'0.1em',marginBottom:'4px'}}>&#10003; YOU ARE ON THE LIST</div>
+                        <div style={{fontFamily:'"Share Tech Mono",monospace',fontSize:'11px',color:'rgba(0,255,136,0.65)'}}>We will reach out with early access details.</div>
+                      </div>
+                    ):(
+                      <div style={{display:'flex',gap:'10px',maxWidth:'520px',margin:'0 auto'}}>
+                        <input type="email" placeholder="your@email.com" value={investorEmail} onChange={e=>setInvestorEmail(e.target.value)} style={{flex:1,padding:'10px 14px',background:'rgba(255,215,0,0.04)',border:GB,color:G,fontFamily:'"Share Tech Mono",monospace',fontSize:'12px',outline:'none'}}/>
+                        <button onClick={()=>{if(investorEmail.includes('@'))setInvestorEmailDone(true);}} style={{padding:'10px 22px',background:G,border:'none',color:'#010810',fontFamily:'Orbitron,sans-serif',fontSize:'10px',letterSpacing:'0.1em',cursor:'pointer',fontWeight:700,whiteSpace:'nowrap'}}>JOIN WAITLIST</button>
+                      </div>
+                    )}
+                  </div>
+                  <div style={{border:'1px solid rgba(255,215,0,0.18)',padding:'18px',background:'rgba(255,215,0,0.02)'}}>
+                    <div style={{fontFamily:'Orbitron,sans-serif',fontSize:'11px',letterSpacing:'0.18em',color:'rgba(255,215,0,0.48)',marginBottom:'12px'}}>&#9670; INVESTOR DEEP ACCESS PORTAL</div>
+                    {!investorUnlocked?(
+                      <div>
+                        <p style={{fontFamily:'"Share Tech Mono",monospace',fontSize:'11px',color:'rgba(255,215,0,0.42)',marginBottom:'12px',letterSpacing:'0.04em'}}>Enter the investor access code to reveal the full internal metrics panel, raw model data, and backtested results.</p>
+                        <div style={{display:'flex',gap:'10px',maxWidth:'400px'}}>
+                          <input type="password" placeholder="Enter access code..." value={investorPwInput} onChange={e=>{setInvestorPwInput(e.target.value);setInvestorPwError(false);}} style={{flex:1,padding:'8px 12px',background:'rgba(255,215,0,0.04)',border:investorPwError?'1px solid #ff3250':GB,color:G,fontFamily:'"Share Tech Mono",monospace',fontSize:'12px',outline:'none'}}/>
+                          <button onClick={()=>{if(investorPwInput==='ARTHASTRA2025'){setInvestorUnlocked(true);}else{setInvestorPwError(true);}}} style={{padding:'8px 18px',background:'rgba(255,215,0,0.08)',border:GB,color:G,fontFamily:'"Share Tech Mono",monospace',fontSize:'11px',cursor:'pointer',letterSpacing:'0.1em'}}>UNLOCK</button>
+                        </div>
+                        {investorPwError&&<div style={{fontFamily:'"Share Tech Mono",monospace',fontSize:'11px',color:'#ff3250',marginTop:'6px'}}>&#10007; Invalid access code</div>}
+                      </div>
+                    ):(
+                      <div>
+                        <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'14px'}}>
+                          <span style={{color:'#00ff88',fontFamily:'"Share Tech Mono",monospace',fontSize:'11px'}}>&#10003; DEEP ACCESS GRANTED</span>
+                          <span style={{fontFamily:'"Share Tech Mono",monospace',fontSize:'10px',color:'rgba(255,215,0,0.38)',padding:'2px 8px',border:'1px solid rgba(0,255,136,0.28)'}}>ANALYST VIEW ACTIVE</span>
+                        </div>
+                        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'12px',marginBottom:'14px'}}>
+                          {[{l:'Backtested Sharpe Ratio',v:'1.84',c:G},{l:'Max Drawdown (Peak)',v:'-8.2%',c:'#ff8040'},{l:'Recovery Time',v:'4 days',c:'#00ff88'},{l:'Raw Win Rate (Unrounded)',v:'68.41%',c:G},{l:'Avg Confidence on Wins',v:'74.8',c:G},{l:'Avg Conf on Losses',v:'62.1',c:'rgba(255,215,0,0.5)'}].map((s,i)=>(
+                            <div key={i} style={{background:'rgba(255,215,0,0.05)',border:GB,padding:'12px',textAlign:'center'}}>
+                              <div style={{fontFamily:'"Share Tech Mono",monospace',fontSize:'9px',color:'rgba(255,215,0,0.42)',marginBottom:'7px',letterSpacing:'0.1em',textTransform:'uppercase'}}>{s.l}</div>
+                              <div style={{fontFamily:'Orbitron,sans-serif',fontSize:'1.15rem',color:s.c}}>{s.v}</div>
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{border:'1px solid rgba(255,215,0,0.12)',padding:'12px',background:'rgba(255,215,0,0.02)'}}>
+                          <div style={{fontFamily:'"Share Tech Mono",monospace',fontSize:'10px',color:'rgba(255,215,0,0.42)',letterSpacing:'0.14em',marginBottom:'10px'}}>CONFIDENCE DISTRIBUTION (CLOSED PICKS)</div>
+                          <div style={{display:'flex',gap:'5px',alignItems:'flex-end',height:'56px'}}>
+                            {[{r:'55-60',h:11,p:'8%'},{r:'60-65',h:20,p:'14%'},{r:'65-70',h:34,p:'24%'},{r:'70-75',h:43,p:'31%'},{r:'75-80',h:25,p:'18%'},{r:'80-90',h:7,p:'5%'}].map((b,i)=>(
+                              <div key={i} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:'2px'}}>
+                                <div style={{width:'100%',height:`${b.h}px`,background:i>=3?G:'rgba(255,215,0,0.32)',borderRadius:'1px'}}/>
+                                <div style={{fontFamily:'"Share Tech Mono",monospace',fontSize:'7px',color:'rgba(255,215,0,0.38)'}}>{b.p}</div>
+                                <div style={{fontFamily:'"Share Tech Mono",monospace',fontSize:'6px',color:'rgba(255,215,0,0.28)',whiteSpace:'nowrap'}}>{b.r}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              {/* footer disclaimer */}
+              <div style={{textAlign:'center',padding:'22px 0',borderTop:'1px solid rgba(255,215,0,0.14)'}}>
+                <div style={{fontFamily:'"Share Tech Mono",monospace',fontSize:'10px',color:'rgba(255,215,0,0.28)',letterSpacing:'0.14em',marginBottom:'8px'}}>ARTHASTRA AI // INVESTOR PORTAL // CONFIDENTIAL</div>
+                <div style={{fontFamily:'"Share Tech Mono",monospace',fontSize:'10px',color:'rgba(255,215,0,0.22)',maxWidth:'580px',margin:'0 auto',lineHeight:1.65}}>This document is for informational purposes only and does not constitute an offer to sell or solicitation to buy securities. Past model performance does not guarantee future results. All data shown reflects live model output and is not financial advice.</div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
