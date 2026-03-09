@@ -771,8 +771,12 @@ async function handleUserChipClick() {
   if (!_sb) return;
   const { data } = await _sb.auth.getSession();
   if (data?.session?.user) {
+    IS_GUEST = false;
+    IS_PAID  = true;
     _updateUserChip(data.session.user);
-    continueAsAuthenticated();
+    document.getElementById('loginGate').style.display = 'none';
+    document.getElementById('onboard').style.display   = 'none';
+    showDashboard();
   }
 })();
 
