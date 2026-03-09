@@ -770,7 +770,7 @@ export default function PortfolioPage() {
       <div className="relative z-10 mx-auto w-full max-w-6xl px-6 py-10 md:py-14">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-8">
           <Link
-            href="/home"
+            href="/home?mode=news"
             className={`px-3 py-1.5 rounded-lg border text-xs ${
               isLight ? "border-slate-300 bg-white/90 text-slate-700 hover:bg-slate-100" : "border-white/15 bg-slate-900/60 text-white/85 hover:bg-slate-800/70"
             }`}
