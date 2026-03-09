@@ -6,6 +6,7 @@ import { geoMercator, geoPath } from "d3-geo";
 import { getSupabaseClient } from "@/app/api/_lib/supabaseClient";
 import geopoliticalRelations from "@/data/geopolitical-relations.json";
 import AzulaThemeBackground from "@/components/AzulaThemeBackground";
+import SakuraThemeBackground from "@/components/SakuraThemeBackground";
 
 function Badge({ value, light = false }) {
   const v = (value || "").toUpperCase();
@@ -243,8 +244,6 @@ function geopoliticsAgeLabel(value) {
   const diffWeeks = Math.floor(diffDays / 7);
   return `${diffWeeks}w ago`;
 }
-
-const SAKURA_PETAL_IDS = Array.from({ length: 14 }, (_, index) => index + 1);
 
 const LANGUAGE_OPTIONS = [
   { code: "en", label: "English" },
@@ -4268,23 +4267,7 @@ export default function Home() {
         <div className={`pointer-events-none absolute top-1/3 -right-28 h-96 w-96 rounded-full blur-3xl ${isCherry ? "bg-rose-100/28" : isAzula ? "bg-[#4fc3f7]/12" : isLight ? "bg-blue-200/30" : "bg-blue-500/10"}`} />
         <div className={`pointer-events-none absolute inset-0 ${isCherry ? "bg-[radial-gradient(circle_at_12%_6%,rgba(244,114,182,0.08),transparent_31%),radial-gradient(circle_at_86%_70%,rgba(251,113,133,0.07),transparent_36%),radial-gradient(circle_at_52%_14%,rgba(196,181,253,0.05),transparent_30%),linear-gradient(120deg,rgba(255,255,255,0.985),rgba(255,252,253,0.97),rgba(255,255,255,0.99))]" : isAzula ? "bg-[radial-gradient(circle_at_20%_6%,rgba(0,212,255,0.18),transparent_38%),radial-gradient(circle_at_84%_76%,rgba(79,195,247,0.13),transparent_44%),linear-gradient(180deg,rgba(2,5,8,0.97),rgba(3,11,20,0.95),rgba(2,8,14,0.98))]" : isLight ? "bg-[radial-gradient(circle_at_15%_10%,rgba(125,211,252,0.18),transparent_40%),radial-gradient(circle_at_80%_70%,rgba(147,197,253,0.14),transparent_42%),radial-gradient(circle_at_55%_18%,rgba(59,130,246,0.09),transparent_35%)]" : "bg-[radial-gradient(circle_at_20%_10%,rgba(59,130,246,0.08),transparent_35%),radial-gradient(circle_at_80%_70%,rgba(14,165,233,0.07),transparent_35%)]"}`}/>
 
-        {isCherry && (
-          <div className="pointer-events-none absolute inset-0 z-[1] overflow-hidden sakura-scene sakura-scene-pro" aria-hidden="true">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/sakura-ink-branch-vertical.svg" alt="" className="sakura-ink-feature sakura-ink-feature-left" />
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/sakura-ink-branch-vertical.svg" alt="" className="sakura-ink-feature sakura-ink-feature-right" />
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/sakura-tree.svg" alt="" className="sakura-tree sakura-tree-left" />
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/sakura-tree.svg" alt="" className="sakura-tree sakura-tree-canopy" />
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/sakura-tree.svg" alt="" className="sakura-tree sakura-tree-right" />
-            {SAKURA_PETAL_IDS.map((petalId) => (
-              <span key={petalId} className={`sakura-petal sakura-petal-${petalId}`} />
-            ))}
-          </div>
-        )}
+        {isCherry && <SakuraThemeBackground />}
         {isAzula && <AzulaThemeBackground />}
 
         <div className="relative z-10 mx-auto w-full max-w-6xl px-6 py-10 md:py-14">
