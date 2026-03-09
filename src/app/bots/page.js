@@ -73,7 +73,7 @@ export default function BotsPage() {
               <option value="alerik">Theme: Alerik</option>
             </select>
             <Link
-              href="/home?mode=news"
+              href="/home"
               className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${
                 isLight ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-100" : "border-white/15 bg-white/10 text-white/85 hover:bg-white/15"
               }`}

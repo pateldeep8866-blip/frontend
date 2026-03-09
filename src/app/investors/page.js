@@ -113,7 +113,7 @@ export default function InvestorsPage() {
                 Sign out
               </button>
             )}
-            <Link href="/home?mode=news" className={`px-3 py-1.5 rounded-lg border text-xs ${isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/15 bg-white/10 text-white/80"}`}>
+            <Link href="/home" className={`px-3 py-1.5 rounded-lg border text-xs ${isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/15 bg-white/10 text-white/80"}`}>
               Back Home
             </Link>
           </div>

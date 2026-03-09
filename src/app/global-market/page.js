@@ -105,7 +105,7 @@ export default function GlobalMarketPage() {
             </div>
 
             <div className="flex flex-col items-end gap-2">
-              <Link href="/home?mode=news" className={`rounded-lg border px-3 py-1.5 text-xs ${shellClass}`}>
+              <Link href="/home" className={`rounded-lg border px-3 py-1.5 text-xs ${shellClass}`}>
                 Back Home
               </Link>
               <p className={`text-[11px] ${isLight ? "text-slate-500" : "text-white/60"}`}>{asOf ? `As of ${asOf}` : ""}</p>

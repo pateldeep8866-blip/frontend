@@ -109,7 +109,7 @@ export default function AboutPage() {
             About Arthastra
           </div>
           <Link
-            href="/home?mode=news"
+            href="/home"
             className={`px-3 py-1.5 rounded-lg border text-xs font-semibold ${
               isAlerik
                 ? "border-[#c9a84c]/28 bg-[#0b0b0b]/85 text-[#f5f0e8] hover:bg-[#16120c]"
