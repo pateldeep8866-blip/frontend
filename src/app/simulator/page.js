@@ -2104,7 +2104,7 @@ export default function SimulatorPage() {
           <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Link
-              href="/home?mode=news"
+              href="/home"
               className={`px-3 py-1.5 rounded-lg border text-xs ${
                 isLight ? "border-slate-300 bg-white/90 text-slate-700 hover:bg-slate-100" : "border-white/15 bg-slate-900/60 text-white/85 hover:bg-slate-800/70"
               }`}
@@ -2206,7 +2206,7 @@ export default function SimulatorPage() {
                 </p>
               </div>
               <Link
-                href="/home?mode=globalmarket"
+                href="/home"
                 className={`px-3 py-1.5 rounded-lg border text-xs font-semibold ${
                   isLight ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-100" : "border-white/15 bg-white/10 text-white/85 hover:bg-white/15"
                 }`}
@@ -2233,7 +2233,7 @@ export default function SimulatorPage() {
             </div>
             <div className="mt-4 flex items-center gap-2">
               <Link
-                href="/home?mode=news"
+                href="/home"
                 className={`px-3 py-1.5 rounded-lg border text-xs font-semibold ${
                   isLight ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-100" : "border-white/15 bg-white/10 text-white/85 hover:bg-white/15"
                 }`}

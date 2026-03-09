@@ -512,7 +512,7 @@ export default function MarketSchoolPage() {
       <div className="relative z-10 mx-auto w-full max-w-6xl px-6 py-8 md:py-12">
         <div className="flex items-center justify-between gap-3 mb-8">
           <Link
-            href="/home?mode=news"
+            href="/home"
             className={`px-3 py-1.5 rounded-lg border text-xs ${
               isLight
                 ? "border-slate-300 bg-white/90 text-slate-700 hover:bg-slate-100"

@@ -4335,7 +4335,7 @@ export default function Home() {
               }`}>
             <div className={`my-1 h-px ${isLight ? "bg-slate-200" : "bg-white/10"}`} />
             <Link
-              href="/home?mode=news"
+              href="/home"
               onClick={closeParentDropdown}
               className={`px-3 py-1.5 rounded-lg border text-xs ${
                 isLight

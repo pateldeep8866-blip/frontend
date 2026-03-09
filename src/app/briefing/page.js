@@ -163,7 +163,7 @@ export default function BriefingPage() {
                   Weekly
                 </button>
                 <Link
-                  href="/home?mode=news"
+                  href="/home"
                   className={`px-3 py-1.5 rounded text-xs border ${isLight ? "bg-[#fffdf8] text-[#3b342c] border-[#cfc5b8]" : "bg-white/5 text-white/80 border-white/20"}`}
                 >
                   Back Home
