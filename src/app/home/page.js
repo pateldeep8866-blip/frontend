@@ -312,7 +312,7 @@ function marketContextLabel(assetMode) {
   if (assetMode === "metals") return "metals prices";
   if (assetMode === "fx") return "currency pairs";
   if (assetMode === "geopolitics") return "global risk";
-  if (assetMode === "news" || assetMode === "globalmarket") return "cross-market sentiment";
+  if (assetMode === "stock" || assetMode === "globalmarket") return "cross-market sentiment";
   return "stock prices";
 }
 
@@ -2096,7 +2096,7 @@ export default function Home() {
   }
 
   async function fetchDailyPick() {
-    if (assetMode === "fx" || assetMode === "news" || assetMode === "globalmarket" || assetMode === "geopolitics") {
+    if (assetMode === "fx" || assetMode === "stock" || assetMode === "globalmarket" || assetMode === "geopolitics") {
       setDailyObj(null);
       return;
     }
@@ -2114,7 +2114,7 @@ export default function Home() {
 
   async function fetchOverview() {
     try {
-      if (assetMode === "news" || assetMode === "globalmarket" || assetMode === "geopolitics") {
+      if (assetMode === "stock" || assetMode === "globalmarket" || assetMode === "geopolitics") {
         setOverview([]);
         return;
       }
@@ -2186,7 +2186,7 @@ export default function Home() {
       const res = await fetch(
         assetMode === "geopolitics"
           ? "/api/geopolitics-news"
-          : assetMode === "news" || assetMode === "globalmarket"
+          : assetMode === "stock" || assetMode === "globalmarket"
             ? "/api/global-impact-news"
           : assetMode === "crypto"
             ? "/api/crypto-market-news"
@@ -2195,7 +2195,7 @@ export default function Home() {
               : "/api/market-news"
       );
       const data = await res.json().catch(() => ({}));
-      const maxItems = assetMode === "geopolitics" || assetMode === "news" || assetMode === "globalmarket" ? 30 : 12;
+      const maxItems = assetMode === "geopolitics" || assetMode === "stock" || assetMode === "globalmarket" ? 30 : 12;
       setMarketNews(Array.isArray(data?.news) ? data.news.slice(0, maxItems) : []);
     } catch {
       setMarketNews([]);
@@ -2203,7 +2203,7 @@ export default function Home() {
   }
 
   async function fetchMovers() {
-    if (assetMode === "fx" || assetMode === "news" || assetMode === "globalmarket" || assetMode === "geopolitics") {
+    if (assetMode === "fx" || assetMode === "stock" || assetMode === "globalmarket" || assetMode === "geopolitics") {
       setMovers({ gainers: [], losers: [] });
       return;
     }
@@ -2238,7 +2238,7 @@ export default function Home() {
   }
 
   async function runComparison() {
-    if (assetMode === "fx" || assetMode === "news" || assetMode === "globalmarket" || assetMode === "geopolitics") {
+    if (assetMode === "fx" || assetMode === "stock" || assetMode === "globalmarket" || assetMode === "geopolitics") {
       setCompareRows([]);
       setCompareInvalidTickers([]);
       setCompareError("");
@@ -2559,7 +2559,7 @@ export default function Home() {
     fetchMarketNews();
     setTimeout(fetchMovers, 1200);
     const overviewTimer = setInterval(fetchOverview, 60000);
-    const newsRefreshMs = assetMode === "geopolitics" || assetMode === "news" || assetMode === "globalmarket" ? 30000 : 90000;
+    const newsRefreshMs = assetMode === "geopolitics" || assetMode === "stock" || assetMode === "globalmarket" ? 30000 : 90000;
     const newsTimer = setInterval(fetchMarketNews, newsRefreshMs);
     return () => {
       clearInterval(overviewTimer);
@@ -3590,7 +3590,7 @@ export default function Home() {
 
   const fetchDayTraderPick = async () => {
     const enabled = Boolean(authUser && quizCompleted && String(quizAnswers.dayTradingInterest || "").startsWith("yes"));
-    if (!enabled || assetMode === "fx" || assetMode === "news" || assetMode === "globalmarket" || assetMode === "geopolitics") {
+    if (!enabled || assetMode === "fx" || assetMode === "stock" || assetMode === "globalmarket" || assetMode === "geopolitics") {
       setDayTraderObj(null);
       return;
     }
@@ -3810,7 +3810,7 @@ export default function Home() {
         ? "metals"
           : assetMode === "fx"
             ? "FX"
-            : assetMode === "news" || assetMode === "globalmarket"
+            : assetMode === "stock" || assetMode === "globalmarket"
               ? "world news"
               : assetMode === "geopolitics"
                 ? "geopolitics"
@@ -3822,12 +3822,12 @@ export default function Home() {
         ? "Ask anything (metals, crypto, stocks, FX, news, geopolitics)..."
           : assetMode === "fx"
             ? "Ask anything (FX, stocks, crypto, metals, news, geopolitics)..."
-            : assetMode === "news" || assetMode === "globalmarket"
+            : assetMode === "stock" || assetMode === "globalmarket"
               ? "Ask anything (world news, markets, crypto, FX, metals, geopolitics)..."
             : assetMode === "geopolitics"
               ? "Ask anything (global conflicts, diplomacy, sanctions, trade, markets)..."
               : "Ask anything (stocks, crypto, metals, FX, news, geopolitics)...";
-  const isNewsMode = assetMode === "news";
+  const isNewsMode = assetMode === "stock";
   const isGlobalMarketMode = assetMode === "globalmarket";
   const isGeoPoliticsMode = assetMode === "geopolitics";
   const isNarrativeMode = isNewsMode || isGlobalMarketMode || isGeoPoliticsMode;
@@ -4782,9 +4782,9 @@ export default function Home() {
             isLight ? "border-slate-300 bg-white/85 shadow-sm" : "border-white/15 bg-slate-900/60"
           }`}>
             <button
-              onClick={() => setAssetMode("news")}
+              onClick={() => setAssetMode("stock")}
               className={`px-3 py-1.5 text-xs font-semibold ${
-                assetMode === "news" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-700" : "bg-transparent text-white/80"
+                assetMode === "stock" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-700" : "bg-transparent text-white/80"
               }`}
             >
               {t("home")}
