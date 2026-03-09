@@ -26,6 +26,7 @@ import random
 from datetime import datetime
 from utils.logger import get_logger
 from storage.supabase_writer import write_trade, write_stats
+from data.ws_feed import BybitWSFeed
 
 log = get_logger("simulation.engine")
 
@@ -120,7 +121,7 @@ def init_sim_db():
 
 class SimulationEngine:
 
-    def __init__(self, sim_user: str, use_live_data: bool = False):
+    def __init__(self, sim_user: str, use_live_data: bool = True):
         self.sim_user    = sim_user
         self.user_hash   = hashlib.sha256(sim_user.encode()).hexdigest()[:16]
         self.use_live    = use_live_data
@@ -130,6 +131,9 @@ class SimulationEngine:
         self.session_id  = str(uuid.uuid4())[:8]
         self._running    = False
         self._lock       = threading.Lock()
+
+        self._ws_feed = BybitWSFeed(SYMBOLS)
+        self._ws_feed.start()
 
         init_sim_db()
         self._register_session()
@@ -199,13 +203,30 @@ class SimulationEngine:
 
     def _fetch_market_data(self) -> dict:
         """
-        Fetch live data if Bybit client is available.
-        Falls back to realistic synthetic data if no API key.
-        Synthetic data uses real statistical properties of crypto markets.
+        Priority order:
+          1. Bybit WebSocket cache (millisecond-fresh, zero API calls)
+          2. Bybit REST via ccxt (if --live flag set)
+          3. Realistic synthetic data (fallback)
+        WS prices are merged on top of synthetic candle data so downstream
+        strategy code always gets a full market_data dict.
         """
+        # Build base data (candles + vol from synthetic or REST)
         if self.use_live:
-            return self._fetch_live_data()
-        return self._generate_synthetic_data()
+            base = self._fetch_live_data()
+        else:
+            base = self._generate_synthetic_data()
+
+        # Overlay any fresh WS prices on top
+        if self._ws_feed.is_alive():
+            for sym in SYMBOLS:
+                ws_price = self._ws_feed.get_price(sym)
+                if ws_price and sym in base:
+                    base[sym]["price"] = ws_price
+                    base[sym]["bid"]   = ws_price * 0.9997
+                    base[sym]["ask"]   = ws_price * 1.0003
+                    base[sym]["source"] = "websocket"
+
+        return base
 
     def _fetch_live_data(self) -> dict:
         """Fetch real prices from Bybit public API (no auth needed for market data)."""
@@ -213,11 +234,12 @@ class SimulationEngine:
             import ccxt
             client = ccxt.bybit({"options": {"defaultType": "linear"}})
             data = {}
-            for sym in SYMBOLS[:5]:   # limit to avoid rate limits
+            for sym in SYMBOLS:
                 try:
-                    ticker = client.fetch_ticker(sym)
-                    ohlcv  = client.fetch_ohlcv(sym, "1h", limit=60)
-                    funding = client.fetch_funding_rate(sym.replace("/USDT", "/USDT:USDT"))
+                    ticker  = client.fetch_ticker(sym)
+                    ohlcv   = client.fetch_ohlcv(sym, "1h", limit=60)
+                    perp_sym = sym.replace("/USDT", "/USDT:USDT")
+                    funding  = client.fetch_funding_rate(perp_sym)
                     data[sym] = {
                         "price":        ticker["last"],
                         "bid":          ticker["bid"],
@@ -227,11 +249,13 @@ class SimulationEngine:
                         "funding_rate": funding.get("fundingRate", 0),
                         "source":       "live",
                     }
-                except Exception:
+                    time.sleep(0.1)   # stay within Bybit public rate limits
+                except Exception as sym_exc:
+                    log.warning("Live data failed for %s (%s) — using synthetic", sym, sym_exc)
                     data[sym] = self._synthetic_for_symbol(sym)
             return data
         except Exception as exc:
-            log.debug("Live data unavailable (%s) — using synthetic", exc)
+            log.warning("Live data unavailable (%s) — using synthetic", exc)
             return self._generate_synthetic_data()
 
     def _generate_synthetic_data(self) -> dict:
@@ -592,7 +616,7 @@ class SimulationEngine:
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 
-def run_simulation(user_name: str, use_live_data: bool = False):
+def run_simulation(user_name: str, use_live_data: bool = True):
     """Start a simulation instance for a named user."""
     print(f"""
 ╔══════════════════════════════════════════════╗
