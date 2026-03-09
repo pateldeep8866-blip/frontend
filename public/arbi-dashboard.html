@@ -357,6 +357,7 @@ tr:last-child td{border-bottom:none;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:100px;}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <div class="orb orb1"></div>
@@ -389,11 +390,12 @@ tr:last-child td{border-bottom:none;}
       <input id="loginPassword" type="password" placeholder="••••••••" style="width:100%;padding:12px 14px;background:var(--s2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'DM Mono',monospace;font-size:13px;outline:none;">
     </div>
 
-    <button class="btn btn-gold" style="width:100%;margin-bottom:10px;" onclick="handleLogin()">Sign In →</button>
+    <button id="authSubmitBtn" class="btn btn-gold" style="width:100%;margin-bottom:10px;" onclick="handleAuthSubmit()">Sign In →</button>
     <button class="btn btn-ghost" style="width:100%;" onclick="continueAsGuest()">Continue as Guest (Simulator Only)</button>
 
     <div style="margin-top:16px;text-align:center;font-size:11px;color:var(--dim);">
-      Don't have an account? <a href="/home" style="color:var(--gold);text-decoration:none;">Learn more</a>
+      <span id="authToggleText">Don't have an account?</span>
+      <a href="#" style="color:var(--gold);text-decoration:none;" onclick="toggleAuthMode(event)" id="authToggleLink">Sign up</a>
     </div>
   </div>
 </div>
@@ -523,7 +525,7 @@ tr:last-child td{border-bottom:none;}
     <div class="topbar-right">
       <a href="/home" class="btn btn-ghost" style="width:auto;padding:7px 12px;font-size:10px;text-decoration:none;display:inline-flex;align-items:center;">← Back Home</a>
       <span id="clock"></span>
-      <div class="user-chip"><div class="avatar">JU</div>Juan</div>
+      <div class="user-chip" id="userChip" onclick="handleUserChipClick()" title="Click to sign out"><div class="avatar" id="userAvatar">JU</div><span id="userLabel">Juan</span></div>
     </div>
   </div>
 
@@ -651,36 +653,128 @@ tr:last-child td{border-bottom:none;}
 </div><!-- /wrap -->
 
 <script>
+// ── SUPABASE ──────────────────────────────────────────────────────────────────
+const SUPABASE_URL      = 'https://htnkjncvkzbberblhnve.supabase.co';
+const SUPABASE_ANON_KEY = window.__SUPABASE_ANON_KEY__ || '';  // injected at deploy or set below
+const _sb = (typeof supabase !== 'undefined' && SUPABASE_ANON_KEY)
+  ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null;
+
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let capital  = 5000;
 let exchange = 'kraken';
 let step     = 0;
-// ── AUTH CHECK ─────────────────────────────────────────────────────────────────
-const urlParams = new URLSearchParams(window.location.search);
-const authToken = urlParams.get('token') || localStorage.getItem('arbi_token');
-let IS_PAID = false;
+let IS_PAID  = false;
 let IS_GUEST = true;
+let _authMode = 'signin';   // 'signin' | 'signup'
 
-function handleLogin() {
-  const email = document.getElementById('loginEmail').value.trim();
+// ── AUTH HELPERS ──────────────────────────────────────────────────────────────
+function _showAuthMsg(msg, isError = true) {
+  const el = document.getElementById('loginError');
+  el.textContent = msg;
+  if (isError) {
+    el.style.color = '#ff4466';
+    el.style.background = 'rgba(255,68,102,.1)';
+    el.style.borderColor = 'rgba(255,68,102,.3)';
+  } else {
+    el.style.color = '#00dfa0';
+    el.style.background = 'rgba(0,223,160,.08)';
+    el.style.borderColor = 'rgba(0,223,160,.25)';
+  }
+  el.style.display = 'block';
+}
+
+function toggleAuthMode(e) {
+  e.preventDefault();
+  _authMode = _authMode === 'signin' ? 'signup' : 'signin';
+  const isSignup = _authMode === 'signup';
+  document.getElementById('authSubmitBtn').textContent = isSignup ? 'Create Account →' : 'Sign In →';
+  document.getElementById('authToggleText').textContent = isSignup ? 'Already have an account?' : "Don't have an account?";
+  document.getElementById('authToggleLink').textContent = isSignup ? 'Sign in' : 'Sign up';
+  document.getElementById('loginError').style.display = 'none';
+}
+
+async function handleAuthSubmit() {
+  const email    = document.getElementById('loginEmail').value.trim();
   const password = document.getElementById('loginPassword').value;
-  const errEl = document.getElementById('loginError');
 
   if (!email || !password) {
-    errEl.textContent = 'Please enter your email and password.';
-    errEl.style.display = 'block';
+    _showAuthMsg('Please enter your email and password.');
     return;
   }
 
-  // TODO: Wire to Supabase auth when ready
-  // For now show a friendly message
-  errEl.style.display = 'none';
-  errEl.style.color = '#00dfa0';
-  errEl.style.background = 'rgba(0,223,160,.08)';
-  errEl.style.borderColor = 'rgba(0,223,160,.25)';
-  errEl.textContent = 'Auth system coming soon — continue as guest for now.';
-  errEl.style.display = 'block';
+  if (!_sb) {
+    _showAuthMsg('Auth not configured — contact support.');
+    return;
+  }
+
+  document.getElementById('authSubmitBtn').textContent = '...';
+
+  if (_authMode === 'signup') {
+    const { error } = await _sb.auth.signUp({ email, password });
+    if (error) {
+      _showAuthMsg(error.message);
+      document.getElementById('authSubmitBtn').textContent = 'Create Account →';
+    } else {
+      _showAuthMsg('Check your email to confirm your account, then sign in.', false);
+      document.getElementById('authSubmitBtn').textContent = 'Create Account →';
+      toggleAuthMode({ preventDefault: () => {} });
+    }
+  } else {
+    const { data, error } = await _sb.auth.signInWithPassword({ email, password });
+    if (error) {
+      _showAuthMsg(error.message);
+      document.getElementById('authSubmitBtn').textContent = 'Sign In →';
+    } else {
+      _updateUserChip(data.user);
+      continueAsAuthenticated();
+    }
+  }
 }
+
+// Keep old name as alias so any external callers still work
+function handleLogin() { handleAuthSubmit(); }
+
+function continueAsAuthenticated() {
+  IS_GUEST = false;
+  IS_PAID  = true;
+  document.getElementById('loginGate').style.display = 'none';
+  document.getElementById('onboard').style.display = 'flex';
+  // Hide exchange step dot (same as guest for now — paper mode only)
+  const s1 = document.getElementById('s1');
+  if (s1) s1.style.display = 'none';
+  // No simulator banner for authenticated users
+}
+
+function _updateUserChip(user) {
+  if (!user) return;
+  const email  = user.email || '';
+  const initials = email.slice(0, 2).toUpperCase();
+  const label    = email.split('@')[0] || 'User';
+  const av = document.getElementById('userAvatar');
+  const lb = document.getElementById('userLabel');
+  if (av) av.textContent = initials;
+  if (lb) lb.textContent = label;
+}
+
+async function handleUserChipClick() {
+  if (IS_GUEST || !_sb) return;
+  if (!confirm('Sign out?')) return;
+  await _sb.auth.signOut();
+  IS_GUEST = true;
+  IS_PAID  = false;
+  location.reload();
+}
+
+// ── SESSION CHECK ON LOAD ─────────────────────────────────────────────────────
+(async () => {
+  if (!_sb) return;
+  const { data } = await _sb.auth.getSession();
+  if (data?.session?.user) {
+    _updateUserChip(data.session.user);
+    continueAsAuthenticated();
+  }
+})();
 
 function continueAsGuest() {
   IS_GUEST = true;
