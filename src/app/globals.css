@@ -657,14 +657,13 @@ textarea:disabled {
 }
 
 .cherry-mode {
-  background-color: #fff8f9;
+  background-color: #fffefb;
   background-image:
-    radial-gradient(circle at 14% 7%, rgba(251, 113, 133, 0.22), transparent 34%),
-    radial-gradient(circle at 84% 76%, rgba(244, 114, 182, 0.18), transparent 40%),
-    radial-gradient(circle at 50% 40%, rgba(255, 192, 203, 0.12), transparent 50%),
-    linear-gradient(176deg, rgba(255, 248, 249, 1), rgba(255, 240, 245, 0.98) 45%, rgba(255, 250, 252, 1)),
-    repeating-linear-gradient(0deg, rgba(71, 52, 61, 0.02) 0px, rgba(71, 52, 61, 0.02) 1px, transparent 1px, transparent 24px);
-  background-blend-mode: normal, normal, normal, normal, multiply;
+    radial-gradient(circle at 14% 7%, rgba(251, 113, 133, 0.1), transparent 34%),
+    radial-gradient(circle at 84% 76%, rgba(244, 114, 182, 0.08), transparent 40%),
+    linear-gradient(176deg, rgba(255, 255, 255, 1), rgba(255, 250, 248, 0.992) 45%, rgba(255, 254, 252, 1)),
+    repeating-linear-gradient(0deg, rgba(71, 52, 61, 0.015) 0px, rgba(71, 52, 61, 0.015) 1px, transparent 1px, transparent 24px);
+  background-blend-mode: normal, normal, normal, multiply;
   isolation: isolate;
 }
 
@@ -678,8 +677,8 @@ textarea:disabled {
     url("/sakura-ink-branch-vertical.svg") left -24px top -34px / min(34vw, 500px) auto no-repeat,
     url("/sakura-ink-branch-vertical.svg") right -162px top -20px / min(24vw, 320px) auto no-repeat,
     url("/sakura-ink-branch.svg") center -200px top -212px / min(70vw, 1020px) auto no-repeat,
-    repeating-linear-gradient(14deg, rgba(71, 52, 61, 0.018) 0px, rgba(71, 52, 61, 0.018) 1px, transparent 1px, transparent 16px);
-  opacity: 0.72;
+    repeating-linear-gradient(14deg, rgba(71, 52, 61, 0.012) 0px, rgba(71, 52, 61, 0.012) 1px, transparent 1px, transparent 16px);
+  opacity: 0.44;
 }
 
 .cherry-mode::after {
@@ -690,12 +689,11 @@ textarea:disabled {
   z-index: 0;
   background:
     url("/sakura-ink-horizon.svg") center bottom -18px / min(108vw, 1460px) auto no-repeat,
-    radial-gradient(60px 60px at 12% 20%, rgba(244, 114, 182, 0.18), transparent 70%),
-    radial-gradient(50px 50px at 24% 15%, rgba(251, 113, 133, 0.14), transparent 68%),
-    radial-gradient(50px 50px at 80% 22%, rgba(244, 114, 182, 0.14), transparent 66%),
-    radial-gradient(80px 80px at 65% 80%, rgba(251, 113, 133, 0.10), transparent 72%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0) 55%, rgba(255, 236, 242, 0.72) 100%);
-  opacity: 0.92;
+    radial-gradient(10px 10px at 12% 20%, rgba(244, 114, 182, 0.06), transparent 70%),
+    radial-gradient(8px 8px at 24% 15%, rgba(251, 113, 133, 0.055), transparent 68%),
+    radial-gradient(8px 8px at 80% 22%, rgba(244, 114, 182, 0.055), transparent 66%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0) 60%, rgba(255, 248, 249, 0.66) 100%);
+  opacity: 0.86;
 }
 
 .cherry-mode .app-card {
@@ -784,7 +782,7 @@ textarea:disabled {
 
 .sakura-scene-pro {
   mix-blend-mode: normal;
-  opacity: 1;
+  opacity: 0.78;
 }
 
 .sakura-ink-feature {
@@ -824,7 +822,7 @@ textarea:disabled {
   width: min(34vw, 320px);
   left: -84px;
   bottom: -62px;
-  opacity: 0.38;
+  opacity: 0.2;
 }
 
 .sakura-tree-right {
@@ -832,44 +830,44 @@ textarea:disabled {
   right: -116px;
   top: 130px;
   transform: scaleX(-1);
-  opacity: 0.22;
+  opacity: 0.08;
 }
 
 .sakura-tree-canopy {
   width: min(24vw, 220px);
   right: -84px;
   top: 18px;
-  opacity: 0.20;
+  opacity: 0.07;
   transform: scaleX(-1) rotate(-6deg);
-  filter: blur(1.2px) drop-shadow(0 8px 8px rgba(190, 24, 93, 0.12));
+  filter: blur(1.2px) drop-shadow(0 8px 8px rgba(190, 24, 93, 0.06));
 }
 
 .sakura-petal {
   position: absolute;
   top: -12%;
-  width: 10px;
-  height: 6px;
+  width: 5px;
+  height: 3px;
   border-radius: 76% 42% 72% 36%;
-  background: radial-gradient(circle at 30% 28%, rgba(255, 228, 234, 0.98), rgba(255, 145, 175, 0.88) 52%, rgba(219, 39, 119, 0.65));
-  box-shadow: 0 0 5px rgba(219, 39, 119, 0.28), inset 0 0 3px rgba(255, 255, 255, 0.5);
-  mix-blend-mode: normal;
+  background: radial-gradient(circle at 28% 22%, rgba(255, 255, 255, 0.93), rgba(251, 207, 232, 0.62) 58%, rgba(244, 114, 182, 0.36));
+  box-shadow: 0 0 3px rgba(244, 114, 182, 0.14);
+  mix-blend-mode: multiply;
   animation: sakuraDrift linear infinite;
 }
 
-.sakura-petal-1 { left: 7%; --sakura-x: 8vw; --sakura-rot: 220deg; --petal-opacity: 0.82; animation-duration: 24s; animation-delay: -2s; }
-.sakura-petal-2 { left: 15%; --sakura-x: 10vw; --sakura-rot: 280deg; --petal-opacity: 0.76; animation-duration: 30s; animation-delay: -7s; }
-.sakura-petal-3 { left: 23%; --sakura-x: 7vw; --sakura-rot: 240deg; --petal-opacity: 0.78; animation-duration: 26s; animation-delay: -11s; }
-.sakura-petal-4 { left: 33%; --sakura-x: 11vw; --sakura-rot: 300deg; --petal-opacity: 0.85; animation-duration: 32s; animation-delay: -5s; }
-.sakura-petal-5 { left: 42%; --sakura-x: 8vw; --sakura-rot: 210deg; --petal-opacity: 0.72; animation-duration: 28s; animation-delay: -9s; }
-.sakura-petal-6 { left: 50%; --sakura-x: 9vw; --sakura-rot: 270deg; --petal-opacity: 0.80; animation-duration: 34s; animation-delay: -14s; }
-.sakura-petal-7 { left: 58%; --sakura-x: 7vw; --sakura-rot: 230deg; --petal-opacity: 0.70; animation-duration: 31s; animation-delay: -3s; }
-.sakura-petal-8 { left: 65%; --sakura-x: 10vw; --sakura-rot: 320deg; --petal-opacity: 0.77; animation-duration: 29s; animation-delay: -12s; }
-.sakura-petal-9 { left: 72%; --sakura-x: 9vw; --sakura-rot: 250deg; --petal-opacity: 0.74; animation-duration: 33s; animation-delay: -16s; }
-.sakura-petal-10 { left: 78%; --sakura-x: 6vw; --sakura-rot: 220deg; --petal-opacity: 0.68; animation-duration: 35s; animation-delay: -8s; }
-.sakura-petal-11 { left: 84%; --sakura-x: 11vw; --sakura-rot: 300deg; --petal-opacity: 0.79; animation-duration: 27s; animation-delay: -10s; }
-.sakura-petal-12 { left: 88%; --sakura-x: 8vw; --sakura-rot: 260deg; --petal-opacity: 0.71; animation-duration: 36s; animation-delay: -19s; }
-.sakura-petal-13 { left: 19%; --sakura-x: 12vw; --sakura-rot: 315deg; --petal-opacity: 0.84; animation-duration: 38s; animation-delay: -13s; }
-.sakura-petal-14 { left: 54%; --sakura-x: 13vw; --sakura-rot: 335deg; --petal-opacity: 0.87; animation-duration: 40s; animation-delay: -17s; }
+.sakura-petal-1 { left: 7%; --sakura-x: 8vw; --sakura-rot: 220deg; --petal-opacity: 0.33; animation-duration: 24s; animation-delay: -2s; }
+.sakura-petal-2 { left: 15%; --sakura-x: 10vw; --sakura-rot: 280deg; --petal-opacity: 0.31; animation-duration: 30s; animation-delay: -7s; }
+.sakura-petal-3 { left: 23%; --sakura-x: 7vw; --sakura-rot: 240deg; --petal-opacity: 0.3; animation-duration: 26s; animation-delay: -11s; }
+.sakura-petal-4 { left: 33%; --sakura-x: 11vw; --sakura-rot: 300deg; --petal-opacity: 0.34; animation-duration: 32s; animation-delay: -5s; }
+.sakura-petal-5 { left: 42%; --sakura-x: 8vw; --sakura-rot: 210deg; --petal-opacity: 0.29; animation-duration: 28s; animation-delay: -9s; }
+.sakura-petal-6 { left: 50%; --sakura-x: 9vw; --sakura-rot: 270deg; --petal-opacity: 0.32; animation-duration: 34s; animation-delay: -14s; }
+.sakura-petal-7 { left: 58%; --sakura-x: 7vw; --sakura-rot: 230deg; --petal-opacity: 0.28; animation-duration: 31s; animation-delay: -3s; }
+.sakura-petal-8 { left: 65%; --sakura-x: 10vw; --sakura-rot: 320deg; --petal-opacity: 0.31; animation-duration: 29s; animation-delay: -12s; }
+.sakura-petal-9 { left: 72%; --sakura-x: 9vw; --sakura-rot: 250deg; --petal-opacity: 0.3; animation-duration: 33s; animation-delay: -16s; }
+.sakura-petal-10 { left: 78%; --sakura-x: 6vw; --sakura-rot: 220deg; --petal-opacity: 0.27; animation-duration: 35s; animation-delay: -8s; }
+.sakura-petal-11 { left: 84%; --sakura-x: 11vw; --sakura-rot: 300deg; --petal-opacity: 0.32; animation-duration: 27s; animation-delay: -10s; }
+.sakura-petal-12 { left: 88%; --sakura-x: 8vw; --sakura-rot: 260deg; --petal-opacity: 0.28; animation-duration: 36s; animation-delay: -19s; }
+.sakura-petal-13 { left: 19%; --sakura-x: 12vw; --sakura-rot: 315deg; --petal-opacity: 0.34; animation-duration: 38s; animation-delay: -13s; }
+.sakura-petal-14 { left: 54%; --sakura-x: 13vw; --sakura-rot: 335deg; --petal-opacity: 0.35; animation-duration: 40s; animation-delay: -17s; }
 
 @media (max-width: 900px) {
   .azula-flame {
@@ -944,7 +942,7 @@ textarea:disabled {
   }
 
   .sakura-petal {
-    width: 8px;
-    height: 5px;
+    width: 4px;
+    height: 3px;
   }
 }
