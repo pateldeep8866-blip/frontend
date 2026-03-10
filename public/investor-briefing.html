@@ -567,7 +567,7 @@
 <section class="hero">
   <div class="hero-eyebrow">Restricted // Investor Briefing</div>
   <h1 class="hero-title">
-    Intelligence at the intersection of markets, AI, and <em>geopolitics.</em>
+    Intelligence at the intersection of markets, data, and <em>geopolitics.</em>
   </h1>
   <p class="hero-sub">
     Arthastra is a working intelligence system — not a prototype. The platform is live, the picks are real, and the data below is pulled directly from our backend.
@@ -618,7 +618,7 @@
     <div class="pos-card market">
       <div class="pos-icon">◆ Market Opportunity</div>
       <div class="pos-title">$2.4T Retail Investment Market</div>
-      <div class="pos-body">Bloomberg Terminal costs $24,000/yr. We deliver institutional-grade signal at 1% of the price — AI analytics and defense intelligence purpose-built for the retail investor.</div>
+      <div class="pos-body">Bloomberg Terminal costs $24,000/yr. We deliver institutional-grade signal at 1% of the price — research analytics and defense intelligence purpose-built for the retail investor.</div>
       <div class="pos-tags"><span class="pos-tag">TAM: $24B addressable</span></div>
     </div>
     <div class="pos-card velocity">
@@ -633,6 +633,70 @@
       <div class="pos-body">Bloomberg built market data infrastructure. Palantir built defense analytics. Koyfin built beautiful data. Arthastra merges all three — for the retail investor, at retail price.</div>
       <div class="pos-tags"><span class="pos-tag">Bloomberg</span><span class="pos-tag">Palantir</span><span class="pos-tag">Koyfin</span></div>
     </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ PLATFORM ARCHITECTURE ═══════════════════ -->
+<section class="section" id="sec-architecture">
+  <div class="section-hd">
+    <h2 class="section-title">Core Platform Architecture</h2>
+    <span class="section-sub">Three-layer intelligence system</span>
+  </div>
+  <p style="font-size:14px;color:var(--text-dim);line-height:1.75;margin-bottom:28px;max-width:760px;">Arthastra operates as a layered intelligence system composed of three core engines. Each layer has a defined responsibility, a governance model, and a measurable output.</p>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px;">
+    <div style="background:var(--surface);border:1px solid var(--border);padding:22px;position:relative;overflow:hidden;">
+      <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--green-mid),transparent);"></div>
+      <div style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.18em;color:var(--green-bright);margin-bottom:4px;text-transform:uppercase;">&#9632; QUANT_LAB</div>
+      <div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--text-muted);letter-spacing:.12em;margin-bottom:12px;text-transform:uppercase;">Quantitative Research Engine</div>
+      <p style="font-size:12px;color:var(--text-dim);line-height:1.75;margin-bottom:14px;">Processes market data across equities, crypto, commodities, and FX to generate structured research signals through feature engineering, regime detection, signal scoring, and statistical validation. Every research run produces deterministic manifests and experiment logs, ensuring all signals are reproducible and auditable.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        <span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--text-muted);border:1px solid var(--border-light);padding:2px 7px;">Statistical Models</span>
+        <span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--text-muted);border:1px solid var(--border-light);padding:2px 7px;">Regime Detection</span>
+        <span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--text-muted);border:1px solid var(--border-light);padding:2px 7px;">Drift Monitoring</span>
+        <span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--text-muted);border:1px solid var(--border-light);padding:2px 7px;">Audit Trail</span>
+      </div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);padding:22px;position:relative;overflow:hidden;">
+      <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold-dim),transparent);"></div>
+      <div style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.18em;color:var(--gold);margin-bottom:4px;text-transform:uppercase;">&#9670; YUNI</div>
+      <div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--text-muted);letter-spacing:.12em;margin-bottom:12px;text-transform:uppercase;">Platform Intelligence Layer</div>
+      <p style="font-size:12px;color:var(--text-dim);line-height:1.75;margin-bottom:14px;">The operational governance layer that runs Arthastra behind the scenes. Continuously monitors platform health, signal engine status, and security events. All platform actions pass through a structured governance pipeline ensuring the system operates within defined boundaries. Maintains persistent operational memory of system activity.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        <span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--text-muted);border:1px solid var(--border-light);padding:2px 7px;">Governance Pipeline</span>
+        <span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--text-muted);border:1px solid var(--border-light);padding:2px 7px;">Operational Memory</span>
+        <span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--text-muted);border:1px solid var(--border-light);padding:2px 7px;">Security Monitoring</span>
+        <span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--text-muted);border:1px solid var(--border-light);padding:2px 7px;">Anomaly Detection</span>
+      </div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);padding:22px;position:relative;overflow:hidden;">
+      <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--green-mid),transparent);"></div>
+      <div style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.18em;color:var(--green-bright);margin-bottom:4px;text-transform:uppercase;">&#9673; ASTRA</div>
+      <div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--text-muted);letter-spacing:.12em;margin-bottom:12px;text-transform:uppercase;">Research Interface</div>
+      <p style="font-size:12px;color:var(--text-dim);line-height:1.75;margin-bottom:14px;">The analytical interface that surfaces market signals produced by QUANT_LAB and presents them through structured research summaries, pattern observations, and market context. Rather than executing trades automatically, ASTRA provides signal explanations and research context — every investment decision remains fully controlled by the investor.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        <span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--text-muted);border:1px solid var(--border-light);padding:2px 7px;">Signal Explanations</span>
+        <span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--text-muted);border:1px solid var(--border-light);padding:2px 7px;">Research Summaries</span>
+        <span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--text-muted);border:1px solid var(--border-light);padding:2px 7px;">Pattern Observations</span>
+        <span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--text-muted);border:1px solid var(--border-light);padding:2px 7px;">Investor-Controlled</span>
+      </div>
+    </div>
+  </div>
+  <div style="background:var(--surface);border:1px solid var(--border);padding:16px 22px;">
+    <div style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.16em;color:var(--text-muted);text-transform:uppercase;margin-bottom:12px;">Governance Pipeline</div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text-muted);border:1px solid var(--border);padding:4px 10px;">INPUT</span>
+      <span style="color:var(--border-light);font-size:10px;">&#8594;</span>
+      <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--green-bright);border:1px solid var(--green-mid);padding:4px 10px;background:rgba(42,94,64,.08);">INTERPRETATION</span>
+      <span style="color:var(--border-light);font-size:10px;">&#8594;</span>
+      <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--green-bright);border:1px solid var(--green-mid);padding:4px 10px;background:rgba(42,94,64,.08);">POLICY REVIEW</span>
+      <span style="color:var(--border-light);font-size:10px;">&#8594;</span>
+      <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--green-bright);border:1px solid var(--green-mid);padding:4px 10px;background:rgba(42,94,64,.08);">CAPABILITY GATE</span>
+      <span style="color:var(--border-light);font-size:10px;">&#8594;</span>
+      <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--green-bright);border:1px solid var(--green-mid);padding:4px 10px;background:rgba(42,94,64,.08);">EXECUTION</span>
+      <span style="color:var(--border-light);font-size:10px;">&#8594;</span>
+      <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text-muted);border:1px solid var(--border);padding:4px 10px;">AUDIT LOG</span>
+    </div>
+    <p style="font-size:11px;color:var(--text-muted);margin-top:10px;line-height:1.65;">Every action inside the platform passes through this pipeline before execution. Unregistered actions are refused. This architecture prevents uncontrolled behavior and keeps the system operating within defined boundaries.</p>
   </div>
 </section>
 
@@ -922,7 +986,7 @@
 <footer>
   <div class="footer-logo">Arthastra</div>
   <div class="footer-note">
-    ARTHASTRA A.I. // INVESTOR PORTAL // CONFIDENTIAL<br>
+    ARTHASTRA // INVESTOR PORTAL // CONFIDENTIAL<br>
     <span style="opacity:.55">This document is for accredited investor access only and may not be reproduced without express written permission.</span>
   </div>
   <div class="footer-right">FEB 2026 · SEED STAGE</div>
