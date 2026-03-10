@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request) {
   if (!checkAdminAuth(request)) return UNAUTHORIZED();
 
-  const quantUrl = process.env.QUANT_ENGINE_URL || "http://localhost:3001";
+  const quantUrl = process.env.QUANT_ENGINE_URL || "http://localhost:8001";
   let quant = { status: "offline" };
   try {
     const res = await fetch(`${quantUrl}/health`, { cache: "no-store" });

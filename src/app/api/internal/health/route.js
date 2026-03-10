@@ -24,7 +24,7 @@ export async function GET(request) {
     env: {
       admin_secret_set: Boolean(process.env.ADMIN_SECRET),
       yuni_token_set: Boolean(process.env.YUNI_INTERNAL_TOKEN),
-      quant_engine_url: process.env.QUANT_ENGINE_URL || "http://localhost:3001",
+      quant_engine_url: process.env.QUANT_ENGINE_URL || "http://localhost:8001",
     },
   });
 }
