@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { STATIC_BRIEFING, STATIC_PICKS } from "../_lib/static-picks.js";
+import { STATIC_BRIEFING, STATIC_PICKS } from "../../_lib/static-picks.js";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
