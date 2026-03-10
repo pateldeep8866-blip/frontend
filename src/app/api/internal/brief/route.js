@@ -47,7 +47,7 @@ export async function GET(request) {
   ).slice(0, 5);
 
   // ── quant engine ─────────────────────────────────────────────────────────────
-  const quantUrl = process.env.QUANT_ENGINE_URL || "http://localhost:8001";
+  const quantUrl = process.env.QUANT_ENGINE_URL || "http://localhost:3001";
   let quant = { status: "offline" };
   try {
     const res = await fetch(`${quantUrl}/health`, { cache: "no-store" });

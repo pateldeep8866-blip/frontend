@@ -468,7 +468,7 @@ async function fetchMarketFeatures(tickers) {
 }
 
 async function fetchQuantSignal(featuresPayload) {
-  const quantUrl = process.env.QUANT_ENGINE_URL || "http://localhost:8001";
+  const quantUrl = process.env.QUANT_ENGINE_URL || "http://localhost:3001";
   try {
     const health = await fetch(`${quantUrl}/health`, {
       cache: "no-store",
@@ -507,7 +507,7 @@ async function fetchQuantSignal(featuresPayload) {
 }
 
 async function checkQuantLabHealth() {
-  const quantUrl = process.env.QUANT_ENGINE_URL || "http://localhost:8001";
+  const quantUrl = process.env.QUANT_ENGINE_URL || "http://localhost:3001";
   try {
     const res = await fetch(`${quantUrl}/health`, {
       cache: "no-store",

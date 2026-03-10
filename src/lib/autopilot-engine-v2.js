@@ -1190,7 +1190,7 @@ function getOrCreateEngine(config) {
  * Builds the fetchMarketData function for the engine.
  * Calls your QUANT_LAB service + price APIs.
  */
-function createFetchMarketData(quantLabUrl = "http://localhost:8001") {
+function createFetchMarketData(quantLabUrl = "http://localhost:3001") {
   return async function fetchMarketData() {
     // 1. Try QUANT_LAB
     let candidates = [];
@@ -1264,7 +1264,7 @@ async function handleAutopilotRequest(req, portfolioLoader, tradeExecutor) {
       riskLevel,
       cycleIntervalMs,
       maxCycles,
-      fetchMarketData: createFetchMarketData(process.env.QUANT_LAB_URL || "http://localhost:8001"),
+      fetchMarketData: createFetchMarketData(process.env.QUANT_LAB_URL || "http://localhost:3001"),
       onExecute: tradeExecutor,
     });
 

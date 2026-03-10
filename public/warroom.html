@@ -874,7 +874,7 @@ function applyIncomingContext(){
 async function hydrateLiveData(){
   try{
     const [newsRes,perfRes,statusRes]=await Promise.all([
-      fetch('/api/market-news',{cache:'no-store'}).catch(()=>null),
+      fetch('/api/geopolitics-news',{cache:'no-store'}).catch(()=>null),
       fetch('/api/global-market-performance',{cache:'no-store'}).catch(()=>null),
       fetch('/api/status',{cache:'no-store'}).catch(()=>null),
     ]);
@@ -967,7 +967,36 @@ function renderIntel(){
   document.getElementById('intel-tags').innerHTML=c.tags.map(t=>`<span class="tag ${t.startsWith('$')||t.includes('Aid')?'c':'r'}">${t}</span>`).join('');
   document.getElementById('intel-copills').innerHTML=`<div class="co-pill active" onclick="filterCo(null,this)">ALL</div>`+c.companies.map(co=>`<div class="co-pill" onclick="filterCo('${co}',this)">${co}</div>`).join('');
   renderIntelContracts(null);
-  document.getElementById('intel-news').innerHTML=c.news.map(n=>`<div class="news-item"><div class="news-dt">${n.dt}</div><div class="news-h">${n.h}</div><div class="news-s">◈ ${n.s}</div></div>`).join('');
+  // Show static intel news immediately
+  const newsEl=document.getElementById('intel-news');
+  newsEl.innerHTML=c.news.map(n=>`<div class="news-item"><div class="news-dt">${n.dt}</div><div class="news-h">${n.h}</div><div class="news-s">◈ ${n.s}</div></div>`).join('');
+  // Fetch live geopolitics news and prepend
+  fetchLiveGeoNews(c.name).then(live=>{
+    if(live&&live.length){
+      const liveHtml=live.slice(0,6).map(n=>`<div class="news-item" style="border-left:2px solid var(--acc);padding-left:.6rem;"><div class="news-dt">LIVE · ${n.dt}</div><div class="news-h">${n.h}</div><div class="news-s">◈ ${n.s}</div></div>`).join('');
+      newsEl.innerHTML=liveHtml+`<div style="font-family:var(--mono);font-size:.38rem;color:var(--body);padding:.3rem .8rem;border-bottom:1px solid var(--b1);letter-spacing:.1em;">── ARCHIVED INTELLIGENCE ──</div>`+newsEl.innerHTML;
+    }
+  }).catch(()=>{});
+}
+
+async function fetchLiveGeoNews(conflictName){
+  try{
+    const res=await fetch('/api/geopolitics-news',{cache:'no-store'});
+    if(!res.ok)return [];
+    const data=await res.json();
+    const rows=Array.isArray(data?.news)?data.news:Array.isArray(data)?data:[];
+    // Filter for relevant headlines
+    const kw=(conflictName||'').toLowerCase().split(/\s+/).filter(w=>w.length>3);
+    const relevant=rows.filter(n=>{
+      const h=(n.headline||n.h||'').toLowerCase();
+      return kw.some(k=>h.includes(k))||h.includes('defense')||h.includes('military')||h.includes('war')||h.includes('conflict');
+    });
+    return (relevant.length?relevant:rows.slice(0,6)).map(n=>({
+      dt: n.datetime ? new Date(n.datetime*1000).toLocaleDateString('en-US',{month:'short',day:'2-digit',year:'numeric'}).toUpperCase() : (n.dt||'TODAY'),
+      h: n.headline||n.h||'',
+      s: n.source||n.s||'LIVE FEED',
+    }));
+  }catch{return [];}
 }
 
 function filterCo(co,el){

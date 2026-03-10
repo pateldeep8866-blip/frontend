@@ -6,7 +6,7 @@ import { checkAdminAuth } from "../../_lib/admin-auth";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const RUNS_ROOT = "/Users/juanramirez/NOVA/NOVA_LAB/QUANT_LAB/reports/runs";
+const RUNS_ROOT = process.env.QUANT_RUNS_ROOT || "/Users/juanramirez/NOVA/NOVA_LAB/QUANT_LAB/reports/runs";
 
 async function safeReadJson(path) {
   try {
