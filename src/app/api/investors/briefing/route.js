@@ -132,10 +132,7 @@ export async function GET(req) {
     let finalAvgReturn = filteredAvgReturn;
     if (!finalPicks || finalPicks.length === 0) {
       try {
-        const { readFileSync } = await import("node:fs");
-        const { join } = await import("node:path");
-        const jsonPath = join(process.cwd(), "public", "picks-data.json");
-        const raw = JSON.parse(readFileSync(jsonPath, "utf8"));
+        const raw = (await import("../../../../public/picks-data.json", { assert: { type: "json" } })).default;
         finalPicks = raw.map(r => ({
           ticker: String(r.ticker || "").toUpperCase(),
           entryPrice: Number(r.entry_price || 0),
