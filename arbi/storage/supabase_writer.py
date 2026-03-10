@@ -7,12 +7,25 @@ Falls back silently if Supabase is unavailable — bot keeps running.
 
 import os
 import time
+from pathlib import Path
 from utils.logger import get_logger
 
 log = get_logger("supabase_writer")
 
+# Auto-load arbi/.env if env vars not already set
+_env_file = Path(__file__).parent.parent / ".env"
+if _env_file.exists() and not os.getenv("SUPABASE_URL"):
+    for _line in _env_file.read_text().splitlines():
+        _line = _line.strip()
+        if _line and not _line.startswith("#") and "=" in _line:
+            _k, _v = _line.split("=", 1)
+            os.environ.setdefault(_k.strip(), _v.strip())
+
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    log.warning("SUPABASE_URL / SUPABASE_KEY not set — Supabase writes disabled")
 
 _client = None
 
