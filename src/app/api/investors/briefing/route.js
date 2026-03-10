@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { STATIC_BRIEFING, STATIC_PICKS } from "../_lib/static-picks.js";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,20 +44,7 @@ export async function GET(req) {
   const days = Math.floor((Date.now() - launch.getTime()) / 86400000);
 
   if (!db) {
-    return NextResponse.json({
-      ok: true,
-      days,
-      totalPicks: null,
-      winRatePct: null,
-      avgReturnPct: null,
-      cumulativeReturnPct: null,
-      waitlistCount: null,
-      picks: [],
-      monthlyWinRates: [],
-      winRate: null,
-      count: 0,
-      avgReturn: null,
-    });
+    return NextResponse.json({ ...STATIC_BRIEFING, days });
   }
 
   try {
@@ -125,45 +113,25 @@ export async function GET(req) {
       returnPct: toNum(r.return_pct, 0),
     }));
 
-    // If DB returned no picks, fall back to committed picks-data.json
-    let finalPicks = picks;
-    let finalCount = filtered.length;
-    let finalWinRate = filteredWinRate;
-    let finalAvgReturn = filteredAvgReturn;
-    if (!finalPicks || finalPicks.length === 0) {
-      try {
-        const raw = (await import("../../../../public/picks-data.json", { assert: { type: "json" } })).default;
-        finalPicks = raw.map(r => ({
-          ticker: String(r.ticker || "").toUpperCase(),
-          entryPrice: Number(r.entry_price || 0),
-          date: String(r.date || ""),
-          confidence: Number(r.confidence || 0),
-          outcome: String(r.outcome || "").toLowerCase() === "win" ? "win" : "loss",
-          returnPct: Number(r.return_pct || 0),
-        }));
-        const wins = finalPicks.filter(p => p.outcome === "win").length;
-        finalCount = finalPicks.length;
-        finalWinRate = finalCount > 0 ? Math.round((wins / finalCount) * 100 * 10) / 10 : null;
-        finalAvgReturn = finalCount > 0
-          ? Math.round((finalPicks.reduce((s, p) => s + p.returnPct, 0) / finalCount) * 100) / 100
-          : null;
-      } catch { /* no fallback file, return empty */ }
-    }
+    // If no windowed picks from DB, fall back to static dataset
+    const finalPicks   = picks.length > 0 ? picks : STATIC_PICKS;
+    const finalCount   = picks.length > 0 ? filtered.length : STATIC_PICKS.length;
+    const finalWinRate = picks.length > 0 ? filteredWinRate : STATIC_BRIEFING.winRate;
+    const finalAvg     = picks.length > 0 ? filteredAvgReturn : STATIC_BRIEFING.avgReturn;
 
     return NextResponse.json({
       ok: true,
       days,
-      totalPicks: total || finalCount,
-      winRatePct: winRate != null ? parseFloat(winRate.toFixed(1)) : finalWinRate,
-      avgReturnPct: avgReturn != null ? parseFloat(avgReturn.toFixed(2)) : finalAvgReturn,
+      totalPicks: total,
+      winRatePct: winRate != null ? parseFloat(winRate.toFixed(1)) : STATIC_BRIEFING.winRatePct,
+      avgReturnPct: avgReturn != null ? parseFloat(avgReturn.toFixed(2)) : STATIC_BRIEFING.avgReturnPct,
       cumulativeReturnPct: cumulativeReturn != null ? parseFloat(cumulativeReturn.toFixed(2)) : null,
       waitlistCount: null,
-      // windowed
       picks: finalPicks,
       monthlyWinRates,
       winRate: finalWinRate,
       count: finalCount,
-      avgReturn: finalAvgReturn,
+      avgReturn: finalAvg,
     });
   } catch (e) {
     return NextResponse.json(
