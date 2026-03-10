@@ -170,7 +170,7 @@ export default function AboutPage() {
             </div>
             <div className={`mt-5 rounded-xl border p-4 ${isLight ? "border-slate-300 bg-white/80" : "border-white/10 bg-white/5"}`}>
               <p className={`text-sm ${isAlerik ? "text-[#f5f0e8]/72" : isLight ? "text-slate-600" : "text-white/75"}`}>
-                Arthastra AI is a paper-trading simulator for educational purposes only. It does not provide financial advice.
+                Arthastra is a paper-trading simulator for educational purposes only. It does not provide financial advice.
               </p>
             </div>
           </article>

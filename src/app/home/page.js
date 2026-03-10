@@ -4857,7 +4857,7 @@ export default function Home() {
               }`}
             >
               {t("simulator")}
-              {simulatorAutoPilotActive && <span title="Auto-Pilot active">🤖</span>}
+              {simulatorAutoPilotActive && <span title="Auto-Pilot active">📊</span>}
               {Number.isFinite(simulatorReturnPct) && (
                 <span
                   className={`rounded-full px-1.5 py-[2px] text-[10px] font-semibold ${
@@ -6243,10 +6243,10 @@ export default function Home() {
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg font-bold ${isLight ? "bg-slate-900 text-white" : isAzula ? "bg-[#d6be86] text-[#1a1a2e]" : "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"}`}>Y</div>
                   </div>
                   <div>
-                    <p className={`text-[11px] uppercase tracking-[0.22em] font-semibold ${hAccent}`}>Meet YUNI · Intelligence Layer</p>
+                    <p className={`text-[11px] uppercase tracking-[0.22em] font-semibold ${hAccent}`}>Platform Intelligence Layer</p>
                     <h2 className={`mt-1 text-xl md:text-2xl font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>The Engine Behind Arthastra</h2>
                     <p className={`mt-3 text-sm md:text-base leading-7 ${hMuted}`}>
-                      YUNI is the intelligence runtime that operates Arthastra behind the scenes — a deterministic agent system that monitors site health, security events, trade outcomes, and quant engine status in real time, then stores a living memory of every system state in Supabase so nothing is lost between sessions. Unlike a chatbot or a simple wrapper, YUNI enforces a strict governance pipeline where every intended action passes through interpretation, policy review, and a registered capability gate before execution, which means the platform cannot be driven into uncontrolled behavior by a bad input or a hallucinated tool call. It models the operational behavior of the founders, calibrates when to escalate versus stay silent, and is being trained toward ambient readiness — the ability to observe, advise, and act with judgment rather than just respond on demand.
+                      YUNI is the operational intelligence layer that runs Arthastra behind the scenes. It continuously monitors platform health, security signals, research engine activity, and simulator outcomes to ensure the system remains reliable and transparent. Every action inside the platform follows a structured governance pipeline where intended actions pass through interpretation, policy review, and registered capability checks before execution — preventing uncontrolled behavior and keeping the system operating within strict boundaries. YUNI maintains a persistent system memory that records platform events and research activity so nothing important is lost between sessions, allowing Arthastra to identify anomalies and improve operational awareness over time. The goal is simple: maintain a stable, transparent research environment where investors can focus on understanding markets instead of worrying about system reliability.
                     </p>
                   </div>
                 </div>
@@ -6326,7 +6326,7 @@ export default function Home() {
                 </h2>
                 <p className={`text-sm md:text-base max-w-3xl mb-6 ${hMuted}`}>Every feature was designed around one question: will this help someone understand investing better?</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {[{icon:"🧮",title:"QUANT_LAB Engine",text:"Scores market instruments using quantitative models and real market data.",tag:"Under The Hood"},{icon:"🤖",title:"ASTRA Auto-Pilot",text:"AI-powered analysis and simulated trades with clear explanations.",tag:"Educational AI"},{icon:"📊",title:"Paper Trading",text:"Practice with simulated capital before risking real money.",tag:"Zero Risk Practice"},{icon:"₿",title:"Crypto Coverage",text:"Research digital assets alongside stocks and global markets.",tag:"Coverage"},{icon:"📚",title:"Market School",text:"Learn investing fundamentals without jargon.",tag:"Education"},{icon:"🌍",title:"Global Markets",text:"Understand stocks, commodities, crypto, and macro conditions together.",tag:"Coverage"},{icon:"🛡",title:"Risk Scores",text:"Transparent confidence and risk ratings.",tag:"Research"}].map((feature) => (
+                  {[{icon:"🧮",title:"QUANT_LAB Engine",text:"Scores market instruments using statistical models, market data, and risk metrics to highlight potential opportunities and explain market behavior.",tag:"Under The Hood"},{icon:"📊",title:"ASTRA Analysis Engine",text:"Guided market analysis powered by structured models, research signals, and historical data — every decision stays with the investor.",tag:"Research Guide"},{icon:"📊",title:"Paper Trading",text:"Practice with simulated capital before risking real money.",tag:"Zero Risk Practice"},{icon:"₿",title:"Crypto Coverage",text:"Research digital assets alongside stocks and global markets.",tag:"Coverage"},{icon:"📚",title:"Market School",text:"Learn investing fundamentals without jargon.",tag:"Education"},{icon:"🌍",title:"Global Markets",text:"Understand stocks, commodities, crypto, and macro conditions together.",tag:"Coverage"},{icon:"🛡",title:"Risk Scores",text:"Transparent confidence and risk ratings.",tag:"Research"}].map((feature) => (
                     <div key={feature.title} className={`border p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${hSoft}`}>
                       <div className="text-lg mb-1">{feature.icon}</div>
                       <div className={`text-base font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{feature.title}</div>
@@ -6362,7 +6362,7 @@ export default function Home() {
                     <div className={`mb-2 inline-block text-[10px] uppercase tracking-[0.2em] px-2 py-1 border rounded-sm ${hAccent} ${isLight ? "border-slate-300 bg-slate-50" : "border-white/20 bg-white/5"}`}>Co-Founder</div>
                     <div className={`text-base font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>Juan M. Ramirez</div>
                     <div className={`text-xs mt-1 ${isLight ? "text-slate-500" : "text-white/60"}`}>Co-Founder · Systems Architect</div>
-                    <p className={`mt-3 text-sm leading-6 ${hMuted}`}>Juan designed the quant-like research engines and AI analysis systems that power Arthastra. With cybersecurity and penetration testing experience, he focuses on turning complexity into clear decisions for everyday investors.</p>
+                    <p className={`mt-3 text-sm leading-6 ${hMuted}`}>Juan designed the quantitative research engines and analytical systems that power Arthastra. With cybersecurity and penetration testing experience, he focuses on turning market complexity into structured, clear decisions for everyday investors.</p>
                     <p className={`mt-3 text-sm font-semibold ${isLight ? "text-slate-800" : "text-white"}`}>Information is the edge. Research first. Then decide.</p>
                   </div>
                 </div>
@@ -8666,7 +8666,7 @@ export default function Home() {
               </div>
               {/* footer disclaimer */}
               <div style={{textAlign:'center',padding:'22px 0',borderTop:'1px solid rgba(255,215,0,0.14)'}}>
-                <div style={{fontFamily:'"Share Tech Mono",monospace',fontSize:'10px',color:'rgba(255,215,0,0.28)',letterSpacing:'0.14em',marginBottom:'8px'}}>ARTHASTRA AI // INVESTOR PORTAL // CONFIDENTIAL</div>
+                <div style={{fontFamily:'"Share Tech Mono",monospace',fontSize:'10px',color:'rgba(255,215,0,0.28)',letterSpacing:'0.14em',marginBottom:'8px'}}>ARTHASTRA // INVESTOR PORTAL // CONFIDENTIAL</div>
                 <div style={{fontFamily:'"Share Tech Mono",monospace',fontSize:'10px',color:'rgba(255,215,0,0.22)',maxWidth:'580px',margin:'0 auto',lineHeight:1.65}}>This document is for informational purposes only and does not constitute an offer to sell or solicitation to buy securities. Past model performance does not guarantee future results. All data shown reflects live model output and is not financial advice.</div>
               </div>
             </div>

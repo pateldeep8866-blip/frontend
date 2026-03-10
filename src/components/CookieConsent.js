@@ -129,7 +129,7 @@ export default function CookieConsent() {
               We use cookies to power your experience
             </h3>
             <p className="mt-2 text-sm text-slate-700 leading-relaxed">
-              Arthastra AI uses cookies and similar technologies to keep you logged in, understand how you use the platform, and (with your consent) deliver personalized ads. Some cookies are required for the platform to work. Others help us improve and fund the platform through advertising.
+              Arthastra uses cookies and similar technologies to keep you logged in, understand how you use the platform, and (with your consent) deliver personalized ads. Some cookies are required for the platform to work. Others help us improve and fund the platform through advertising.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               <button
@@ -201,7 +201,7 @@ export default function CookieConsent() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="text-sm font-semibold text-slate-900">Analytics</div>
-                    <div className="text-xs text-slate-600 mt-1">Helps us understand how you use Arthastra AI so we can improve it. Data is aggregated. Provider: Google Analytics.</div>
+                    <div className="text-xs text-slate-600 mt-1">Helps us understand how you use Arthastra so we can improve it. Data is aggregated. Provider: Google Analytics.</div>
                   </div>
                   <input type="checkbox" checked={Boolean(prefs.analytics)} onChange={(e) => setPrefs((p) => ({ ...p, analytics: e.target.checked }))} />
                 </div>
@@ -210,7 +210,7 @@ export default function CookieConsent() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="text-sm font-semibold text-slate-900">Advertising</div>
-                    <div className="text-xs text-slate-600 mt-1">Used to show relevant ads on and off Arthastra AI. May share data with Google and Meta. May track you across other websites.</div>
+                    <div className="text-xs text-slate-600 mt-1">Used to show relevant ads on and off Arthastra. May share data with Google and Meta. May track you across other websites.</div>
                   </div>
                   <input type="checkbox" checked={Boolean(prefs.advertising)} onChange={(e) => setPrefs((p) => ({ ...p, advertising: e.target.checked }))} />
                 </div>

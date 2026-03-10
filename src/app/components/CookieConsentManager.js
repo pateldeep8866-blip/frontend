@@ -159,7 +159,7 @@ export default function CookieConsentManager() {
           <div className="mx-auto max-w-4xl rounded-2xl border border-slate-300 bg-white shadow-2xl p-4 md:p-5">
             <h3 className="text-base md:text-lg font-semibold text-slate-900">We use cookies to power your experience</h3>
             <p className="mt-2 text-sm text-slate-700 leading-relaxed">
-              Arthastra AI uses cookies and similar technologies to keep you logged in, understand how you use the platform, show you relevant content, and (with your consent) deliver personalized ads. Some cookies are necessary for the platform to work. Others help us improve and fund the platform through advertising.
+              Arthastra uses cookies and similar technologies to keep you logged in, understand how you use the platform, show you relevant content, and (with your consent) deliver personalized ads. Some cookies are necessary for the platform to work. Others help us improve and fund the platform through advertising.
             </p>
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <button
@@ -188,7 +188,7 @@ export default function CookieConsentManager() {
           <button className="absolute inset-0 bg-black/45" onClick={() => setModalOpen(false)} aria-label="Close cookie settings" />
           <div className="relative w-full max-w-2xl rounded-2xl border border-slate-300 bg-white shadow-2xl p-5">
             <h3 className="text-lg font-semibold text-slate-900">Cookie Preferences</h3>
-            <p className="mt-1 text-sm text-slate-600">Choose which cookies Arthastra AI can use.</p>
+            <p className="mt-1 text-sm text-slate-600">Choose which cookies Arthastra can use.</p>
 
             <div className="mt-4 space-y-3">
               <div className="rounded-xl border border-slate-200 p-3 bg-slate-50/70">
@@ -215,7 +215,7 @@ export default function CookieConsentManager() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="text-sm font-semibold text-slate-900">Analytics & Performance</div>
-                    <div className="text-xs text-slate-600 mt-1">These cookies help us understand how users interact with Arthastra AI. We use this data to improve the platform. Analytics data is aggregated and does not identify you personally. Providers include Google Analytics.</div>
+                    <div className="text-xs text-slate-600 mt-1">These cookies help us understand how users interact with Arthastra. We use this data to improve the platform. Analytics data is aggregated and does not identify you personally. Providers include Google Analytics.</div>
                   </div>
                   <input type="checkbox" checked={Boolean(prefs.analytics)} onChange={(e) => setPrefs((p) => ({ ...p, analytics: e.target.checked }))} />
                 </div>
@@ -225,7 +225,7 @@ export default function CookieConsentManager() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="text-sm font-semibold text-slate-900">Advertising & Targeting</div>
-                    <div className="text-xs text-slate-600 mt-1">These cookies are used to show you relevant advertisements on and off the Arthastra AI platform. They may be set by us or our advertising partners including Google and Meta. These cookies build a profile of your interests and may track you across other websites. Your data may be shared with advertising partners.</div>
+                    <div className="text-xs text-slate-600 mt-1">These cookies are used to show you relevant advertisements on and off the Arthastra platform. They may be set by us or our advertising partners including Google and Meta. These cookies build a profile of your interests and may track you across other websites. Your data may be shared with advertising partners.</div>
                   </div>
                   <input type="checkbox" checked={Boolean(prefs.advertising)} onChange={(e) => setPrefs((p) => ({ ...p, advertising: e.target.checked }))} />
                 </div>

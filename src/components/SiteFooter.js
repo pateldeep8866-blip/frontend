@@ -28,7 +28,7 @@ export default function SiteFooter() {
           <Link href="/home?investors=1" className="font-bold hover:underline" style={{color:'#b8860b'}}>&#9733; FOR INVESTORS</Link>
         </div>
         <div className="mt-2 border-t border-slate-200/80 pt-2 text-center text-[11px] text-slate-500">
-          © 2026 Arthastra AI. All rights reserved. Not financial advice. For educational purposes only.
+          © 2026 Arthastra. All rights reserved. Not financial advice. For educational purposes only.
         </div>
       </div>
     </footer>
