@@ -39,7 +39,7 @@ export async function GET() {
       .order("created_at", { ascending: false })
       .limit(20);
 
-    if (sigErr) { console.error('Supabase signals error:', sigErr.message); return Response.json({ status: 'online', signals: [], portfolio: [], stats: { total_signals: 0, win_rate: 0, collective: { total_trades: 0 } }, updated_at: new Date().toISOString() }); }
+    if (sigErr) { console.error('Supabase signals error:', sigErr.message); return Response.json({ status: 'error', supabase_error: sigErr.message, supabase_url: ARBI_SUPABASE_URL, signals: [], portfolio: [], stats: { total_signals: 0, win_rate: 0, collective: { total_trades: 0 } }, updated_at: new Date().toISOString() }); }
 
     // Fetch collective stats
     const { data: collective } = await supabase
