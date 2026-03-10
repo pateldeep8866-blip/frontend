@@ -61,16 +61,22 @@ export async function GET(req) {
 
   try {
     // ── overall platform stats (no window filter — all-time) ──
-    const total = toNum(db.prepare("SELECT COUNT(*) AS c FROM trades").get()?.c, 0);
-
+    // Deduplicate: 1 pick per ticker per day (keep earliest trade_id per group)
     const outcomeRows = db.prepare(`
       SELECT t.trade_id, t.ticker, t.entry_price, t.created_utc, t.confidence,
              o.outcome, o.return_pct, o.evaluated_utc
       FROM trades t
       JOIN trade_outcomes o ON o.trade_id = t.trade_id
       WHERE t.action IN ('BUY','SELL')
+        AND t.trade_id IN (
+          SELECT MIN(trade_id) FROM trades
+          WHERE action IN ('BUY','SELL')
+          GROUP BY ticker, DATE(created_utc)
+        )
       ORDER BY t.created_utc DESC
     `).all();
+
+    const total = outcomeRows.length;
 
     const totalEval = outcomeRows.length;
     const wins = outcomeRows.filter((r) => String(r.outcome).toUpperCase() === "WIN").length;

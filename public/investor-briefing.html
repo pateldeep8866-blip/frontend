@@ -1163,13 +1163,29 @@ const STATIC_DATA = {
 };
 
 // ── DATA LAYER ───────────────────────────────────────────────────────
+function computeStatsFromPicks(picks) {
+  const wins = picks.filter(p => p.outcome === 'win').length;
+  const returns = picks.map(p => p.returnPct).filter(v => v != null && !isNaN(v));
+  return {
+    count: picks.length,
+    winRate: picks.length > 0 ? Math.round((wins / picks.length) * 100) : null,
+    avgReturn: returns.length > 0 ? parseFloat((returns.reduce((a,b) => a+b, 0) / returns.length).toFixed(2)) : null,
+  };
+}
+
 async function fetchBriefing(win = 'all') {
   try {
     const res = await fetch(`/api/investors/briefing?window=${win}`, { cache: 'no-store' });
     if (!res.ok) throw new Error('non-200');
     const d = await res.json();
-    // Merge static picks if API returns no picks
-    if (!d.picks || d.picks.length === 0) d.picks = PICKS_DATA;
+    // Merge static picks if API returns no picks, and recompute stats
+    if (!d.picks || d.picks.length === 0) {
+      d.picks = PICKS_DATA;
+      const stats = computeStatsFromPicks(PICKS_DATA);
+      d.count = stats.count;
+      d.winRate = stats.winRate;
+      d.avgReturn = stats.avgReturn;
+    }
     return d;
   } catch (e) {
     return STATIC_DATA;
