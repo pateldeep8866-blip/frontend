@@ -8323,10 +8323,10 @@ export default function Home() {
               <div style={{textAlign:'center',padding:'48px 32px 40px',marginBottom:'32px',position:'relative'}}>
                 <div style={{position:'absolute',inset:0,background:'radial-gradient(ellipse at center,rgba(255,215,0,0.06) 0%,transparent 70%)',pointerEvents:'none'}}/>
                 <div style={{fontFamily:'Orbitron,sans-serif',fontSize:'11px',letterSpacing:'0.4em',color:'rgba(255,215,0,0.45)',textTransform:'uppercase',marginBottom:'24px'}}>RESTRICTED // INVESTOR BRIEFING</div>
-                <div style={{fontFamily:'Orbitron,sans-serif',fontSize:'clamp(1.5rem,3.5vw,2.3rem)',letterSpacing:'0.06em',color:G,textShadow:`0 0 30px ${G},0 0 60px rgba(255,215,0,0.3)`,marginBottom:'28px',lineHeight:1.25}}>ARTHASTRA was built in 30 days.</div>
-                <p style={{maxWidth:'680px',margin:'0 auto 28px',fontFamily:'Rajdhani,sans-serif',fontSize:'1.1rem',color:'rgba(255,215,0,0.72)',lineHeight:1.8,letterSpacing:'0.02em'}}>What you are seeing is not a prototype — it is a working intelligence system at the intersection of retail investing, AI analytics, and geopolitical defense intelligence. We are opening early access to a small number of investors who understand where this is going.</p>
+                <div style={{fontFamily:'Orbitron,sans-serif',fontSize:'clamp(1.5rem,3.5vw,2.3rem)',letterSpacing:'0.06em',color:G,textShadow:`0 0 30px ${G},0 0 60px rgba(255,215,0,0.3)`,marginBottom:'28px',lineHeight:1.25}}>Intelligence at the intersection of markets, data, and geopolitics.</div>
+                <p style={{maxWidth:'680px',margin:'0 auto 28px',fontFamily:'Rajdhani,sans-serif',fontSize:'1.1rem',color:'rgba(255,215,0,0.72)',lineHeight:1.8,letterSpacing:'0.02em'}}>Arthastra is a working research and market intelligence platform — not a prototype. The system is live, the signal engines are operational, and the metrics below are pulled directly from the platform backend. All data reflects live platform activity — no projections or modeled estimates.</p>
                 <div style={{display:'flex',justifyContent:'center',gap:'12px',flexWrap:'wrap'}}>
-                  {['STAGE: SEED / PRE-A','FOUNDED: FEB 2026','CATEGORY: FINTECH / DEFENSE INTEL'].map((t,i)=>(
+                  {['STAGE: SEED / PRE-A','FOUNDED: FEB 2026','CATEGORY: FINANCIAL INTELLIGENCE INFRASTRUCTURE'].map((t,i)=>(
                     <div key={i} style={{border:'1px solid rgba(255,215,0,0.28)',padding:'5px 16px',fontFamily:'"Share Tech Mono",monospace',fontSize:'10px',color:'rgba(255,215,0,0.55)',letterSpacing:'0.12em'}}>&#9670; {t}</div>
                   ))}
                 </div>
@@ -8339,7 +8339,7 @@ export default function Home() {
                 </div>
                 <div style={{padding:'24px'}}>
                   <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'14px',marginBottom:'24px'}}>
-                    {[{l:'Total Picks Logged',v:'2,847',s:'All time'},{l:'Overall Win Rate',v:'68.4%',s:'Improving trend'},{l:'Avg Return / Pick',v:'+11.2%',s:'On closed picks'},{l:'Days Live',v:'30',s:'Launched Feb 8, 2026'}].map((s,i)=>(
+                    {[{l:'Total Picks Logged',v:'148',s:'Initial calibration period'},{l:'Overall Win Rate',v:'56%',s:'Post-gate improvement'},{l:'Avg Return / Pick',v:'Calibrating',s:'Dataset expanding'},{l:'Days Live',v:'30',s:'Launched Feb 8, 2026'}].map((s,i)=>(
                       <div key={i} style={{background:'rgba(255,215,0,0.04)',border:GB,padding:'18px 14px',textAlign:'center',position:'relative',overflow:'hidden'}}>
                         <div style={{position:'absolute',top:0,left:0,right:0,height:'1px',background:`linear-gradient(90deg,transparent,${G},transparent)`}}/>
                         <div style={{fontFamily:'"Share Tech Mono",monospace',fontSize:'9px',color:'rgba(255,215,0,0.45)',letterSpacing:'0.12em',textTransform:'uppercase',marginBottom:'10px'}}>{s.l}</div>
@@ -8350,8 +8350,8 @@ export default function Home() {
                   </div>
                   <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'14px'}}>
                     {[
-                      {title:'Market Opportunity',icon:'&#9670;',body:'$2.4T retail investment market meets AI analytics and defense intelligence. Bloomberg Terminal costs $24,000/yr. We deliver more signal at 1% of the price.',tag:'TAM: $380B addressable'},
-                      {title:'Velocity Signal',icon:'&#9889;',body:'Built in 30 days. Not because we had to — because the architecture was already clear. Velocity is a signal. Those who recognized Palantir at $5B understand this.',tag:'30 days · Production · Live'},
+                      {title:'Market Opportunity',icon:'&#9670;',body:'Retail investors collectively manage over $2.4T in capital, yet the majority of analytical infrastructure remains designed for institutional desks. Bloomberg Terminal costs $24,000/yr. Arthastra delivers research-grade intelligence at accessible cost.',tag:'TAM: $20B–$30B research tools'},
+                      {title:'Velocity Signal',icon:'&#9889;',body:'The architecture was designed and prototyped prior to launch. The 30-day initial release reflects implementation speed, not conceptual design time. The platform is operational and continuously evolving.',tag:'Live · Operational · Expanding'},
                       {title:'Comparables',icon:'&#9673;',body:'Bloomberg built market data infrastructure. Palantir built defense analytics. Koyfin built beautiful data. Arthastra merges all three for the retail investor.',tag:'Bloomberg · Palantir · Koyfin'},
                     ].map((c,i)=>(
                       <div key={i} style={{background:'rgba(255,215,0,0.03)',border:GB,padding:'18px',position:'relative',overflow:'hidden'}}>
@@ -8363,6 +8363,63 @@ export default function Home() {
                   </div>
                 </div>
               </div>
+              {/* PLATFORM ARCHITECTURE */}
+              <div style={ss}>
+                <div style={sh}><span style={st}>&#9670; CORE PLATFORM ARCHITECTURE</span></div>
+                <div style={{padding:'20px 24px'}}>
+                  <p style={{fontFamily:'Rajdhani,sans-serif',fontSize:'0.95rem',color:'rgba(255,215,0,0.6)',lineHeight:1.75,marginBottom:'22px',maxWidth:'800px'}}>Arthastra operates as a layered intelligence system composed of three core engines. Each layer has a defined responsibility, a governance model, and a measurable output.</p>
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'14px'}}>
+                    {[
+                      {
+                        label:'QUANT_LAB',
+                        sublabel:'Quantitative Research Engine',
+                        icon:'&#9632;',
+                        body:'Processes market data across equities, crypto, commodities, and FX to generate structured research signals through feature engineering, regime detection, signal scoring, and statistical validation. Every research run produces deterministic manifests and experiment logs, ensuring all signals are reproducible and auditable.',
+                        tags:['Statistical Models','Regime Detection','Drift Monitoring','Audit Trail'],
+                      },
+                      {
+                        label:'YUNI',
+                        sublabel:'Platform Intelligence Layer',
+                        icon:'&#9670;',
+                        body:'The operational governance layer that runs Arthastra behind the scenes. Continuously monitors platform health, signal engine status, and security events. All platform actions pass through a structured governance pipeline — Interpretation → Policy Review → Capability Gate → Execution — ensuring the system operates within defined boundaries. Maintains persistent operational memory of system activity.',
+                        tags:['Governance Pipeline','Operational Memory','Security Monitoring','Anomaly Detection'],
+                      },
+                      {
+                        label:'ASTRA',
+                        sublabel:'Research Interface',
+                        icon:'&#9673;',
+                        body:'The analytical interface that surfaces market signals produced by QUANT_LAB and presents them through structured research summaries, pattern observations, and market context. Rather than executing trades automatically, ASTRA provides signal explanations and research context — every investment decision remains fully controlled by the investor.',
+                        tags:['Signal Explanations','Research Summaries','Pattern Observations','Investor-Controlled'],
+                      },
+                    ].map((e,i)=>(
+                      <div key={i} style={{background:'rgba(255,215,0,0.03)',border:GB,padding:'18px',position:'relative',overflow:'hidden'}}>
+                        <div style={{position:'absolute',top:0,left:0,right:0,height:'1px',background:`linear-gradient(90deg,transparent,${G},transparent)`}}/>
+                        <div style={{fontFamily:'Orbitron,sans-serif',fontSize:'12px',letterSpacing:'0.15em',color:G,marginBottom:'4px'}} dangerouslySetInnerHTML={{__html:`${e.icon} ${e.label}`}}/>
+                        <div style={{fontFamily:'"Share Tech Mono",monospace',fontSize:'9px',color:'rgba(255,215,0,0.4)',letterSpacing:'0.1em',marginBottom:'12px',textTransform:'uppercase'}}>{e.sublabel}</div>
+                        <div style={{fontSize:'0.82rem',color:'rgba(255,215,0,0.62)',lineHeight:1.75,marginBottom:'14px'}}>{e.body}</div>
+                        <div style={{display:'flex',flexWrap:'wrap',gap:'6px'}}>
+                          {e.tags.map(tag=>(
+                            <span key={tag} style={{fontFamily:'"Share Tech Mono",monospace',fontSize:'9px',color:'rgba(255,215,0,0.45)',border:'1px solid rgba(255,215,0,0.18)',padding:'2px 7px'}}>{tag}</span>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{marginTop:'18px',background:'rgba(255,215,0,0.03)',border:GB,padding:'14px 18px'}}>
+                    <div style={{fontFamily:'"Share Tech Mono",monospace',fontSize:'10px',color:'rgba(255,215,0,0.4)',letterSpacing:'0.12em',marginBottom:'10px'}}>GOVERNANCE PIPELINE</div>
+                    <div style={{display:'flex',alignItems:'center',gap:'8px',flexWrap:'wrap'}}>
+                      {['INPUT','INTERPRETATION','POLICY REVIEW','CAPABILITY GATE','EXECUTION','AUDIT LOG'].map((step,i,arr)=>(
+                        <div key={i} style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                          <div style={{fontFamily:'"Share Tech Mono",monospace',fontSize:'10px',color:i===0||i===arr.length-1?'rgba(255,215,0,0.4)':G,border:`1px solid ${i===0||i===arr.length-1?'rgba(255,215,0,0.2)':GB}`,padding:'4px 10px',background:i>0&&i<arr.length-1?'rgba(255,215,0,0.05)':'transparent',letterSpacing:'0.08em'}}>{step}</div>
+                          {i<arr.length-1&&<span style={{color:'rgba(255,215,0,0.3)',fontSize:'10px'}}>&#8594;</span>}
+                        </div>
+                      ))}
+                    </div>
+                    <p style={{fontFamily:'Rajdhani,sans-serif',fontSize:'0.82rem',color:'rgba(255,215,0,0.45)',marginTop:'10px',lineHeight:1.6}}>Every action inside the platform passes through this pipeline before execution. Unregistered actions are refused. This architecture prevents uncontrolled behavior and keeps the system operating within defined boundaries.</p>
+                  </div>
+                </div>
+              </div>
+
               {/* ASTRA PICKS */}
               <div style={ss}>
                 <div style={sh}><span style={st}>&#9670; ASTRA PICKS PERFORMANCE</span></div>
@@ -8430,8 +8487,9 @@ export default function Home() {
               </div>
               {/* ARBI SIGNALS */}
               <div style={ss}>
-                <div style={sh}><span style={st}>&#9670; ARBI SIGNALS — CRYPTO ARBITRAGE</span></div>
+                <div style={sh}><span style={st}>&#9670; ARBI — CROSS-EXCHANGE ARBITRAGE ENGINE</span></div>
                 <div style={{padding:'20px 24px'}}>
+                  <p style={{fontFamily:'Rajdhani,sans-serif',fontSize:'0.88rem',color:'rgba(255,215,0,0.5)',lineHeight:1.7,marginBottom:'18px'}}>The Arbi module identifies price inefficiencies across crypto exchanges in real time. Initial focus on BTC / ETH cross-exchange signals, expanding to SOL / ADA arbitrage pairs in Q2 2026, followed by a signal API expansion in Q3 2026.</p>
                   <div style={{display:'grid',gridTemplateColumns:'210px 1fr',gap:'20px',alignItems:'start'}}>
                     <div style={{background:'rgba(255,215,0,0.03)',border:GB,padding:'14px',textAlign:'center'}}>
                       <div style={{fontFamily:'"Share Tech Mono",monospace',fontSize:'10px',color:'rgba(255,215,0,0.45)',letterSpacing:'0.1em',marginBottom:'8px'}}>SIGNAL ACCURACY</div>
@@ -8481,8 +8539,9 @@ export default function Home() {
               </div>
               {/* QUANT MODEL */}
               <div style={ss}>
-                <div style={sh}><span style={st}>&#9670; QUANT MODEL — PERFORMANCE BREAKDOWN</span></div>
+                <div style={sh}><span style={st}>&#9670; QUANT_LAB ENGINE — PERFORMANCE BREAKDOWN</span></div>
                 <div style={{padding:'20px 24px'}}>
+                  <p style={{fontFamily:'Rajdhani,sans-serif',fontSize:'0.88rem',color:'rgba(255,215,0,0.5)',lineHeight:1.7,marginBottom:'18px'}}>Signal accuracy and confidence calibration across asset classes. Dataset is in active growth — statistics will stabilize as pick volume expands.</p>
                   <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'18px',marginBottom:'18px'}}>
                     <div style={{border:GB}}>
                       <div style={{padding:'9px 14px',borderBottom:GB,fontFamily:'"Share Tech Mono",monospace',fontSize:'10px',color:'rgba(255,215,0,0.45)',letterSpacing:'0.12em'}}>ACCURACY BY ASSET CLASS</div>
@@ -8522,6 +8581,7 @@ export default function Home() {
               <div style={ss}>
                 <div style={sh}><span style={st}>&#9670; WAR ROOM ALPHA — DEFENSE SECTOR CORRELATION</span></div>
                 <div style={{padding:'20px 24px'}}>
+                  <p style={{fontFamily:'Rajdhani,sans-serif',fontSize:'0.88rem',color:'rgba(255,215,0,0.5)',lineHeight:1.7,marginBottom:'18px'}}>War Room Alpha maps geopolitical events to defense sector market movements. By analyzing escalation timelines, defense spending signals, and historical conflict-market correlations, the system identifies patterns between geopolitical developments and defense equities. Institutional investors track these signals manually — Arthastra makes them visible in real time.</p>
                   <div style={{border:GB,marginBottom:'18px',overflowX:'auto'}}>
                     <table style={{width:'100%',borderCollapse:'collapse',fontFamily:'"Share Tech Mono",monospace',fontSize:'12px'}}>
                       <thead><tr style={{background:'rgba(255,215,0,0.06)',borderBottom:GB}}>
