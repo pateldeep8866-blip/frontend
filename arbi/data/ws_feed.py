@@ -1,5 +1,4 @@
-# data/ws_feed.py — Real-time WebSocket price feed
-# Bybit is the primary feed; Kraken kept for reference.
+# data/ws_feed.py — Real-time WebSocket price feed (Kraken)
 
 import json
 import threading
@@ -17,37 +16,71 @@ except ImportError:
     WS_AVAILABLE = False
     log.warning("websocket-client not installed. Run: pip install websocket-client")
 
+# Internal USDT symbol → Kraken WS pair name
+_KRAKEN_WS_MAP = {
+    "BTC/USDT":  "XBT/USD",
+    "ETH/USDT":  "ETH/USD",
+    "SOL/USDT":  "SOL/USD",
+    "XRP/USDT":  "XRP/USD",
+    "ADA/USDT":  "ADA/USD",
+    "DOGE/USDT": "DOGE/USD",
+    "AVAX/USDT": "AVAX/USD",
+    "DOT/USDT":  "DOT/USD",
+    # BNB not on Kraken — omitted intentionally
+}
+_KRAKEN_WS_REVERSE = {v: k for k, v in _KRAKEN_WS_MAP.items()}
+
+STALE_SEC = 10
+
 
 class KrakenWSFeed:
     """
-    Lightweight WebSocket feed for Kraken ticker updates.
-    Calls price_callback(symbol, price) on each update.
-    Run via start() in a daemon thread.
+    Real-time Kraken WebSocket ticker feed.
+    Caches latest prices; exposes get_price(internal_sym) and is_alive()
+    to match the interface previously provided by BybitWSFeed.
     """
 
     WS_URL = "wss://ws.kraken.com"
 
-    def __init__(self, symbols: list, price_callback: Callable):
-        self.symbols       = [s.replace("/", "") for s in symbols]  # "BTC/USDT" → "BTCUSDT"
-        self.callback      = price_callback
+    def __init__(self, symbols: list, price_callback: Optional[Callable] = None):
+        self._internal_syms = [s for s in symbols if s in _KRAKEN_WS_MAP]
+        self._kraken_pairs  = [_KRAKEN_WS_MAP[s] for s in self._internal_syms]
+        self._callback      = price_callback
+        self._cache: dict   = {}   # internal_sym → {"price": float, "ts": float}
         self._ws: Optional[object] = None
-        self._running      = False
+        self._running       = False
+        self._last_msg      = 0.0
+        self._lock          = threading.Lock()
 
-    def start(self) -> threading.Thread:
+    # ── Public API (matches BybitWSFeed interface) ─────────────────────────────
+
+    def start(self) -> Optional[threading.Thread]:
         if not WS_AVAILABLE:
-            log.error("Cannot start WS feed — websocket-client missing")
+            log.error("Cannot start Kraken WS feed — websocket-client missing")
             return None
-
         self._running = True
         t = threading.Thread(target=self._run, daemon=True, name="KrakenWSFeed")
         t.start()
-        log.info("WebSocket feed thread started")
+        log.info("KrakenWSFeed thread started for %d symbols", len(self._kraken_pairs))
         return t
 
     def stop(self) -> None:
         self._running = False
         if self._ws:
             self._ws.close()
+
+    def get_price(self, internal_sym: str) -> Optional[float]:
+        """Return cached price for an internal symbol (e.g. 'BTC/USDT'), or None if stale."""
+        with self._lock:
+            entry = self._cache.get(internal_sym)
+        if entry and (time.time() - entry["ts"]) < STALE_SEC:
+            return entry["price"]
+        return None
+
+    def is_alive(self) -> bool:
+        return (time.time() - self._last_msg) < STALE_SEC
+
+    # ── Internal ──────────────────────────────────────────────────────────────
 
     def _run(self) -> None:
         while self._running:
@@ -61,36 +94,42 @@ class KrakenWSFeed:
                 )
                 self._ws.run_forever(ping_interval=20, ping_timeout=10)
             except Exception as exc:
-                log.error("WS error: %s — reconnecting in 5s", exc)
+                log.error("KrakenWS error: %s — reconnecting in 5s", exc)
             if self._running:
                 time.sleep(5)
 
     def _on_open(self, ws) -> None:
         sub = {
             "event":        "subscribe",
-            "pair":         self.symbols,
+            "pair":         self._kraken_pairs,
             "subscription": {"name": "ticker"},
         }
         ws.send(json.dumps(sub))
-        log.info("WS subscribed to: %s", self.symbols)
+        log.info("KrakenWS subscribed: %s", self._kraken_pairs)
 
     def _on_message(self, ws, message: str) -> None:
+        self._last_msg = time.time()
         try:
             data = json.loads(message)
             if isinstance(data, list) and len(data) >= 4:
                 payload = data[1]
-                pair    = data[3]
+                kraken_pair = data[3]   # e.g. "XBT/USD"
                 if isinstance(payload, dict) and "c" in payload:
                     price = float(payload["c"][0])
-                    self.callback(pair, price)
+                    internal = _KRAKEN_WS_REVERSE.get(kraken_pair)
+                    if internal:
+                        with self._lock:
+                            self._cache[internal] = {"price": price, "ts": self._last_msg}
+                        if self._callback:
+                            self._callback(internal, price)
         except Exception as exc:
-            log.debug("WS parse error: %s", exc)
+            log.debug("KrakenWS parse error: %s", exc)
 
     def _on_error(self, ws, error) -> None:
-        log.warning("WS error: %s", error)
+        log.warning("KrakenWS error: %s", error)
 
     def _on_close(self, ws, code, msg) -> None:
-        log.info("WS closed (code=%s)", code)
+        log.info("KrakenWS closed (code=%s)", code)
 
 
 class BybitWSFeed:

@@ -26,7 +26,7 @@ import random
 from datetime import datetime
 from utils.logger import get_logger
 from storage.supabase_writer import write_trade, write_stats
-from data.ws_feed import BybitWSFeed
+from data.ws_feed import KrakenWSFeed
 
 log = get_logger("simulation.engine")
 
@@ -132,7 +132,7 @@ class SimulationEngine:
         self._running    = False
         self._lock       = threading.Lock()
 
-        self._ws_feed = BybitWSFeed(SYMBOLS)
+        self._ws_feed = KrakenWSFeed(SYMBOLS)
         self._ws_feed.start()
 
         init_sim_db()
@@ -229,27 +229,35 @@ class SimulationEngine:
         return base
 
     def _fetch_live_data(self) -> dict:
-        """Fetch real prices from Bybit public API (no auth needed for market data)."""
+        """Fetch real prices from Kraken public API (no geo-blocking, no auth needed)."""
         try:
             import ccxt
-            client = ccxt.bybit({"options": {"defaultType": "linear"}})
+            client = ccxt.kraken()
+            # Kraken uses XBT not BTC, and doesn't have USDT pairs for all — map to USD
+            sym_map = {
+                "BTC/USDT": "BTC/USD", "ETH/USDT": "ETH/USD", "SOL/USDT": "SOL/USD",
+                "XRP/USDT": "XRP/USD", "BNB/USDT": None,       "ADA/USDT": "ADA/USD",
+                "DOGE/USDT":"DOGE/USD","AVAX/USDT":"AVAX/USD",  "DOT/USDT": "DOT/USD",
+            }
             data = {}
             for sym in SYMBOLS:
+                kraken_sym = sym_map.get(sym)
+                if not kraken_sym:
+                    data[sym] = self._synthetic_for_symbol(sym)
+                    continue
                 try:
-                    ticker  = client.fetch_ticker(sym)
-                    ohlcv   = client.fetch_ohlcv(sym, "1h", limit=60)
-                    perp_sym = sym.replace("/USDT", "/USDT:USDT")
-                    funding  = client.fetch_funding_rate(perp_sym)
+                    ticker = client.fetch_ticker(kraken_sym)
+                    ohlcv  = client.fetch_ohlcv(kraken_sym, "1h", limit=60)
                     data[sym] = {
                         "price":        ticker["last"],
                         "bid":          ticker["bid"],
                         "ask":          ticker["ask"],
                         "volume_24h":   ticker["quoteVolume"],
                         "candles":      [{"open":c[1],"high":c[2],"low":c[3],"close":c[4],"volume":c[5]} for c in ohlcv],
-                        "funding_rate": funding.get("fundingRate", 0),
+                        "funding_rate": 0.0001,  # Kraken spot has no funding rate; use neutral default
                         "source":       "live",
                     }
-                    time.sleep(0.1)   # stay within Bybit public rate limits
+                    time.sleep(0.2)
                 except Exception as sym_exc:
                     log.warning("Live data failed for %s (%s) — using synthetic", sym, sym_exc)
                     data[sym] = self._synthetic_for_symbol(sym)

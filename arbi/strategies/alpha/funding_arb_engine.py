@@ -15,8 +15,8 @@
 #   3. Rebalancing drift when spot/perp diverge beyond tolerance
 #
 # Strategy mechanics:
-#   BUY spot BTC/ETH/SOL on Bybit
-#   SHORT equal notional on Bybit linear perp (USDT-margined)
+#   BUY spot BTC/ETH/SOL on Kraken
+#   SHORT equal notional on Kraken futures (USD-margined)
 #   COLLECT funding every 8 hours from longs
 #   EXIT when: rate flips negative | rate drops below threshold | drawdown hit
 
@@ -97,8 +97,8 @@ class FundingArbEngine:
     Handles scanning, entry, monitoring, rebalancing, and exit.
     """
 
-    def __init__(self, bybit_adapter, risk_manager):
-        self.exchange    = bybit_adapter
+    def __init__(self, kraken_adapter, risk_manager):
+        self.exchange    = kraken_adapter
         self.risk        = risk_manager
         self._positions: dict = {}   # symbol → FundingPosition
         self._last_scan_ts = 0.0
@@ -152,7 +152,7 @@ class FundingArbEngine:
                 "type":           "funding_rate_arb",
                 "symbol":         spot_sym,
                 "perp_symbol":    symbol,
-                "exchange":       "bybit",
+                "exchange":       "kraken",
                 "current_rate":   round(current_rate, 6),
                 "predicted_rate": round(predicted_rate, 6),
                 "annual_yield":   round(annual_yield, 2),

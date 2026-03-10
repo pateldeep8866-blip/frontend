@@ -24,7 +24,7 @@ MIN_ANNUAL_YIELD_PCT = 15.0
 FUNDING_PERIODS_PER_YEAR = 1095
 
 # Exchanges that support perpetual futures
-PERP_EXCHANGES = ["binance", "bybit", "okx"]
+PERP_EXCHANGES = ["binance", "kraken", "okx"]
 
 
 def annualized_yield(funding_rate_8h: float) -> float:
