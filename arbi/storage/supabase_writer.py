@@ -45,6 +45,11 @@ def get_client():
         return None
 
 
+def init_supabase():
+    """Eagerly initialize Supabase at engine startup so connection errors surface immediately."""
+    get_client()
+
+
 def write_trade(sim_user: str, symbol: str, strategy: str, side: str,
                 entry_price: float, status: str = "OPEN",
                 exit_price: float = None, pnl_pct: float = None,

@@ -25,7 +25,7 @@ import threading
 import random
 from datetime import datetime
 from utils.logger import get_logger
-from storage.supabase_writer import write_trade, write_stats
+from storage.supabase_writer import write_trade, write_stats, init_supabase
 from data.ws_feed import KrakenWSFeed
 
 log = get_logger("simulation.engine")
@@ -136,8 +136,27 @@ class SimulationEngine:
         self._ws_feed.start()
 
         init_sim_db()
+        self.balance = self._load_balance()   # restore from last session, or STARTING_BALANCE
         self._register_session()
-        log.info("SimulationEngine started: user=%s session=%s", sim_user, self.session_id)
+        init_supabase()
+        log.info("SimulationEngine started: user=%s session=%s balance=$%.2f",
+                 sim_user, self.session_id, self.balance)
+
+    def _load_balance(self) -> float:
+        """Restore last saved balance for this user, or start fresh."""
+        try:
+            conn = sqlite3.connect(SIM_DB_PATH)
+            row = conn.execute(
+                "SELECT balance FROM sim_sessions WHERE sim_user=? ORDER BY last_seen DESC LIMIT 1",
+                (self.sim_user,)
+            ).fetchone()
+            conn.close()
+            if row and row[0] and row[0] > 0:
+                log.info("Restoring balance $%.2f from previous session", row[0])
+                return float(row[0])
+        except Exception:
+            pass
+        return STARTING_BALANCE
 
     def _register_session(self):
         conn = sqlite3.connect(SIM_DB_PATH)
