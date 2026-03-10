@@ -125,20 +125,48 @@ export async function GET(req) {
       returnPct: toNum(r.return_pct, 0),
     }));
 
+    // If DB returned no picks, fall back to committed picks-data.json
+    let finalPicks = picks;
+    let finalCount = filtered.length;
+    let finalWinRate = filteredWinRate;
+    let finalAvgReturn = filteredAvgReturn;
+    if (!finalPicks || finalPicks.length === 0) {
+      try {
+        const { readFileSync } = await import("node:fs");
+        const { join } = await import("node:path");
+        const jsonPath = join(process.cwd(), "public", "picks-data.json");
+        const raw = JSON.parse(readFileSync(jsonPath, "utf8"));
+        finalPicks = raw.map(r => ({
+          ticker: String(r.ticker || "").toUpperCase(),
+          entryPrice: Number(r.entry_price || 0),
+          date: String(r.date || ""),
+          confidence: Number(r.confidence || 0),
+          outcome: String(r.outcome || "").toLowerCase() === "win" ? "win" : "loss",
+          returnPct: Number(r.return_pct || 0),
+        }));
+        const wins = finalPicks.filter(p => p.outcome === "win").length;
+        finalCount = finalPicks.length;
+        finalWinRate = finalCount > 0 ? Math.round((wins / finalCount) * 100 * 10) / 10 : null;
+        finalAvgReturn = finalCount > 0
+          ? Math.round((finalPicks.reduce((s, p) => s + p.returnPct, 0) / finalCount) * 100) / 100
+          : null;
+      } catch { /* no fallback file, return empty */ }
+    }
+
     return NextResponse.json({
       ok: true,
       days,
-      totalPicks: total,
-      winRatePct: winRate != null ? parseFloat(winRate.toFixed(1)) : null,
-      avgReturnPct: avgReturn != null ? parseFloat(avgReturn.toFixed(2)) : null,
+      totalPicks: total || finalCount,
+      winRatePct: winRate != null ? parseFloat(winRate.toFixed(1)) : finalWinRate,
+      avgReturnPct: avgReturn != null ? parseFloat(avgReturn.toFixed(2)) : finalAvgReturn,
       cumulativeReturnPct: cumulativeReturn != null ? parseFloat(cumulativeReturn.toFixed(2)) : null,
       waitlistCount: null,
       // windowed
-      picks,
+      picks: finalPicks,
       monthlyWinRates,
-      winRate: filteredWinRate,
-      count: filtered.length,
-      avgReturn: filteredAvgReturn,
+      winRate: finalWinRate,
+      count: finalCount,
+      avgReturn: finalAvgReturn,
     });
   } catch (e) {
     return NextResponse.json(

@@ -1,0 +1,128 @@
+[
+  {
+    "ticker": "GDXJ",
+    "action": "BUY",
+    "entry_price": 154.04,
+    "date": "2026-02-27",
+    "confidence": 64,
+    "outcome": "LOSS",
+    "return_pct": -1091.28
+  },
+  {
+    "ticker": "GDXJ",
+    "action": "BUY",
+    "entry_price": 149.68,
+    "date": "2026-02-26",
+    "confidence": 45,
+    "outcome": "LOSS",
+    "return_pct": -831.77
+  },
+  {
+    "ticker": "XLK",
+    "action": "BUY",
+    "entry_price": 143.01,
+    "date": "2026-02-26",
+    "confidence": 45,
+    "outcome": "LOSS",
+    "return_pct": -227.26
+  },
+  {
+    "ticker": "DIA",
+    "action": "BUY",
+    "entry_price": 494.82,
+    "date": "2026-02-26",
+    "confidence": 5,
+    "outcome": "LOSS",
+    "return_pct": -342.35
+  },
+  {
+    "ticker": "GLD",
+    "action": "BUY",
+    "entry_price": 473.42,
+    "date": "2026-02-26",
+    "confidence": 60,
+    "outcome": "LOSS",
+    "return_pct": -18.8
+  },
+  {
+    "ticker": "BTC",
+    "action": "BUY",
+    "entry_price": 67877.0,
+    "date": "2026-02-26",
+    "confidence": 62,
+    "outcome": "WIN",
+    "return_pct": 167.66
+  },
+  {
+    "ticker": "XLP",
+    "action": "BUY",
+    "entry_price": 89.01,
+    "date": "2026-02-26",
+    "confidence": 56,
+    "outcome": "LOSS",
+    "return_pct": -341.53
+  },
+  {
+    "ticker": "XOM",
+    "action": "BUY",
+    "entry_price": 149.06,
+    "date": "2026-02-26",
+    "confidence": 95,
+    "outcome": "WIN",
+    "return_pct": 92.58
+  },
+  {
+    "ticker": "SLV",
+    "action": "BUY",
+    "entry_price": 80.04,
+    "date": "2026-02-26",
+    "confidence": 29,
+    "outcome": "LOSS",
+    "return_pct": -222.39
+  },
+  {
+    "ticker": "XLK",
+    "action": "BUY",
+    "entry_price": 143.0,
+    "date": "2026-02-25",
+    "confidence": 45,
+    "outcome": "LOSS",
+    "return_pct": -226.57
+  },
+  {
+    "ticker": "SLV",
+    "action": "BUY",
+    "entry_price": 82.255,
+    "date": "2026-02-25",
+    "confidence": 30,
+    "outcome": "LOSS",
+    "return_pct": -485.68
+  },
+  {
+    "ticker": "XOM",
+    "action": "BUY",
+    "entry_price": 148.79,
+    "date": "2026-02-25",
+    "confidence": 95,
+    "outcome": "WIN",
+    "return_pct": 110.89
+  },
+  {
+    "ticker": "ORCL",
+    "action": "SELL",
+    "entry_price": 149.38,
+    "date": "2026-02-25",
+    "confidence": 80,
+    "outcome": "LOSS",
+    "return_pct": -145.94
+  },
+  {
+    "ticker": "SPY",
+    "action": "SELL",
+    "entry_price": 692.365,
+    "date": "2026-02-25",
+    "confidence": 95,
+    "outcome": "WIN",
+    "return_pct": 203.58
+  }
+]
