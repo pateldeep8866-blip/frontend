@@ -1,0 +1,35 @@
+{
+  "asof": "2026-02-16",
+  "count_pass_fdr": 1,
+  "count_picks": 5,
+  "count_picks_pass_fdr": 1,
+  "features_count": 13,
+  "mode": "morning_signal_engine",
+  "notes": {
+    "portfolio": [
+      "corr_cap: dropped 1 tickers with corr_to_spy>0.95"
+    ]
+  },
+  "portfolio": {
+    "cash_weight": 0.0526958682870009,
+    "concentration_hhi": 0.19308114464035342,
+    "portfolio_vol": 0.13978282689473168,
+    "weights": {
+      "CASH": 0.0526958682870009,
+      "GLD": 0.10420057752643978,
+      "IWM": 0.18957143446995411,
+      "XLE": 0.16736424526208188,
+      "XLI": 0.23616787445452317,
+      "XLP": 0.25
+    }
+  },
+  "regime": {
+    "confidence": 0.6537509107424475,
+    "label": "risk_on",
+    "method": "proxy"
+  },
+  "risk_actions": [
+    "cap_weight: XLP clipped to 0.25"
+  ],
+  "universe_size": 13
+}

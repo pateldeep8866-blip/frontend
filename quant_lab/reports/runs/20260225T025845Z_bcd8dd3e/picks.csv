@@ -1,0 +1,4 @@
+ticker,rank,score,vol,mom_63,mom_252,corr_spy,t_stat,p_value,passes_fdr,reasons
+SPY,1,0.164113,0.011207,0.031544,0.126159,1.000000,5.584282,1.17334e-08,1,"score=0.164 (z_mom=1.35, z_trend=-1.37, z_risk=0.66, z_dd=0.39); p(one-sided)=1.17e-08 FDR=Y"
+GLD,2,0.013547,0.011207,0.031544,0.126159,1.000000,5.584282,1.17334e-08,1,"score=0.014 (z_mom=-1.04, z_trend=0.37, z_risk=0.76, z_dd=0.98); p(one-sided)=1.17e-08 FDR=Y"
+TLT,3,-0.177660,0.011207,0.031544,0.126159,1.000000,5.584282,1.17334e-08,1,"score=-0.178 (z_mom=-0.31, z_trend=1.00, z_risk=-1.41, z_dd=-1.37); p(one-sided)=1.17e-08 FDR=Y"

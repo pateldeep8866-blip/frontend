@@ -1,0 +1,12 @@
+{
+  "avg_weights": {
+    "ma_crossover": 0.9057960330697086,
+    "momentum_accel": 0.0035437231685286072,
+    "ou_mean_reversion": 0.09066024376176265
+  },
+  "counts": {
+    "ma_crossover": 513,
+    "momentum_accel": 511,
+    "ou_mean_reversion": 512
+  }
+}

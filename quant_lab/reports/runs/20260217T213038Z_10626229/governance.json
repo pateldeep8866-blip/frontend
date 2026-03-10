@@ -1,0 +1,19 @@
+{
+  "actions": [
+    "cap_weight: XLP clipped to 0.25"
+  ],
+  "final_weights": {
+    "GLD": 0.111548241851709,
+    "IWM": 0.20293899249349068,
+    "XLE": 0.17916587173651302,
+    "XLI": 0.2528211628236958,
+    "XLP": 0.2535257310945915
+  },
+  "max_turnover": null,
+  "prev_run_id": null,
+  "regime_scale": 1.0,
+  "risk_off_scale": 1.0,
+  "turnover_alpha": null,
+  "turnover_before": null,
+  "vol_target": null
+}

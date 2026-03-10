@@ -1,0 +1,121 @@
+{
+  "cache_hit": true,
+  "code_hash": "2cf8a149a4d9bcde7ef61960dd1d6eb9061b21766a4925d59cb11444647a0399",
+  "code_path": "sim/morning_run.py",
+  "composite_code_files": [
+    "quantlab/data/__init__.py",
+    "quantlab/data/providers/__init__.py",
+    "quantlab/data/providers/base.py",
+    "quantlab/data/providers/polygon_provider.py",
+    "quantlab/data/providers/yfinance_provider.py",
+    "quantlab/data_cache.py",
+    "quantlab/index.py",
+    "quantlab/morning/__init__.py",
+    "quantlab/morning/data.py",
+    "quantlab/morning/features.py",
+    "quantlab/morning/portfolio.py",
+    "quantlab/morning/regime.py",
+    "quantlab/morning/reporting.py",
+    "quantlab/morning/risk.py",
+    "quantlab/morning/signals.py",
+    "quantlab/morning/universe.py",
+    "quantlab/reporting/run_manifest.py",
+    "quantlab/stats.py",
+    "quantlab/utils/hashing.py",
+    "sim/morning_run.py"
+  ],
+  "composite_code_hash": "1dcc40251e8bd814be420e14b337d61867a6df761b2fe1bc6c8d31b552a41ab5",
+  "config_hash": "607cf82f86d9c3522fd3ca4bb1f82f370237e6520d39b2566ca012144b9f9904",
+  "created_utc": "2026-02-16T23:51:55.808364Z",
+  "data_path": "data/cache",
+  "data_provenance": {
+    "files": {
+      "GLD": {
+        "cache_hit": true,
+        "data_path": "data/cache/GLD__1d__2023-01-01__2023-12-31.csv",
+        "data_sha256": "8425ea945980731c113d3ada062d210f62b575e11cfe51588bd77564e7545ef1",
+        "file_sha256": "8425ea945980731c113d3ada062d210f62b575e11cfe51588bd77564e7545ef1",
+        "first_date": "2023-01-01T00:00:00",
+        "first_timestamp": "2023-01-01T00:00:00",
+        "last_date": "2023-12-31T00:00:00",
+        "last_timestamp": "2023-12-31T00:00:00",
+        "provider_name": "yfinance",
+        "provider_version": "1.2.0",
+        "retrieval_timestamp": "2026-02-16T22:34:44.381708Z",
+        "row_count": 365,
+        "rows": 365
+      },
+      "SPY": {
+        "cache_hit": true,
+        "data_path": "data/cache/SPY__1d__2023-01-01__2023-12-31.csv",
+        "data_sha256": "4f88808110ec7da40727c3c215de44e386afc20b7354c69c9743400097a3f524",
+        "file_sha256": "4f88808110ec7da40727c3c215de44e386afc20b7354c69c9743400097a3f524",
+        "first_date": "2023-01-01T00:00:00",
+        "first_timestamp": "2023-01-01T00:00:00",
+        "last_date": "2023-12-31T00:00:00",
+        "last_timestamp": "2023-12-31T00:00:00",
+        "provider_name": "yfinance",
+        "provider_version": "1.2.0",
+        "retrieval_timestamp": "2026-02-16T22:34:44.379189Z",
+        "row_count": 365,
+        "rows": 365
+      },
+      "TLT": {
+        "cache_hit": true,
+        "data_path": "data/cache/TLT__1d__2023-01-01__2023-12-31.csv",
+        "data_sha256": "6239ecdb7d5f6bf7b5b246367566fddfd4dba80f369acad284b5b328a0263726",
+        "file_sha256": "6239ecdb7d5f6bf7b5b246367566fddfd4dba80f369acad284b5b328a0263726",
+        "first_date": "2023-01-01T00:00:00",
+        "first_timestamp": "2023-01-01T00:00:00",
+        "last_date": "2023-12-31T00:00:00",
+        "last_timestamp": "2023-12-31T00:00:00",
+        "provider_name": "yfinance",
+        "provider_version": "1.2.0",
+        "retrieval_timestamp": "2026-02-16T22:34:44.380467Z",
+        "row_count": 365,
+        "rows": 365
+      }
+    },
+    "provider_name": "yfinance",
+    "provider_version": "1.2.0"
+  },
+  "data_sha256": "5af9ce994461d3a4e12cfc3c0f0762dfcfd7c911cca1f1b90947d64566ab43d2",
+  "data_source": "yfinance",
+  "dependency_snapshot": {
+    "matplotlib": "3.10.8",
+    "numpy": "2.2.6",
+    "pandas": "2.3.3",
+    "yfinance": "1.2.0"
+  },
+  "dependency_versions": {
+    "matplotlib": "3.10.8",
+    "numpy": "2.2.6",
+    "pandas": "2.3.3",
+    "yfinance": "1.2.0"
+  },
+  "python_version": "3.10.13",
+  "run_id": "20260216T235155Z_d4a45df9",
+  "strategy": {
+    "name": "morning_signal_engine",
+    "parameters": {
+      "asof": "2023-12-31",
+      "end": "2023-12-31",
+      "fdr_q": 0.1,
+      "interval": "1d",
+      "k": 5,
+      "long_window": 50,
+      "max_drawdown_limit": -0.1,
+      "max_portfolio_vol": 0.18,
+      "max_weight_per_asset": 0.25,
+      "mode": "morning_signal_engine",
+      "short_window": 20,
+      "start": "2023-01-01",
+      "ticker": "UNIVERSE",
+      "universe": [
+        "SPY",
+        "TLT",
+        "GLD"
+      ]
+    }
+  }
+}

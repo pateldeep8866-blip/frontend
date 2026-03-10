@@ -1,0 +1,6 @@
+ts,symbol,side,qty,price,reason
+2026-02-13T00:00:00,GLD,BUY,2,462.619995,paper_rebalance_to_plan
+2026-02-13T00:00:00,IWM,BUY,7,262.959991,paper_rebalance_to_plan
+2026-02-13T00:00:00,XLE,BUY,32,54.349998,paper_rebalance_to_plan
+2026-02-13T00:00:00,XLI,BUY,14,174.169998,paper_rebalance_to_plan
+2026-02-13T00:00:00,XLP,BUY,27,89.510002,paper_rebalance_to_plan

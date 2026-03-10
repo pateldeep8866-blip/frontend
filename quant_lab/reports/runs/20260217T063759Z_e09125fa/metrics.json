@@ -1,0 +1,50 @@
+{
+  "benchmark": {
+    "annualized_vol": 0.2061083427066239,
+    "cagr": 0.14656844448721063,
+    "calmar": 0.43469848806232875,
+    "hit_rate": 0.55078125,
+    "max_drawdown": -0.3371726576288323,
+    "sharpe": 0.7691447019948896,
+    "sortino": 1.0857235235170015,
+    "ticker": "SPY",
+    "total_return": 1.3075386543160015
+  },
+  "mode": "walkforward",
+  "oos": {
+    "annualized_vol": 0.08492085459648203,
+    "avg_oos_sharpe": 1.0658290105489756,
+    "cagr": 0.05622424372976709,
+    "calmar": 0.3680416477861645,
+    "end_equity": 13971.27307335989,
+    "hit_rate": 0.17708333333333334,
+    "max_drawdown": -0.1527659819696109,
+    "num_windows": 13,
+    "sharpe": 0.6887985459880306,
+    "significant_any": true,
+    "significant_windows": 3,
+    "sortino": 0.9490699836275364,
+    "start_equity": 10000.0,
+    "total_return": 0.3971273073359889,
+    "trades_count": 4,
+    "worst_oos_drawdown": -0.09807345060229933
+  },
+  "strategy": {
+    "annualized_vol": 0.08492085459648203,
+    "avg_oos_sharpe": 1.0658290105489756,
+    "cagr": 0.05622424372976709,
+    "calmar": 0.3680416477861645,
+    "end_equity": 13971.27307335989,
+    "hit_rate": 0.17708333333333334,
+    "max_drawdown": -0.1527659819696109,
+    "num_windows": 13,
+    "sharpe": 0.6887985459880306,
+    "significant_any": true,
+    "significant_windows": 3,
+    "sortino": 0.9490699836275364,
+    "start_equity": 10000.0,
+    "total_return": 0.3971273073359889,
+    "trades_count": 4,
+    "worst_oos_drawdown": -0.09807345060229933
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "end_equity": 10000.0,
+  "max_drawdown": 0.0,
+  "notes": "Paper-only valuation using last/bid/ask rules + slippage/commission.",
+  "num_ticks": 0,
+  "num_trades": 0,
+  "start_equity": 10000.0,
+  "total_return": 0.0
+}

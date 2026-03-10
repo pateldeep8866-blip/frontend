@@ -1,0 +1,84 @@
+{
+  "cache_hit": true,
+  "code_hash": "f6d69bd832965bd895fd56d70ef2b389b028dc083b623f4703a21ab939b497aa",
+  "code_path": "backtests/ou_mean_reversion.py",
+  "composite_code_files": [
+    "backtests/ou_mean_reversion.py",
+    "quantlab/data_cache.py",
+    "quantlab/index.py",
+    "quantlab/reporting/run_manifest.py",
+    "quantlab/rigor/ou.py",
+    "quantlab/rigor/validation.py",
+    "quantlab/stats.py",
+    "quantlab/utils/hashing.py",
+    "quantlab/walkforward.py"
+  ],
+  "composite_code_hash": "b4c0ecec86fc4aa0f0c1099d070458c94efaae9b8366ce0bb29fb11b855fc8f1",
+  "config_hash": "d90cac98e06ad9f9f8b6a045bac4c85d7e8fbb87d5db0f08d2c6d51d8069011e",
+  "created_utc": "2026-02-17T06:30:43.815244Z",
+  "data_path": "data/cache/SPY__1d__2015-01-01__2026-02-16.csv",
+  "data_provenance": {
+    "files": {
+      "SPY": {
+        "cache_hit": true,
+        "data_path": "/Users/juanramirez/NOVA/NOVA_LAB/QUANT_LAB/data/cache/SPY__1d__2015-01-01__2026-02-16.csv",
+        "data_sha256": "60ef502308542c4062bd43924150ea2a6ca336d8689e2c832cbe2ca2ebcf8c8a",
+        "file_sha256": "60ef502308542c4062bd43924150ea2a6ca336d8689e2c832cbe2ca2ebcf8c8a",
+        "first_timestamp": "2015-01-02T00:00:00",
+        "last_timestamp": "2026-02-13T00:00:00",
+        "retrieval_timestamp": "2026-02-16T22:20:18.640958Z",
+        "row_count": 2796
+      }
+    },
+    "provider_name": "yfinance",
+    "provider_version": "1.2.0"
+  },
+  "data_sha256": "60ef502308542c4062bd43924150ea2a6ca336d8689e2c832cbe2ca2ebcf8c8a",
+  "data_source": "yfinance",
+  "dependency_snapshot": {
+    "matplotlib": "3.10.8",
+    "numpy": "2.2.6",
+    "pandas": "2.3.3",
+    "yfinance": "1.2.0"
+  },
+  "dependency_versions": {
+    "matplotlib": "3.10.8",
+    "numpy": "2.2.6",
+    "pandas": "2.3.3",
+    "yfinance": "1.2.0"
+  },
+  "python_version": "3.10.13",
+  "run_id": "20260217T063043Z_f4c3a419",
+  "strategy": {
+    "name": "ou_mean_reversion",
+    "parameters": {
+      "benchmark_ticker": "SPY",
+      "commission": 0.0,
+      "end": "2026-02-16",
+      "grid_long": [
+        50,
+        75,
+        100,
+        125,
+        150
+      ],
+      "grid_short": [
+        10,
+        15,
+        20,
+        30,
+        40
+      ],
+      "interval": "1d",
+      "long_window": 60,
+      "mode": "ou_mean_reversion",
+      "risk_free_rate": 0.0,
+      "short_window": 20,
+      "start": "2015-01-01",
+      "test_months": 6,
+      "ticker": "SPY",
+      "train_years": 5,
+      "walkforward": true
+    }
+  }
+}

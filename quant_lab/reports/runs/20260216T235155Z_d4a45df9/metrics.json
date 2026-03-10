@@ -1,0 +1,33 @@
+{
+  "asof": "2023-12-31",
+  "count_pass_fdr": 3,
+  "count_picks": 3,
+  "count_picks_pass_fdr": 3,
+  "features_count": 3,
+  "mode": "morning_signal_engine",
+  "notes": {
+    "portfolio": []
+  },
+  "portfolio": {
+    "cash_weight": 0.25,
+    "concentration_hhi": 0.1875,
+    "portfolio_vol": 0.008405222217269881,
+    "weights": {
+      "CASH": 0.25,
+      "GLD": 0.25,
+      "SPY": 0.25,
+      "TLT": 0.25
+    }
+  },
+  "regime": {
+    "confidence": 0.8636435747454435,
+    "label": "risk_on",
+    "method": "proxy"
+  },
+  "risk_actions": [
+    "cap_weight: SPY clipped to 0.25",
+    "cap_weight: GLD clipped to 0.25",
+    "cap_weight: TLT clipped to 0.25"
+  ],
+  "universe_size": 3
+}

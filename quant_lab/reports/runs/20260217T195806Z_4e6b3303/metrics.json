@@ -1,0 +1,129 @@
+{
+  "asof": "2026-02-17",
+  "count_pass_fdr": 1,
+  "count_picks": 5,
+  "count_picks_pass_fdr": 1,
+  "features_count": 13,
+  "governance": {
+    "actions": [
+      "cap_weight: XLP clipped to 0.25"
+    ],
+    "final_weights": {
+      "GLD": 0.111548241851709,
+      "IWM": 0.20293899249349068,
+      "XLE": 0.17916587173651302,
+      "XLI": 0.2528211628236958,
+      "XLP": 0.2535257310945915
+    },
+    "max_turnover": null,
+    "prev_run_id": null,
+    "regime_scale": 1.0,
+    "risk_off_scale": 1.0,
+    "turnover_alpha": null,
+    "turnover_before": null,
+    "vol_target": null
+  },
+  "mode": "morning_signal_engine",
+  "monitoring": {
+    "drift": {
+      "drift_flag": false,
+      "ic_decay": {
+        "drift": false,
+        "ic_mean_baseline": 0.030430260675920903,
+        "ic_mean_recent": 0.0409035409035409,
+        "min_ratio": 0.5,
+        "min_recent_ic": 0.0,
+        "status": "ok"
+      },
+      "ks_shift": {
+        "drift": false,
+        "ks_d": 0.08333333333333331,
+        "ks_threshold": 0.2,
+        "n_baseline": 252,
+        "n_recent": 63,
+        "status": "ok"
+      },
+      "sharpe_breakdown": {
+        "drift": false,
+        "max_drop": 0.75,
+        "min_recent_sharpe": 0.0,
+        "sharpe_baseline": 0.7001558997309543,
+        "sharpe_recent": 4.392372248001636,
+        "status": "ok"
+      },
+      "vol_regime": {
+        "drift": false,
+        "status": "ok",
+        "vol_baseline": 0.1928354051547767,
+        "vol_ratio": 0.6151237701508923,
+        "vol_ratio_threshold": 1.5,
+        "vol_recent": 0.11861764143738106
+      }
+    }
+  },
+  "notes": {
+    "portfolio": [
+      "corr_cap: dropped 1 tickers with corr_to_spy>0.95"
+    ]
+  },
+  "portfolio": {
+    "cash_weight": 0.0,
+    "concentration_hhi": 0.21392149122815787,
+    "portfolio_vol": 0.1484984700565561,
+    "weights": {
+      "GLD": 0.111548241851709,
+      "IWM": 0.20293899249349068,
+      "XLE": 0.17916587173651302,
+      "XLI": 0.2528211628236958,
+      "XLP": 0.2535257310945915
+    }
+  },
+  "regime": {
+    "confidence": 0.6537509107423883,
+    "label": "risk_on",
+    "method": "proxy"
+  },
+  "rigor": {
+    "deflated_sharpe": {
+      "kurt": 16.971110428988023,
+      "n": 2795.0,
+      "n_trials": 13.0,
+      "prob": 1.0,
+      "sharpe": 0.7077043336177171,
+      "skew": -0.6220939934024525,
+      "sr_threshold": 0.028344556347856,
+      "z": 19.361203839827358
+    },
+    "errors": [],
+    "portfolio_rigor": {
+      "bootstrap_ci_mean_return": {
+        "hi": 0.0007637952430330293,
+        "lo": 5.591496705455472e-05,
+        "point": 0.0004315965206662317
+      },
+      "deflated_sharpe": {
+        "kurt": 16.971110428988023,
+        "n": 2795.0,
+        "n_trials": 13.0,
+        "prob": 1.0,
+        "sharpe": 0.7077043336177171,
+        "skew": -0.6220939934024525,
+        "sr_threshold": 0.028344556347856,
+        "z": 19.361203839827358
+      },
+      "nw_p_value": 0.014162055458447273,
+      "nw_se": 0.00017593733286959583,
+      "nw_t_stat_mean": 2.4531264264766914
+    },
+    "summary": {
+      "factor_premia_n_periods": 2732,
+      "ic_mean_mom63": 0.009414968394878688,
+      "ic_mean_score": 0.007856406103604968
+    }
+  },
+  "risk_actions": [
+    "cap_weight: XLP clipped to 0.25",
+    "cap_weight: XLP clipped to 0.25"
+  ],
+  "universe_size": 13
+}

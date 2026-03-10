@@ -1,0 +1,35 @@
+{
+  "drift_flag": false,
+  "ic_decay": {
+    "drift": false,
+    "ic_mean_baseline": 0.030430260675920903,
+    "ic_mean_recent": 0.0409035409035409,
+    "min_ratio": 0.5,
+    "min_recent_ic": 0.0,
+    "status": "ok"
+  },
+  "ks_shift": {
+    "drift": false,
+    "ks_d": 0.08333333333333331,
+    "ks_threshold": 0.2,
+    "n_baseline": 252,
+    "n_recent": 63,
+    "status": "ok"
+  },
+  "sharpe_breakdown": {
+    "drift": false,
+    "max_drop": 0.75,
+    "min_recent_sharpe": 0.0,
+    "sharpe_baseline": 0.7001558997309543,
+    "sharpe_recent": 4.392372248001636,
+    "status": "ok"
+  },
+  "vol_regime": {
+    "drift": false,
+    "status": "ok",
+    "vol_baseline": 0.1928354051547767,
+    "vol_ratio": 0.6151237701508923,
+    "vol_ratio_threshold": 1.5,
+    "vol_recent": 0.11861764143738106
+  }
+}

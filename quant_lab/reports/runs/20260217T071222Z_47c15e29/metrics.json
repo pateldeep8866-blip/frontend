@@ -1,0 +1,37 @@
+{
+  "asof": "2023-12-31",
+  "count_pass_fdr": 3,
+  "count_picks": 2,
+  "count_picks_pass_fdr": 2,
+  "features_count": 3,
+  "mode": "morning_signal_engine",
+  "notes": {
+    "portfolio": []
+  },
+  "portfolio": {
+    "cash_weight": 0.5,
+    "concentration_hhi": 0.125,
+    "portfolio_vol": 0.005603481500838451,
+    "weights": {
+      "CASH": 0.5,
+      "GLD": 0.25,
+      "SPY": 0.25
+    }
+  },
+  "regime": {
+    "confidence": 0.8636435747454435,
+    "label": "risk_on",
+    "method": "proxy"
+  },
+  "rigor": {
+    "errors": [
+      "Fama-MacBeth: no valid cross-sectional regressions (insufficient data)."
+    ],
+    "summary": {}
+  },
+  "risk_actions": [
+    "cap_weight: SPY clipped to 0.25",
+    "cap_weight: GLD clipped to 0.25"
+  ],
+  "universe_size": 3
+}

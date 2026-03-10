@@ -1,0 +1,17 @@
+{
+  "actions": [
+    "cap_weight: GLD clipped to 0.25",
+    "cap_weight: TLT clipped to 0.25"
+  ],
+  "final_weights": {
+    "GLD": 0.5,
+    "TLT": 0.5
+  },
+  "max_turnover": null,
+  "prev_run_id": null,
+  "regime_scale": 1.0,
+  "risk_off_scale": 1.0,
+  "turnover_alpha": null,
+  "turnover_before": null,
+  "vol_target": null
+}

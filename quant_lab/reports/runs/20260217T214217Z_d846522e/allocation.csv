@@ -1,0 +1,5 @@
+ticker,target_weight,target_shares_placeholder,vol,risk_proxy
+CASH,0.000000,,0.000000,
+GLD,0.333333,,0.011207,0.333344
+SPY,0.333333,,0.011207,0.333344
+TLT,0.333333,,0.011207,0.333344

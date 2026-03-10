@@ -1,0 +1,75 @@
+{
+  "cache_hit": false,
+  "code_hash": "9b89ce5da222f5821b84e5e9a1c0675c2bae5d419b4f68097780109ab79b5152",
+  "code_path": "sim/morning_run.py",
+  "composite_code_files": [
+    "quantlab/data_cache.py",
+    "quantlab/index.py",
+    "quantlab/morning/__init__.py",
+    "quantlab/morning/data.py",
+    "quantlab/morning/features.py",
+    "quantlab/morning/portfolio.py",
+    "quantlab/morning/regime.py",
+    "quantlab/morning/reporting.py",
+    "quantlab/morning/risk.py",
+    "quantlab/morning/signals.py",
+    "quantlab/morning/universe.py",
+    "quantlab/reporting/run_manifest.py",
+    "quantlab/stats.py",
+    "quantlab/utils/hashing.py",
+    "sim/morning_run.py"
+  ],
+  "composite_code_hash": "4f9dec3cc185cd14336681e0dfb3c08db8681e5e56b88b2c0072a728d77c397d",
+  "config_hash": "4669fe1b8d6577437047ffe66366df469a79508d991af3b51ca524c099cb9f7c",
+  "created_utc": "2026-02-16T22:20:30.364279Z",
+  "data_path": "data/cache",
+  "data_sha256": "6700a1fb7c38456f60c575ba5b4c5895850be2223d1707dbae34df822909e379",
+  "data_source": "yfinance",
+  "dependency_snapshot": {
+    "matplotlib": "3.10.8",
+    "numpy": "2.2.6",
+    "pandas": "2.3.3",
+    "yfinance": "1.2.0"
+  },
+  "dependency_versions": {
+    "matplotlib": "3.10.8",
+    "numpy": "2.2.6",
+    "pandas": "2.3.3",
+    "yfinance": "1.2.0"
+  },
+  "python_version": "3.10.13",
+  "run_id": "20260216T222030Z_8818958a",
+  "strategy": {
+    "name": "morning_signal_engine",
+    "parameters": {
+      "asof": "2026-02-16",
+      "end": "2026-02-16",
+      "fdr_q": 0.1,
+      "interval": "1d",
+      "k": 5,
+      "long_window": 50,
+      "max_drawdown_limit": -0.1,
+      "max_portfolio_vol": 0.18,
+      "max_weight_per_asset": 0.25,
+      "mode": "morning_signal_engine",
+      "short_window": 20,
+      "start": "2015-01-01",
+      "ticker": "UNIVERSE",
+      "universe": [
+        "SPY",
+        "QQQ",
+        "IWM",
+        "DIA",
+        "XLK",
+        "XLF",
+        "XLE",
+        "XLV",
+        "XLI",
+        "XLY",
+        "XLP",
+        "GLD",
+        "TLT"
+      ]
+    }
+  }
+}
