@@ -1067,16 +1067,50 @@ const EMAILJS_TEMPLATE_ID = 'YOUR_TEMPLATE_ID';  // ← replace
 
 try { emailjs.init(EMAILJS_PUBLIC_KEY); } catch(e) { console.warn('EmailJS init skipped:', e); }
 
-// ── DATA LAYER ───────────────────────────────────────────────────────
-// All stats and pick data come from /api/investors/briefing
+// ── STATIC DATA (live snapshot 2026-03-09) ───────────────────────────
+const PICKS_DATA = [
+  {ticker:'GDXJ', entryPrice:'154.04', date:'2026-02-27', confidence:64, outcome:'loss',  returnPct:-10.9128},
+  {ticker:'XOM',  entryPrice:'150.13', date:'2026-02-26', confidence:95, outcome:'win',   returnPct:0.2065},
+  {ticker:'SLV',  entryPrice:'78.748', date:'2026-02-26', confidence:25, outcome:'loss',  returnPct:-0.6197},
+  {ticker:'GDXJ', entryPrice:'149.68', date:'2026-02-26', confidence:45, outcome:'loss',  returnPct:-8.3177},
+  {ticker:'XOM',  entryPrice:'149.83', date:'2026-02-26', confidence:95, outcome:'win',   returnPct:0.4071},
+  {ticker:'XLK',  entryPrice:'140.13', date:'2026-02-26', confidence:65, outcome:'win',   returnPct:0.264},
+  {ticker:'XLK',  entryPrice:'140.47', date:'2026-02-26', confidence:65, outcome:'win',   returnPct:0.5054},
+  {ticker:'XLK',  entryPrice:'140.51', date:'2026-02-26', confidence:65, outcome:'win',   returnPct:0.5338},
+  {ticker:'XLK',  entryPrice:'140.55', date:'2026-02-26', confidence:65, outcome:'win',   returnPct:0.5621},
+  {ticker:'XLK',  entryPrice:'140.84', date:'2026-02-26', confidence:65, outcome:'win',   returnPct:0.7668},
+  {ticker:'XLK',  entryPrice:'140.78', date:'2026-02-26', confidence:65, outcome:'win',   returnPct:0.7245},
+  {ticker:'XLK',  entryPrice:'140.76', date:'2026-02-26', confidence:65, outcome:'win',   returnPct:0.7104},
+  {ticker:'GDXJ', entryPrice:'149.385',date:'2026-02-26', confidence:23, outcome:'loss',  returnPct:-8.1367},
+];
 
-async function fetchBriefing(window = 'all') {
+const STATIC_DATA = {
+  totalPicks: 75,
+  winRatePct: 56,
+  avgReturnPct: -1.48,
+  days: 29,
+  waitlistCount: null,
+  cumulativeReturnPct: null,
+  winRate: 56,
+  count: 75,
+  avgReturn: -1.48,
+  picks: PICKS_DATA,
+  monthlyWinRates: [
+    { month: 'Feb', rate: 56 },
+  ],
+};
+
+// ── DATA LAYER ───────────────────────────────────────────────────────
+async function fetchBriefing(win = 'all') {
   try {
-    const res = await fetch(`/api/investors/briefing?window=${window}`, { cache: 'no-store' });
-    return await res.json();
+    const res = await fetch(`/api/investors/briefing?window=${win}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error('non-200');
+    const d = await res.json();
+    // Merge static picks if API returns no picks
+    if (!d.picks || d.picks.length === 0) d.picks = PICKS_DATA;
+    return d;
   } catch (e) {
-    console.error('Briefing fetch error:', e);
-    return null;
+    return STATIC_DATA;
   }
 }
 
