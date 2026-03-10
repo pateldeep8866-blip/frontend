@@ -1,19 +1,16 @@
-import { NextResponse } from "next/server";
 import { checkAdminAuth } from "../../_lib/admin-auth";
 import { getStrategyPerformance } from "../../_lib/trade-db";
+import { ok, fail, UNAUTHORIZED } from "../../_lib/response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request) {
-  if (!checkAdminAuth(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+  if (!checkAdminAuth(request)) return UNAUTHORIZED();
   try {
     const rows = getStrategyPerformance();
-    return NextResponse.json({ ok: true, rows, count: rows.length });
+    return ok({ rows, count: rows.length });
   } catch (error) {
-    return NextResponse.json({ ok: false, error: String(error?.message || error) }, { status: 500 });
+    return fail(error);
   }
 }

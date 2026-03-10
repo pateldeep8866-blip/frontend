@@ -1,23 +1,26 @@
-import { checkAdminAuth } from "../../_lib/admin-auth";
-import { getLatestWeight } from "../../_lib/trade-db";
+import { checkYuniAuth } from "../../_lib/yuni-auth";
+import { getLatestWeight, getPerformanceStats } from "../../_lib/trade-db";
 import { ok, UNAUTHORIZED } from "../../_lib/response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request) {
-  if (!checkAdminAuth(request)) return UNAUTHORIZED();
+  if (!checkYuniAuth(request)) return UNAUTHORIZED();
 
   const quantUrl = process.env.QUANT_ENGINE_URL || "http://localhost:3001";
   let quant = { status: "offline" };
   try {
     const res = await fetch(`${quantUrl}/health`, { cache: "no-store" });
     const data = await res.json().catch(() => ({}));
-    quant = res.ok ? data : { status: "offline", error: data };
-  } catch (error) {
-    quant = { status: "offline", error: String(error?.message || error) };
+    quant = res.ok ? data : { status: "offline" };
+  } catch {
+    quant = { status: "offline" };
   }
 
-  return ok({ quant, latestWeight: getLatestWeight(), generated_utc: new Date().toISOString() });
+  return ok({
+    quant,
+    latest_weight: getLatestWeight(),
+    generated_utc: new Date().toISOString(),
+  });
 }
-

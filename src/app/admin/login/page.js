@@ -24,7 +24,7 @@ export default function AdminLoginPage() {
         setError("Access denied");
         return;
       }
-      router.replace("/admin/quant");
+      router.replace("/admin");
     } catch {
       setError("Access denied");
     } finally {

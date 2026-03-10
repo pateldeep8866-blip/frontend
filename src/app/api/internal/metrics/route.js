@@ -1,15 +1,15 @@
-import { getPerformanceStats, getDbMeta } from "../../_lib/trade-db";
-import { checkAdminAuth } from "../../_lib/admin-auth";
+import { checkYuniAuth } from "../../_lib/yuni-auth";
+import { getPerformanceStats } from "../../_lib/trade-db";
 import { ok, fail, UNAUTHORIZED } from "../../_lib/response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request) {
-  if (!checkAdminAuth(request)) return UNAUTHORIZED();
+  if (!checkYuniAuth(request)) return UNAUTHORIZED();
   try {
     const stats = getPerformanceStats();
-    return ok({ stats, ...getDbMeta() });
+    return ok({ stats });
   } catch (error) {
     return fail(error);
   }

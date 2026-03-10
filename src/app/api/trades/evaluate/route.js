@@ -1,18 +1,18 @@
-import { NextResponse } from "next/server";
-import { evaluatePendingTradeOutcomes, getDbMeta } from "../../_lib/trade-db";
+import { evaluatePendingTradeOutcomes } from "../../_lib/trade-service";
+import { getDbMeta, logAdminEvent } from "../../_lib/trade-db";
 import { checkAdminAuth } from "../../_lib/admin-auth";
+import { ok, fail, UNAUTHORIZED } from "../../_lib/response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request) {
-  if (!checkAdminAuth(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!checkAdminAuth(request)) return UNAUTHORIZED();
   try {
     const result = await evaluatePendingTradeOutcomes();
-    return NextResponse.json({ ok: true, ...result, ...getDbMeta() });
+    try { logAdminEvent("ADMIN_EVALUATE", "manual_evaluation", `Evaluated ${result.evaluated} of ${result.pending} pending trades`); } catch {}
+    return ok({ ...result, ...getDbMeta() });
   } catch (error) {
-    return NextResponse.json({ ok: false, error: String(error?.message || error) }, { status: 500 });
+    return fail(error);
   }
 }

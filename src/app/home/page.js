@@ -6236,6 +6236,22 @@ export default function Home() {
                 Free to use · No real money required · Not financial advice · Built to teach and research — not to profit from your losses
               </div>
 
+              {/* YUNI */}
+              <div className={`rounded-2xl border backdrop-blur-md p-6 md:p-8 shadow-[0_14px_40px_-22px_rgba(15,23,42,0.9)] home-reveal ${hCard}`}>
+                <div className="flex items-start gap-4">
+                  <div className="flex-shrink-0 mt-1">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg font-bold ${isLight ? "bg-slate-900 text-white" : isAzula ? "bg-[#d6be86] text-[#1a1a2e]" : "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"}`}>Y</div>
+                  </div>
+                  <div>
+                    <p className={`text-[11px] uppercase tracking-[0.22em] font-semibold ${hAccent}`}>Meet YUNI · Intelligence Layer</p>
+                    <h2 className={`mt-1 text-xl md:text-2xl font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>The Engine Behind Arthastra</h2>
+                    <p className={`mt-3 text-sm md:text-base leading-7 ${hMuted}`}>
+                      YUNI is the intelligence runtime that operates Arthastra behind the scenes — a deterministic agent system that monitors site health, security events, trade outcomes, and quant engine status in real time, then stores a living memory of every system state in Supabase so nothing is lost between sessions. Unlike a chatbot or a simple wrapper, YUNI enforces a strict governance pipeline where every intended action passes through interpretation, policy review, and a registered capability gate before execution, which means the platform cannot be driven into uncontrolled behavior by a bad input or a hallucinated tool call. It models the operational behavior of the founders, calibrates when to escalate versus stay silent, and is being trained toward ambient readiness — the ability to observe, advise, and act with judgment rather than just respond on demand.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               {/* What You Get */}
               <div className={`rounded-2xl border backdrop-blur-md p-6 md:p-8 shadow-[0_14px_40px_-22px_rgba(15,23,42,0.9)] home-reveal ${hCard}`}>
                 <div className="flex items-center justify-between gap-3 mb-4">

@@ -1,20 +1,22 @@
-import { NextResponse } from "next/server";
 import { insertTrade, getDbMeta } from "../../_lib/trade-db";
+import { checkAdminAuth } from "../../_lib/admin-auth";
+import { validateTrade } from "../../_lib/validate";
+import { ok, fail, UNAUTHORIZED } from "../../_lib/response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req) {
+  if (!checkAdminAuth(req)) return UNAUTHORIZED();
   try {
     const body = await req.json().catch(() => ({}));
-    const ticker = String(body?.ticker || "").toUpperCase().trim();
-    if (!ticker) {
-      return NextResponse.json({ error: "ticker is required" }, { status: 400 });
+    const errors = validateTrade(body);
+    if (errors.length) {
+      return fail(errors.join("; "), 400, "VALIDATION_ERROR");
     }
-
     const row = insertTrade(body);
-    return NextResponse.json({ ok: true, trade: row, ...getDbMeta() });
+    return ok({ trade: row, ...getDbMeta() });
   } catch (error) {
-    return NextResponse.json({ ok: false, error: String(error?.message || error) }, { status: 500 });
+    return fail(error);
   }
 }

@@ -1,20 +1,18 @@
-import { NextResponse } from "next/server";
 import { getTradeHistory, getDbMeta } from "../../_lib/trade-db";
 import { checkAdminAuth } from "../../_lib/admin-auth";
+import { ok, fail, UNAUTHORIZED } from "../../_lib/response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req) {
-  if (!checkAdminAuth(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!checkAdminAuth(req)) return UNAUTHORIZED();
   try {
     const { searchParams } = new URL(req.url);
     const limit = Number(searchParams.get("limit") || 500);
     const rows = getTradeHistory(limit);
-    return NextResponse.json({ ok: true, count: rows.length, rows, ...getDbMeta() });
+    return ok({ count: rows.length, rows, ...getDbMeta() });
   } catch (error) {
-    return NextResponse.json({ ok: false, error: String(error?.message || error) }, { status: 500 });
+    return fail(error);
   }
 }
