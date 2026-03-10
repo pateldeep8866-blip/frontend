@@ -3,7 +3,7 @@ import { dirname } from "node:path";
 import { randomUUID } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 
-const DB_PATH = "/Users/juanramirez/NOVA/NOVA_LAB/data/trades.db";
+const DB_PATH = process.env.TRADES_DB_PATH || "/Users/juanramirez/NOVA/NOVA_LAB/data/trades.db";
 let db = null;
 
 function nowIso() {

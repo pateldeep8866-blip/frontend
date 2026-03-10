@@ -6,7 +6,7 @@ import { DatabaseSync } from "node:sqlite";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const DB_PATH = "/Users/juanramirez/NOVA/NOVA_LAB/data/trades.db";
+const DB_PATH = process.env.TRADES_DB_PATH || "/Users/juanramirez/NOVA/NOVA_LAB/data/trades.db";
 let _db = null;
 
 function getDb() {
