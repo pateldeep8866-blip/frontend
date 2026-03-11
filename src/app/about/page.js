@@ -272,7 +272,7 @@ export default function AboutPage() {
           <p className={`mt-2 text-sm ${isLight ? "text-slate-600" : "text-white/70"}`}>Practice, learn, and build conviction before real capital is on the line.</p>
           <div className="mt-5">
             <Link
-              href="/simulator"
+              href="/bots"
               className={`inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold ${
                 isAzula
                   ? "bg-[#b7954c] text-[#111112]"
