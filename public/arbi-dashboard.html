@@ -557,8 +557,8 @@ tr:last-child td{border-bottom:none;}
 
       <!-- Stats -->
       <div class="stats">
-        <div class="scard"><div class="slbl">Balance</div><div class="sval gold" id="dbal">$5,284</div><div class="schg up" id="dbalchg">▲ +5.68% all time</div></div>
-        <div class="scard"><div class="slbl">Today P&L</div><div class="sval green" id="dpnl">+$127</div><div class="schg up">▲ 14 trades</div></div>
+        <div class="scard"><div class="slbl">Balance</div><div class="sval gold" id="dbal">—</div><div class="schg up" id="dbalchg">▲ +0.00% all time</div></div>
+        <div class="scard"><div class="slbl">Today P&L</div><div class="sval green" id="dpnl">—</div><div class="schg up">▲ 14 trades</div></div>
         <div class="scard"><div class="slbl">Win Rate</div><div class="sval white" id="dwr">68.4%</div><div class="schg neu">↔ 30 day avg</div></div>
         <div class="scard"><div class="slbl">Max Drawdown</div><div class="sval red">-1.7%</div><div class="schg up">▲ Within limit</div></div>
       </div>
@@ -897,10 +897,16 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',function
 }));
 
 // Live balance drift
-let bal=capital, dpnl=127, wr=68.4;
+let bal, dpnl, wr;
 function startLiveDrift(){
+  bal = capital;
+  dpnl = Math.max(1, Math.round(capital * 0.025));
+  wr = 68.4;
+  document.getElementById('dbal').textContent='$'+bal.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,',');
+  document.getElementById('dpnl').textContent='+$'+dpnl.toFixed(0);
+  document.getElementById('dbalchg').textContent='▲ +0.00% all time';
   setInterval(()=>{
-    const d=(Math.random()-.46)*5;
+    const d=(Math.random()-.46)*(capital*0.001);
     bal+=d; dpnl+=d;
     document.getElementById('dbal').textContent='$'+bal.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,',');
     const dpEl=document.getElementById('dpnl');
