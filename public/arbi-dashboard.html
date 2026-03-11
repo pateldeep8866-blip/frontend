@@ -25,46 +25,6 @@
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:'DM Mono',monospace;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
 
-/* Theme overrides */
-body.theme-light{
-  --bg:#f7fbff;--s1:#ffffff;--s2:#f2f6fb;--s3:#e8eef7;--border:#d4deee;
-  --gold:#2463eb;--gold2:#1e4fc2;--green:#059669;--green2:#065f46;--red:#dc2626;--blue:#1d4ed8;
-  --text:#0f172a;--dim:#52627a;--muted:#c9d6ea;
-}
-body.theme-cherry{
-  --bg:#fff8fb;--s1:#fffafc;--s2:#fff3f8;--s3:#fde8f2;--border:#f5c2d6;
-  --gold:#be185d;--gold2:#9d174d;--green:#059669;--green2:#047857;--red:#be123c;--blue:#4338ca;
-  --text:#4a2636;--dim:#8b4a63;--muted:#f2d3e2;
-}
-body.theme-azula{
-  --bg:#020508;--s1:#071426;--s2:#0b1a2f;--s3:#10213d;--border:#1f3659;
-  --gold:#00d4ff;--gold2:#4fc3f7;--green:#34d4ff;--green2:#147ea3;--red:#1a6fff;--blue:#4fc3f7;
-  --text:#e8f4ff;--dim:#6a9fcc;--muted:#122640;
-}
-body.theme-alerik{
-  --bg:#050505;--s1:#0a0a0a;--s2:#121212;--s3:#1a1a1a;--border:#2a2418;
-  --gold:#c9a84c;--gold2:#8a6a28;--green:#9ecf84;--green2:#5f8a49;--red:#d58d8d;--blue:#d6bc77;
-  --text:#f5f0e8;--dim:#a69473;--muted:#2a271f;
-}
-body.theme-cherry{
-  background-image:
-    radial-gradient(ellipse 72% 52% at 16% 2%, rgba(244,114,182,.14) 0%, transparent 62%),
-    radial-gradient(ellipse 54% 48% at 86% 92%, rgba(251,113,133,.1) 0%, transparent 64%),
-    linear-gradient(160deg,#fff8fa 0%,#fdeaf2 48%,#f9dce9 100%);
-}
-body.theme-azula{
-  background-image:
-    radial-gradient(circle at 18% 8%, rgba(0,212,255,.15), transparent 38%),
-    radial-gradient(circle at 84% 76%, rgba(79,195,247,.12), transparent 44%),
-    linear-gradient(180deg,#020508 0%,#041122 44%,#020b17 100%);
-}
-body.theme-alerik{
-  background-image:
-    radial-gradient(circle at 16% 12%, rgba(201,168,76,.12), transparent 34%),
-    radial-gradient(circle at 82% 74%, rgba(201,168,76,.08), transparent 38%),
-    linear-gradient(180deg,#040404 0%,#090909 42%,#050505 100%);
-}
-
 /* Grid bg */
 body::before{content:'';position:fixed;inset:0;
   background-image:linear-gradient(rgba(201,169,110,.025)1px,transparent 1px),linear-gradient(90deg,rgba(201,169,110,.025)1px,transparent 1px);
@@ -397,7 +357,6 @@ tr:last-child td{border-bottom:none;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:100px;}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <div class="orb orb1"></div>
@@ -408,39 +367,7 @@ tr:last-child td{border-bottom:none;}
 <!-- ════════════════════════════════════════════════════
      ONBOARDING
 ════════════════════════════════════════════════════ -->
-<!-- ── LOGIN GATE ── -->
-<div id="loginGate" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;">
-  <div class="brand" style="text-align:center;margin-bottom:40px;">
-    <div class="brand-mark"></div>
-    <div class="brand-name">ARTHASTRA</div>
-    <div class="brand-tagline">Intelligent Wealth Automation</div>
-  </div>
-  <div class="card" style="max-width:400px;width:100%;">
-    <div class="card-title" style="margin-bottom:4px;">Welcome back</div>
-    <div class="card-sub" style="margin-bottom:24px;">Sign in to access your bot, or continue as a guest to try the simulator.</div>
-
-    <div id="loginError" style="display:none;background:rgba(255,68,102,.1);border:1px solid rgba(255,68,102,.3);border-radius:8px;padding:10px 14px;font-size:11px;color:#ff4466;margin-bottom:14px;"></div>
-
-    <div style="margin-bottom:12px;">
-      <label style="font-size:11px;color:var(--dim);letter-spacing:.06em;display:block;margin-bottom:6px;">EMAIL</label>
-      <input id="loginEmail" type="email" placeholder="you@example.com" style="width:100%;padding:12px 14px;background:var(--s2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'DM Mono',monospace;font-size:13px;outline:none;">
-    </div>
-    <div style="margin-bottom:20px;">
-      <label style="font-size:11px;color:var(--dim);letter-spacing:.06em;display:block;margin-bottom:6px;">PASSWORD</label>
-      <input id="loginPassword" type="password" placeholder="••••••••" style="width:100%;padding:12px 14px;background:var(--s2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'DM Mono',monospace;font-size:13px;outline:none;">
-    </div>
-
-    <button id="authSubmitBtn" class="btn btn-gold" style="width:100%;margin-bottom:10px;" onclick="handleAuthSubmit()">Sign In →</button>
-    <button class="btn btn-ghost" style="width:100%;" onclick="continueAsGuest()">Continue as Guest (Simulator Only)</button>
-
-    <div style="margin-top:16px;text-align:center;font-size:11px;color:var(--dim);">
-      <span id="authToggleText">Don't have an account?</span>
-      <a href="#" style="color:var(--gold);text-decoration:none;" onclick="toggleAuthMode(event)" id="authToggleLink">Sign up</a>
-    </div>
-  </div>
-</div>
-
-<div id="onboard" style="display:none;">
+<div id="onboard">
   <div class="brand">
     <div class="brand-mark"></div>
     <div class="brand-name">ARTHASTRA</div>
@@ -557,22 +484,14 @@ tr:last-child td{border-bottom:none;}
 <div id="dashboard">
 
   <div class="topbar">
-    <a class="logo" href="/home?mode=news" style="text-decoration:none;color:inherit;"><div class="logo-sq"></div>ARTHASTRA</a>
+    <div class="logo"><div class="logo-sq"></div>ARTHASTRA</div>
     <div class="topbar-mid">
       <div class="live-pill"><div class="pulse"></div>BOT LIVE</div>
       <div class="ticker-strip" id="tickers"></div>
     </div>
     <div class="topbar-right">
-      <select id="themeSelect" class="btn btn-ghost" style="width:auto;padding:7px 10px;font-size:10px;">
-        <option value="dark">Theme: Dark</option>
-        <option value="light">Theme: Light</option>
-        <option value="cherry">Theme: Sakura</option>
-        <option value="azula">Theme: Azula</option>
-        <option value="alerik">Theme: Alerik</option>
-      </select>
-      <a href="/home?mode=news" class="btn btn-ghost" style="width:auto;padding:7px 12px;font-size:10px;text-decoration:none;display:inline-flex;align-items:center;">← Back Home</a>
       <span id="clock"></span>
-      <div class="user-chip" id="userChip" onclick="handleUserChipClick()" title="Click to sign out"><div class="avatar" id="userAvatar">JU</div><span id="userLabel">Juan</span></div>
+      <div class="user-chip"><div class="avatar">--</div>Loading...</div>
     </div>
   </div>
 
@@ -700,156 +619,47 @@ tr:last-child td{border-bottom:none;}
 </div><!-- /wrap -->
 
 <script>
-// ── SUPABASE ──────────────────────────────────────────────────────────────────
-const SUPABASE_URL      = 'https://htnkjncvkzbberblhnve.supabase.co';
-const SUPABASE_ANON_KEY = document.querySelector('meta[name="supabase-anon-key"]')?.content || '';
-const _sb = (typeof supabase !== 'undefined' && SUPABASE_ANON_KEY)
-  ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-  : null;
+// ── AUTH ──────────────────────────────────────────────────────────────────────
+// Read the Supabase session that the main website stored in localStorage.
+// No extra SDK needed — Supabase writes it automatically after login.
+const SUPABASE_PROJECT = 'htnkjncvkzbberblhnve';
+
+function getSupabaseUser() {
+  try {
+    const raw = localStorage.getItem(`sb-${SUPABASE_PROJECT}-auth-token`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    // Supabase v2 session shape
+    return parsed?.user ?? parsed?.currentSession?.user ?? null;
+  } catch { return null; }
+}
+
+function applyUser(user) {
+  if (!user) {
+    // Not logged in — send back to home so they can sign in
+    window.location.replace('/home');
+    return;
+  }
+  const name     = user.user_metadata?.full_name
+                || user.user_metadata?.name
+                || user.email?.split('@')[0]
+                || 'User';
+  const initials = name.trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  const chip     = document.querySelector('.user-chip');
+  if (chip) chip.innerHTML = `<div class="avatar">${initials}</div>${name.split(' ')[0]}`;
+  return name; // returned so launch() can use it as sim_user
+}
+
+// Run on load
+let _simUser = 'user';
+document.addEventListener('DOMContentLoaded', () => {
+  const user = getSupabaseUser();
+  const name = applyUser(user);
+  if (name) _simUser = name.toLowerCase().replace(/\s+/g, '_');
+});
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
-let capital  = 5000;
-let exchange = 'kraken';
-let step     = 0;
-let IS_PAID  = false;
-let IS_GUEST = true;
-let _authMode = 'signin';   // 'signin' | 'signup'
-
-// ── AUTH HELPERS ──────────────────────────────────────────────────────────────
-function _showAuthMsg(msg, isError = true) {
-  const el = document.getElementById('loginError');
-  el.textContent = msg;
-  if (isError) {
-    el.style.color = '#ff4466';
-    el.style.background = 'rgba(255,68,102,.1)';
-    el.style.borderColor = 'rgba(255,68,102,.3)';
-  } else {
-    el.style.color = '#00dfa0';
-    el.style.background = 'rgba(0,223,160,.08)';
-    el.style.borderColor = 'rgba(0,223,160,.25)';
-  }
-  el.style.display = 'block';
-}
-
-function toggleAuthMode(e) {
-  e.preventDefault();
-  _authMode = _authMode === 'signin' ? 'signup' : 'signin';
-  const isSignup = _authMode === 'signup';
-  document.getElementById('authSubmitBtn').textContent = isSignup ? 'Create Account →' : 'Sign In →';
-  document.getElementById('authToggleText').textContent = isSignup ? 'Already have an account?' : "Don't have an account?";
-  document.getElementById('authToggleLink').textContent = isSignup ? 'Sign in' : 'Sign up';
-  document.getElementById('loginError').style.display = 'none';
-}
-
-async function handleAuthSubmit() {
-  const email    = document.getElementById('loginEmail').value.trim();
-  const password = document.getElementById('loginPassword').value;
-
-  if (!email || !password) {
-    _showAuthMsg('Please enter your email and password.');
-    return;
-  }
-
-  if (!_sb) {
-    _showAuthMsg('Auth not configured — contact support.');
-    return;
-  }
-
-  document.getElementById('authSubmitBtn').textContent = '...';
-
-  if (_authMode === 'signup') {
-    const { error } = await _sb.auth.signUp({ email, password });
-    if (error) {
-      _showAuthMsg(error.message);
-      document.getElementById('authSubmitBtn').textContent = 'Create Account →';
-    } else {
-      _showAuthMsg('Check your email to confirm your account, then sign in.', false);
-      document.getElementById('authSubmitBtn').textContent = 'Create Account →';
-      toggleAuthMode({ preventDefault: () => {} });
-    }
-  } else {
-    const { data, error } = await _sb.auth.signInWithPassword({ email, password });
-    if (error) {
-      _showAuthMsg(error.message);
-      document.getElementById('authSubmitBtn').textContent = 'Sign In →';
-    } else {
-      _updateUserChip(data.user);
-      continueAsAuthenticated();
-    }
-  }
-}
-
-// Keep old name as alias so any external callers still work
-function handleLogin() { handleAuthSubmit(); }
-
-function continueAsAuthenticated() {
-  IS_GUEST = false;
-  IS_PAID  = true;
-  document.getElementById('loginGate').style.display = 'none';
-  document.getElementById('onboard').style.display = 'flex';
-  // Hide exchange step dot (same as guest for now — paper mode only)
-  const s1 = document.getElementById('s1');
-  if (s1) s1.style.display = 'none';
-  // No simulator banner for authenticated users
-}
-
-function _updateUserChip(user) {
-  if (!user) return;
-  const email  = user.email || '';
-  const initials = email.slice(0, 2).toUpperCase();
-  const label    = email.split('@')[0] || 'User';
-  const av = document.getElementById('userAvatar');
-  const lb = document.getElementById('userLabel');
-  if (av) av.textContent = initials;
-  if (lb) lb.textContent = label;
-}
-
-async function handleUserChipClick() {
-  if (IS_GUEST || !_sb) return;
-  if (!confirm('Sign out?')) return;
-  await _sb.auth.signOut();
-  IS_GUEST = true;
-  IS_PAID  = false;
-  location.reload();
-}
-
-// ── SESSION CHECK ON LOAD ─────────────────────────────────────────────────────
-(async () => {
-  if (!_sb) return;
-  const { data } = await _sb.auth.getSession();
-  if (data?.session?.user) {
-    IS_GUEST = false;
-    IS_PAID  = true;
-    _updateUserChip(data.session.user);
-    document.getElementById('loginGate').style.display = 'none';
-    document.getElementById('onboard').style.display   = 'none';
-    showDashboard();
-  }
-})();
-
-function continueAsGuest() {
-  IS_GUEST = true;
-  IS_PAID = false;
-  document.getElementById('loginGate').style.display = 'none';
-  document.getElementById('onboard').style.display = 'flex';
-
-  // Hide exchange step dot
-  const s1 = document.getElementById('s1');
-  if (s1) s1.style.display = 'none';
-
-  // Add simulator banner
-  const brand = document.querySelector('#onboard .brand');
-  if (brand && !document.getElementById('simBanner')) {
-    const banner = document.createElement('div');
-    banner.id = 'simBanner';
-    banner.style.cssText = 'background:rgba(201,169,110,.08);border:1px solid rgba(201,169,110,.25);border-radius:10px;padding:10px 16px;font-size:11px;color:#c9a96e;letter-spacing:.06em;margin-bottom:16px;text-align:center;';
-    banner.innerHTML = '◈ SIMULATOR MODE &nbsp;·&nbsp; Paper trading only &nbsp;·&nbsp; <a href="/home?mode=news" style="color:#c9a96e;text-decoration:underline;">Upgrade to go live</a>';
-    brand.insertAdjacentElement('afterend', banner);
-  }
-}
-
-// Remove old DOMContentLoaded guest banner logic
-
+let capital = 5000, exchange = 'kraken', step = 0;
 
 // ── ONBOARDING ────────────────────────────────────────────────────────────────
 function setCapital(amt, el) {
@@ -901,9 +711,6 @@ function setExchange(name, el) {
 }
 
 function goStep(n) {
-  // Guests skip step 1 (exchange connection)
-  if (IS_GUEST && n === 1) { n = 2; }
-
   [0,1,2,3].forEach(i => {
     document.getElementById('step'+i).style.display = i === n ? 'block' : 'none';
     const s = document.getElementById('s'+i);
@@ -916,26 +723,15 @@ function goStep(n) {
 
   if (n === 2) {
     document.getElementById('rev-capital').textContent = '$' + capital.toLocaleString();
-    const exEl = document.getElementById('rev-exchange');
-    if (exEl) exEl.textContent = IS_GUEST ? 'Paper Trading (Simulator)' : exchange.charAt(0).toUpperCase() + exchange.slice(1);
-    const modeEl = document.getElementById('rev-mode');
-    if (modeEl) modeEl.textContent = 'Paper trading (safe)';
+    document.getElementById('rev-exchange').textContent =
+      exchange.charAt(0).toUpperCase() + exchange.slice(1);
   }
 }
 
 function launch() {
   goStep(3);
   const log  = document.getElementById('launchLog');
-  const msgs = IS_GUEST ? [
-    '◈ Simulator mode activated',
-    '✓ Paper capital set: $' + capital.toLocaleString(),
-    '✓ Market regime detected: RANGING / LOW VOL',
-    '✓ Strategies selected: Funding Arb, Mean Reversion, Cross-Arb',
-    '✓ Risk parameters set (1% per trade, 2% daily limit)',
-    '✓ Collective learning model loaded (1,247 trades)',
-    '✓ Your trades will train the collective model',
-    '✓ ARBI Simulator is live ◈',
-  ] : [
+  const msgs = [
     '✓ API keys validated',
     '✓ Balance confirmed: $' + capital.toLocaleString(),
     '✓ Market regime detected: RANGING / LOW VOL',
@@ -966,11 +762,12 @@ function showDashboard() {
 
 // ── DASHBOARD ─────────────────────────────────────────────────────────────────
 function initDashboard() {
-  initThemeControl();
   renderTicker();
-  drawEquity(7);          // placeholder until real data arrives
-  fetchLiveData();        // load real data immediately
-  setInterval(fetchLiveData, 15000);  // refresh every 15 s
+  renderStrategies();
+  renderTrades();
+  renderSignals();
+  drawEquity(7);
+  startLiveDrift();
   startClock();
 }
 
@@ -982,32 +779,6 @@ function startClock() {
       d.toUTCString().split(' ').slice(1,5).join(' ') + ' UTC';
   }
   tick(); setInterval(tick, 1000);
-}
-
-function initThemeControl() {
-  const select = document.getElementById('themeSelect');
-  if (!select) return;
-  function applyTheme(mode){
-    const map = { dark:'theme-dark', light:'theme-light', cherry:'theme-cherry', azula:'theme-azula', alerik:'theme-alerik' };
-    document.body.classList.remove('theme-dark','theme-light','theme-cherry','theme-azula','theme-alerik');
-    document.body.classList.add(map[mode] || 'theme-dark');
-  }
-  try {
-    const saved = localStorage.getItem('theme_mode');
-    if (saved && ['dark','light','cherry','azula','alerik'].includes(saved)) {
-      select.value = saved;
-      applyTheme(saved);
-    } else {
-      applyTheme('dark');
-    }
-  } catch { applyTheme('dark'); }
-  select.addEventListener('change', function () {
-    const value = String(this.value || 'dark');
-    try {
-      localStorage.setItem('theme_mode', value);
-    } catch {}
-    applyTheme(value);
-  });
 }
 
 // Ticker
@@ -1028,266 +799,140 @@ setInterval(() => {
   if (document.getElementById('dashboard').style.display!=='none') renderTicker();
 }, 3000);
 
-// ── REAL DATA ENGINE ──────────────────────────────────────────────────────────
-
-const STRAT_DISPLAY = {
-  funding_rate_arb:   'Funding Rate Arb',
-  mean_reversion:     'Mean Reversion',
-  cross_exchange_arb: 'Cross-Exch Arb',
-  liquidity_signal:   'Liquidity Signal',
-};
-const STRAT_COLOR = {
-  funding_rate_arb:   '#00dfa0',
-  mean_reversion:     '#c9a96e',
-  cross_exchange_arb: '#4488ff',
-  liquidity_signal:   '#aa88ff',
-};
-const STRAT_ICO = {
-  funding_rate_arb:   { ico: '⟁', cls: 'fund' },
-  mean_reversion:     { ico: '◎', cls: 'rev'  },
-  cross_exchange_arb: { ico: '⊛', cls: 'arb'  },
-  liquidity_signal:   { ico: '≋', cls: 'rev'  },
-};
-
-function _parseSignal(sig) {
-  const parts    = (sig.signal || '').trim().split(/\s+/);
-  const side     = parts[0] || 'BUY';
-  const strategy = parts[1] || 'unknown';
-  const detail   = parts.slice(2).join(' ');
-  return { side, strategy, detail };
-}
-
-function _estimatePnl(sig) {
-  // Paper PnL proxy: risk 1% of capital per trade, scaled by confidence
-  const riskAmt = capital * 0.01;
-  return riskAmt * ((sig.confidence - 50) / 50) * 0.6;
-}
-
-function _fmtMoney(n) {
-  return '$' + Math.abs(n).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-}
-
-// ── Balance, P&L, Win Rate ─────────────────────────────────────────────────────
-function updateBalanceCards(signals, stats) {
-  const totalPnl   = signals.reduce((sum, s) => sum + _estimatePnl(s), 0);
-  const runBalance = capital + totalPnl;
-
-  const today    = new Date().toDateString();
-  const todayPnl = signals
-    .filter(s => new Date(s.created_at).toDateString() === today)
-    .reduce((sum, s) => sum + _estimatePnl(s), 0);
-
-  const ret = ((runBalance - capital) / capital * 100).toFixed(2);
-  document.getElementById('dbal').textContent      = _fmtMoney(runBalance);
-  document.getElementById('dbalchg').textContent   = (ret >= 0 ? '▲ +' : '▼ ') + ret + '% all time';
-
-  const dpEl = document.getElementById('dpnl');
-  dpEl.textContent = (todayPnl >= 0 ? '+' : '-') + _fmtMoney(todayPnl);
-  dpEl.className   = 'sval ' + (todayPnl >= 0 ? 'green' : 'red');
-
-  document.getElementById('dwr').textContent = (stats.win_rate || 0) + '%';
-}
-
-// ── Regime Bar ────────────────────────────────────────────────────────────────
-function updateRegimeBar(signals) {
-  const counts = {};
-  signals.forEach(s => {
-    const { strategy } = _parseSignal(s);
-    counts[strategy] = (counts[strategy] || 0) + 1;
-  });
-  const dominant = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0] || '';
-
-  const REGIME_MAP = {
-    funding_rate_arb:   { name: 'RANGING / LOW VOL',  desc: 'Funding rates elevated · Ideal for carry arb + mean reversion',    icon: '〜', cls: 'ranging' },
-    mean_reversion:     { name: 'RANGING / OVERSOLD',  desc: 'Mean deviation detected · Z-score signals active across pairs',    icon: '◎', cls: 'ranging' },
-    cross_exchange_arb: { name: 'VOLATILE / SPREAD',   desc: 'Inter-exchange spreads elevated · Cross-arb window open',          icon: '⊛', cls: 'vol'     },
-    liquidity_signal:   { name: 'TRENDING / MOMENTUM', desc: 'Order book imbalance detected · Momentum building',                icon: '↗', cls: 'trend'   },
-  };
-  const r = REGIME_MAP[dominant] || { name: 'RANGING / MIXED', desc: 'Multiple regimes detected · Running full strategy stack', icon: '〜', cls: 'ranging' };
-
-  document.getElementById('regimeName').textContent = r.name;
-  document.getElementById('regimeDesc').textContent = r.desc;
-  const ico = document.getElementById('regimeIcon');
-  ico.textContent = r.icon;
-  ico.className   = 'regime-icon ' + r.cls;
-}
-
-// ── Trade Log ─────────────────────────────────────────────────────────────────
-function updateTradeLog(signals) {
-  const rows = signals.slice(0, 10).map(s => {
-    const { side, strategy } = _parseSignal(s);
-    const pnl    = _estimatePnl(s);
-    const pnlStr = (pnl >= 0 ? '+' : '-') + _fmtMoney(pnl);
-    const ts     = new Date(s.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const sc     = side.toLowerCase() === 'sell' ? 'sell' : 'buy';
-    return `<tr>
-      <td class="sym">${s.ticker}</td>
-      <td><span class="pill ${sc}">${side}</span></td>
-      <td><span class="badge">${strategy}</span></td>
-      <td class="${pnl >= 0 ? 'pos' : 'neg'}">${pnlStr}</td>
-      <td>${ts}</td>
-    </tr>`;
-  }).join('');
-  document.getElementById('tradeBody').innerHTML = rows ||
-    '<tr><td colspan="5" style="text-align:center;color:var(--dim);padding:16px;">No trades yet</td></tr>';
-}
-
-// ── Signal Feed ───────────────────────────────────────────────────────────────
-function updateSignalFeed(signals) {
-  const rows = signals.slice(0, 10).map(s => {
-    const { side, strategy, detail } = _parseSignal(s);
-    const sc   = s.confidence || 0;
-    const meta = STRAT_ICO[strategy] || { ico: '◈', cls: 'vol' };
-    const name = STRAT_DISPLAY[strategy] || strategy;
-    const desc = detail || (side + ' · conf ' + sc);
-    return `<div class="srow" style="${sc < 20 ? 'opacity:.45' : ''}">
-      <div class="sico ${meta.cls}">${meta.ico}</div>
-      <div class="sbody">
-        <div class="stitle">${s.ticker} · ${name}</div>
-        <div class="sdetail">${desc}</div>
-      </div>
-      <div class="sscore">${sc}</div>
-    </div>`;
-  }).join('');
-  document.getElementById('sigList').innerHTML = rows ||
-    '<div style="padding:20px;text-align:center;color:var(--dim);font-size:11px;">Waiting for signals…</div>';
-}
-
-// ── Strategy Mix ──────────────────────────────────────────────────────────────
-function updateStrategyMix(signals) {
-  const counts = {};
-  signals.forEach(s => {
-    const { strategy } = _parseSignal(s);
-    counts[strategy] = (counts[strategy] || 0) + 1;
-  });
-  const total  = signals.length || 1;
-  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  if (!sorted.length) return;
-
-  document.getElementById('stratList').innerHTML = sorted.map(([strat, cnt]) => {
-    const pct  = Math.round((cnt / total) * 100);
-    const name = STRAT_DISPLAY[strat] || strat;
-    const col  = STRAT_COLOR[strat] || '#ff4466';
-    const pnl  = signals
-      .filter(s => _parseSignal(s).strategy === strat)
-      .reduce((sum, s) => sum + _estimatePnl(s), 0);
-    const pnlStr = (pnl >= 0 ? '+' : '-') + _fmtMoney(pnl);
-    return `<div class="sr">
-      <div class="sr-top"><span class="sr-name">${name}</span><span class="sr-pnl ${pnl >= 0 ? 'up' : 'dn'}">${pnlStr}</span></div>
+// Strategies
+const strats = [
+  {n:'Funding Rate Arb', pct:42, pnl:'+$84',  up:true,  c:'#00dfa0'},
+  {n:'Mean Reversion',   pct:28, pnl:'+$31',  up:true,  c:'#c9a96e'},
+  {n:'Cross-Exch Arb',   pct:18, pnl:'+$11',  up:true,  c:'#4488ff'},
+  {n:'Liquidity Signal', pct:8,  pnl:'+$1',   up:true,  c:'#aa88ff'},
+  {n:'Vol Breakout',     pct:4,  pnl:'$0',    up:false, c:'#ff4466'},
+];
+function renderStrategies() {
+  document.getElementById('stratList').innerHTML = strats.map(s => `
+    <div class="sr">
+      <div class="sr-top"><span class="sr-name">${s.n}</span><span class="sr-pnl ${s.up?'up':'dn'}">${s.pnl}</span></div>
       <div style="display:flex;align-items:center;gap:7px;">
-        <div class="bar" style="flex:1"><div class="bar-in" style="width:${pct}%;background:${col};opacity:.75;"></div></div>
-        <span style="font-size:10px;color:var(--dim);width:28px;text-align:right;">${pct}%</span>
+        <div class="bar" style="flex:1"><div class="bar-in" style="width:${s.pct}%;background:${s.c};opacity:.75;"></div></div>
+        <span style="font-size:10px;color:var(--dim);width:28px;text-align:right;">${s.pct}%</span>
       </div>
-    </div>`;
-  }).join('');
+    </div>`).join('');
 }
 
-// ── Collective Stats ──────────────────────────────────────────────────────────
-function updateCollective(stats) {
-  const c = stats.collective || {};
-  document.getElementById('ct').textContent = (c.total_trades || 0).toLocaleString();
-  document.getElementById('cw').textContent = (c.win_rate    || 0).toFixed(1) + '%';
-  // Model accuracy: win_rate + calibration offset
-  const acc = Math.min(98, (c.win_rate || 0) + 7.1);
-  document.getElementById('cm').textContent = acc.toFixed(1) + '%';
+// Trades
+const trades = [
+  {p:'BTC/USDT',s:'buy', st:'funding_arb',  pnl:'+$42.10',ts:'12:34'},
+  {p:'ETH/USDT',s:'sell',st:'mean_rev',     pnl:'+$18.50',ts:'11:58'},
+  {p:'SOL/USDT',s:'buy', st:'liq_signal',   pnl:'+$9.20', ts:'11:41'},
+  {p:'XRP/USDT',s:'buy', st:'cross_arb',    pnl:'+$4.80', ts:'11:22'},
+  {p:'ADA/USDT',s:'sell',st:'vol_breakout', pnl:'-$2.10', ts:'10:55'},
+];
+function renderTrades() {
+  document.getElementById('tradeBody').innerHTML = trades.map(t => `
+    <tr>
+      <td class="sym">${t.p}</td>
+      <td><span class="pill ${t.s}">${t.s.toUpperCase()}</span></td>
+      <td><span class="badge">${t.st}</span></td>
+      <td class="${t.pnl.startsWith('+')?'pos':'neg'}">${t.pnl}</td>
+      <td>${t.ts}</td>
+    </tr>`).join('');
 }
 
-// ── Equity Chart ──────────────────────────────────────────────────────────────
+// Signals
+const sigs = [
+  {ico:'⟁',cls:'fund',t:'BTC/USDT · Funding Arb',   d:'Bybit perp +34% APY · regime: ideal',  sc:96},
+  {ico:'◎',cls:'rev', t:'ETH/USDT · Mean Reversion', d:'Z-score -2.4 · RSI 26 · high conf',    sc:83},
+  {ico:'⊛',cls:'arb', t:'SOL/USDT · Cross-Exch Arb', d:'Spread 0.29% net · Kraken→Bybit',      sc:71},
+  {ico:'≋',cls:'rev', t:'XRP/USDT · Liq. Imbalance', d:'Buy pressure 0.41 · order book',       sc:58},
+  {ico:'◈',cls:'vol', t:'ADA/USDT · Vol Breakout',   d:'BLOCKED — ranging regime active',      sc:12},
+];
+function renderSignals() {
+  document.getElementById('sigList').innerHTML = sigs.map(s => `
+    <div class="srow" style="${s.sc<20?'opacity:.45':''}">
+      <div class="sico ${s.cls}">${s.ico}</div>
+      <div class="sbody"><div class="stitle">${s.t}</div><div class="sdetail">${s.d}</div></div>
+      <div class="sscore">${s.sc}</div>
+    </div>`).join('');
+}
+
+// Equity chart
 let eqData = [];
-
-function _renderChart(pts) {
+function genCurve(days, start) {
+  const pts = [start];
+  for(let i=0;i<days*24;i++) {
+    const prev = pts[pts.length-1];
+    pts.push(Math.max(start*.9, prev*(1+.0003+(Math.random()-.47)*.003)));
+  }
+  const step = Math.max(1,Math.floor(pts.length/60));
+  return pts.filter((_,i)=>i%step===0).slice(0,60);
+}
+function drawEquity(days) {
+  eqData = genCurve(days, capital);
   const canvas = document.getElementById('eqChart');
-  if (!canvas) return;
+  if(!canvas) return;
   const ctx = canvas.getContext('2d');
   canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight;
-  const W = canvas.width, H = canvas.height, pad = { t:8, r:8, b:20, l:52 };
-  const w = W - pad.l - pad.r, h = H - pad.t - pad.b;
-  const mn = Math.min(...pts) * 0.999, mx = Math.max(...pts) * 1.001;
-  const xS = i => pad.l + (i / (pts.length - 1)) * w;
-  const yS = v => pad.t + h - ((v - mn) / (mx - mn)) * h;
-  ctx.clearRect(0, 0, W, H);
-  for (let i = 0; i <= 4; i++) {
-    const y = pad.t + (h / 4) * i;
-    ctx.strokeStyle = 'rgba(30,37,64,.6)'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
-    const v = mx - (mx - mn) * (i / 4);
-    ctx.fillStyle = 'rgba(90,97,128,.7)'; ctx.font = '9px DM Mono';
-    ctx.fillText('$' + (v / 1000).toFixed(1) + 'k', 2, y + 3);
+  const W=canvas.width, H=canvas.height, pad={t:8,r:8,b:20,l:52};
+  const w=W-pad.l-pad.r, h=H-pad.t-pad.b;
+  const mn=Math.min(...eqData)*.999, mx=Math.max(...eqData)*1.001;
+  const xS=i=>pad.l+(i/(eqData.length-1))*w;
+  const yS=v=>pad.t+h-((v-mn)/(mx-mn))*h;
+  ctx.clearRect(0,0,W,H);
+  for(let i=0;i<=4;i++){
+    const y=pad.t+(h/4)*i;
+    ctx.strokeStyle='rgba(30,37,64,.6)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(W-pad.r,y); ctx.stroke();
+    const v=mx-(mx-mn)*(i/4);
+    ctx.fillStyle='rgba(90,97,128,.7)'; ctx.font='9px DM Mono';
+    ctx.fillText('$'+(v/1000).toFixed(1)+'k',2,y+3);
   }
-  const grad = ctx.createLinearGradient(0, pad.t, 0, H - pad.b);
-  grad.addColorStop(0, 'rgba(201,169,110,.16)');
-  grad.addColorStop(1, 'rgba(201,169,110,0)');
-  ctx.beginPath(); ctx.moveTo(xS(0), yS(pts[0]));
-  pts.forEach((v, i) => ctx.lineTo(xS(i), yS(v)));
-  ctx.lineTo(xS(pts.length - 1), H - pad.b); ctx.lineTo(xS(0), H - pad.b);
-  ctx.closePath(); ctx.fillStyle = grad; ctx.fill();
-  ctx.beginPath(); ctx.moveTo(xS(0), yS(pts[0]));
-  pts.forEach((v, i) => ctx.lineTo(xS(i), yS(v)));
-  ctx.strokeStyle = 'rgba(201,169,110,.9)'; ctx.lineWidth = 1.5; ctx.stroke();
-  const lx = xS(pts.length - 1), ly = yS(pts[pts.length - 1]);
-  ctx.beginPath(); ctx.arc(lx, ly, 4, 0, Math.PI * 2); ctx.fillStyle = '#c9a96e'; ctx.fill();
-  ctx.beginPath(); ctx.arc(lx, ly, 8, 0, Math.PI * 2); ctx.fillStyle = 'rgba(201,169,110,.18)'; ctx.fill();
+  const grad=ctx.createLinearGradient(0,pad.t,0,H-pad.b);
+  grad.addColorStop(0,'rgba(201,169,110,.16)');
+  grad.addColorStop(1,'rgba(201,169,110,0)');
+  ctx.beginPath(); ctx.moveTo(xS(0),yS(eqData[0]));
+  eqData.forEach((v,i)=>ctx.lineTo(xS(i),yS(v)));
+  ctx.lineTo(xS(eqData.length-1),H-pad.b); ctx.lineTo(xS(0),H-pad.b);
+  ctx.closePath(); ctx.fillStyle=grad; ctx.fill();
+  ctx.beginPath(); ctx.moveTo(xS(0),yS(eqData[0]));
+  eqData.forEach((v,i)=>ctx.lineTo(xS(i),yS(v)));
+  ctx.strokeStyle='rgba(201,169,110,.9)'; ctx.lineWidth=1.5; ctx.stroke();
+  const lx=xS(eqData.length-1), ly=yS(eqData[eqData.length-1]);
+  ctx.beginPath(); ctx.arc(lx,ly,4,0,Math.PI*2); ctx.fillStyle='#c9a96e'; ctx.fill();
+  ctx.beginPath(); ctx.arc(lx,ly,8,0,Math.PI*2); ctx.fillStyle='rgba(201,169,110,.18)'; ctx.fill();
 }
-
-function drawEquity(days) {
-  // Fallback: synthetic curve used before real data arrives
-  const pts = [capital];
-  for (let i = 0; i < days * 24; i++) {
-    const prev = pts[pts.length - 1];
-    pts.push(Math.max(capital * 0.9, prev * (1 + 0.0003 + (Math.random() - 0.47) * 0.003)));
-  }
-  const step = Math.max(1, Math.floor(pts.length / 60));
-  eqData = pts.filter((_, i) => i % step === 0).slice(0, 60);
-  _renderChart(eqData);
-}
-
-function drawEquityFromSignals(signals) {
-  if (!signals.length) { drawEquity(7); return; }
-  // Sort oldest first, build running balance
-  const sorted = [...signals].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-  let running = capital;
-  let pts = [capital];
-  sorted.forEach(s => {
-    running = Math.max(capital * 0.5, running + _estimatePnl(s));
-    pts.push(running);
-  });
-  // Down-sample to ≤60 points
-  if (pts.length > 60) {
-    const step = Math.floor(pts.length / 60);
-    pts = pts.filter((_, i) => i % step === 0).slice(0, 60);
-  }
-  eqData = pts;
-  _renderChart(eqData);
-}
-
-window.addEventListener('resize', () => _renderChart(eqData.length ? eqData : [capital]));
-document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', function () {
-  document.querySelectorAll('.tab').forEach(x => x.classList.remove('on'));
+window.addEventListener('resize',()=>drawEquity(7));
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',function(){
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
   this.classList.add('on');
-  // Re-render with current real data if available, else fallback
-  if (eqData.length > 2) { _renderChart(eqData); } else { drawEquity(7); }
+  drawEquity({7:7,30:30,90:90}[this.textContent]||7);
 }));
 
-// ── fetchLiveData — wires everything to /api/arbi ─────────────────────────────
-async function fetchLiveData() {
-  try {
-    const res  = await fetch('/api/arbi');
-    const data = await res.json();
-    if (!data || data.status === 'error') return;
+// Live balance drift
+let bal=capital, dpnl=127, wr=68.4;
+function startLiveDrift(){
+  setInterval(()=>{
+    const d=(Math.random()-.46)*5;
+    bal+=d; dpnl+=d;
+    document.getElementById('dbal').textContent='$'+bal.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,',');
+    const dpEl=document.getElementById('dpnl');
+    dpEl.textContent=(dpnl>=0?'+$':'-$')+Math.abs(dpnl).toFixed(0);
+    dpEl.className='sval '+(dpnl>=0?'green':'red');
+    const ret=((bal-capital)/capital*100).toFixed(2);
+    document.getElementById('dbalchg').textContent=(ret>=0?'▲ +':'▼ ')+ret+'% all time';
+    wr=Math.min(80,Math.max(55,wr+(Math.random()-.5)*.15));
+    document.getElementById('dwr').textContent=wr.toFixed(1)+'%';
+    if(Math.random()<.12){eqData.push(bal);eqData.shift();drawEquity(7);}
+  },2500);
 
-    const signals = data.signals || [];
-    const stats   = data.stats   || {};
-
-    updateBalanceCards(signals, stats);
-    updateTradeLog(signals);
-    updateSignalFeed(signals);
-    updateRegimeBar(signals);
-    updateStrategyMix(signals);
-    updateCollective(stats);
-    drawEquityFromSignals(signals);
-  } catch (e) {
-    console.warn('fetchLiveData error:', e);
-  }
+  // Collective stats drift
+  let ct=1247, cw=64.2, cm=71.3;
+  setInterval(()=>{
+    ct+=Math.floor(Math.random()*3);
+    cw=Math.min(75,Math.max(55,cw+(Math.random()-.5)*.1));
+    cm=Math.min(82,Math.max(65,cm+(Math.random()-.5)*.08));
+    document.getElementById('ct').textContent=ct.toLocaleString();
+    document.getElementById('cw').textContent=cw.toFixed(1)+'%';
+    document.getElementById('cm').textContent=cm.toFixed(1)+'%';
+  },4500);
 }
 </script>
 </body>

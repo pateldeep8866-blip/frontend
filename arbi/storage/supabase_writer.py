@@ -54,16 +54,31 @@ def write_trade(sim_user: str, symbol: str, strategy: str, side: str,
                 entry_price: float, status: str = "OPEN",
                 exit_price: float = None, pnl_pct: float = None,
                 profitable: bool = None, hold_hrs: float = None,
-                score: float = None):
+                score: float = None, exit_reason: str = None,
+                regime_at_entry: str = None):
     """Write a trade entry or exit to Supabase signals table."""
     client = get_client()
     if not client:
         return
 
     try:
+        # Build a rich signal string so the dashboard can parse exit context
+        if status == "CLOSED" and exit_reason:
+            hold_mins = round(hold_hrs * 60, 1) if hold_hrs is not None else 0
+            signal_str = (
+                f"{side} {strategy} | {exit_reason} "
+                f"pnl={round((pnl_pct or 0)*100,2)}% "
+                f"hold={hold_mins}m "
+                f"regime={regime_at_entry or 'UNKNOWN'}"
+            )
+        else:
+            signal_str = f"{side} {strategy}"
+            if regime_at_entry:
+                signal_str += f" | regime={regime_at_entry}"
+
         data = {
             "ticker":     symbol,
-            "signal":     f"{side} {strategy}",
+            "signal":     signal_str,
             "confidence": score or 0,
             "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         }

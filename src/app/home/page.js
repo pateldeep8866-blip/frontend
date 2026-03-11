@@ -1146,6 +1146,8 @@ export default function Home() {
 
   const [loading, setLoading] = useState(false);
 
+  const [liveStats, setLiveStats] = useState(null);
+
   // AI
   const [analysisObj, setAnalysisObj] = useState(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
@@ -1274,6 +1276,15 @@ export default function Home() {
       return [item, ...cleanPrev.filter((x) => x !== item)].slice(0, 8);
     });
   };
+
+  useEffect(() => {
+    fetch("/api/investors/briefing", { cache: "no-store" })
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => {
+        if (d?.ok) setLiveStats({ days: d.days, totalPicks: d.totalPicks, winRatePct: d.winRatePct });
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const VALID_ASSET_MODES = new Set(["stock", "crypto", "metals", "fx", "geopolitics", "globalmarket", "news", "home"]);
@@ -6230,6 +6241,23 @@ export default function Home() {
                   </div>
                 </div>
               </div>
+
+              {/* Live platform stats bar */}
+              {liveStats && (
+                <div className={`rounded-xl border px-5 py-2.5 flex items-center justify-center gap-5 home-reveal ${hSoft}`}>
+                  <span className={`text-[11px] font-mono tracking-wider ${isLight ? "text-slate-500" : "text-white/45"}`}>
+                    <span className={isLight ? "text-slate-800 font-semibold" : "text-white/80 font-semibold"}>{liveStats.days}</span> days live
+                  </span>
+                  <span className={isLight ? "text-slate-300" : "text-white/20"}>·</span>
+                  <span className={`text-[11px] font-mono tracking-wider ${isLight ? "text-slate-500" : "text-white/45"}`}>
+                    <span className={isLight ? "text-slate-800 font-semibold" : "text-white/80 font-semibold"}>{liveStats.totalPicks}</span> picks logged
+                  </span>
+                  <span className={isLight ? "text-slate-300" : "text-white/20"}>·</span>
+                  <span className={`text-[11px] font-mono tracking-wider ${isLight ? "text-slate-500" : "text-white/45"}`}>
+                    <span className={isLight ? "text-emerald-700 font-semibold" : "text-emerald-400 font-semibold"}>{liveStats.winRatePct != null ? liveStats.winRatePct + "%" : "—"}</span> win rate
+                  </span>
+                </div>
+              )}
 
               {/* Honest banner */}
               <div className={`rounded-xl border px-4 py-2 text-xs md:text-sm text-center home-reveal ${hHonest}`}>

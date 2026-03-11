@@ -878,18 +878,52 @@
     <h2 class="section-title">Arbi Signals — Crypto Arbitrage</h2>
     <span class="section-sub">Cross-exchange inefficiencies</span>
   </div>
-  <div class="roadmap-card">
-    <div class="roadmap-tag">🗓 Live Soon</div>
-    <div class="roadmap-title">Cross-Exchange Arbitrage Engine — In Development</div>
-    <div class="roadmap-body">
-      The Arbi engine identifies price inefficiencies across exchanges in real time. Signal accuracy, pair-level performance, and profit opportunity tracking will surface here once the engine goes live. We are building the infrastructure to ensure signal quality before we open access.
+  <!-- ARBI METRICS GRID -->
+  <div class="plat-grid" style="margin-bottom:24px;">
+    <div class="p-stat">
+      <div class="p-val" id="arbi-community-trades"><span class="shimmer"></span></div>
+      <div class="p-lbl">Community Trades</div>
     </div>
-    <div class="roadmap-timeline">
-      <div class="rt-item"><div class="rt-date">Q2 2026</div><div class="rt-feat">BTC / ETH pairs</div></div>
-      <div class="rt-item"><div class="rt-date">Q2 2026</div><div class="rt-feat">SOL / ADA pairs</div></div>
-      <div class="rt-item"><div class="rt-date">Q3 2026</div><div class="rt-feat">Full signal API</div></div>
+    <div class="p-stat">
+      <div class="p-val" id="arbi-win-rate"><span class="shimmer"></span></div>
+      <div class="p-lbl">Collective Win Rate</div>
+    </div>
+    <div class="p-stat">
+      <div class="p-val" id="arbi-signals"><span class="shimmer"></span></div>
+      <div class="p-lbl">Recent Signals</div>
+    </div>
+    <div class="p-stat">
+      <div class="p-val" id="arbi-status" style="font-size:16px;"><span class="shimmer" style="width:70px;height:16px;"></span></div>
+      <div class="p-lbl">Engine Status</div>
     </div>
   </div>
+
+  <!-- STRATEGY BREAKDOWN + PORTFOLIO -->
+  <div class="two-col" style="margin-bottom:24px;">
+    <div class="card">
+      <div class="card-title">Strategy Breakdown</div>
+      <div id="arbi-strategy-bars" class="bar-chart">
+        <div style="color:var(--text-muted);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.1em;">Loading strategy data…</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Portfolio Exposure</div>
+      <div id="arbi-portfolio" style="color:var(--text-muted);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.1em;">Loading portfolio…</div>
+    </div>
+  </div>
+
+  <!-- RECENT SIGNALS TABLE -->
+  <table>
+    <thead>
+      <tr>
+        <th>Ticker</th><th>Strategy</th><th>Direction</th>
+        <th>Confidence</th><th>Time</th>
+      </tr>
+    </thead>
+    <tbody id="arbi-tbody">
+      <tr class="no-data-row"><td colspan="5">Connecting to ARBI engine…</td></tr>
+    </tbody>
+  </table>
 </section>
 
 <!-- ═══════════════════ WAR ROOM ═══════════════════ -->
@@ -1199,6 +1233,7 @@ async function loadPicks(window = '7d') {
 }
 
 function switchTab(btn, window) {
+  _activePeriod = window;
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   loadPicks(window);
@@ -1402,10 +1437,118 @@ async function loadChangelog() {
   }
 }
 
+// ── ARBI ─────────────────────────────────────────────────────────────
+async function loadArbi() {
+  try {
+    const res = await fetch('/api/arbi', { cache: 'no-store' });
+    if (!res.ok) return;
+    const d = await res.json();
+
+    if (d.status === 'error') {
+      document.getElementById('arbi-status').innerHTML =
+        '<span style="color:#c45050;font-size:13px;font-family:\'DM Mono\',monospace;letter-spacing:.1em;">● OFFLINE</span>';
+      document.getElementById('arbi-community-trades').textContent = '—';
+      document.getElementById('arbi-win-rate').textContent = '—';
+      document.getElementById('arbi-signals').textContent = '—';
+      return;
+    }
+
+    // Top metrics
+    const ct = d.stats?.collective?.total_trades ?? '—';
+    const wr = d.stats?.collective?.win_rate ?? d.stats?.win_rate ?? null;
+    document.getElementById('arbi-community-trades').textContent = ct;
+    document.getElementById('arbi-win-rate').textContent = wr != null ? Math.round(wr) + '%' : '—';
+    document.getElementById('arbi-signals').textContent = d.stats?.total_signals ?? '—';
+    document.getElementById('arbi-status').innerHTML =
+      '<span style="color:var(--green-bright);font-size:13px;font-family:\'DM Mono\',monospace;letter-spacing:.1em;">● ONLINE</span>';
+
+    // Strategy breakdown
+    const strategyCounts = {};
+    (d.signals || []).forEach(s => {
+      const strat = (s.signal || '').split(' ').slice(1).join(' ') || 'unknown';
+      strategyCounts[strat] = (strategyCounts[strat] || 0) + 1;
+    });
+    const total = Object.values(strategyCounts).reduce((a, b) => a + b, 0);
+    const stratContainer = document.getElementById('arbi-strategy-bars');
+    const LABELS = {
+      'funding_rate_arb':   'Funding Rate Arb',
+      'mean_reversion':     'Mean Reversion',
+      'cross_exchange_arb': 'Cross-Exchange Arb',
+      'liquidity_signal':   'Liquidity Signal',
+      'vol_breakout':       'Vol Breakout',
+    };
+    if (total > 0) {
+      stratContainer.innerHTML = Object.entries(strategyCounts)
+        .sort((a, b) => b[1] - a[1])
+        .map(([strat, cnt]) => {
+          const pct = Math.round((cnt / total) * 100);
+          const label = LABELS[strat] || strat.replace(/_/g, ' ');
+          return `<div class="bar-row">
+            <span class="bar-label" style="width:120px;white-space:nowrap;font-size:9px;">${label}</span>
+            <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+            <span class="bar-val">${pct}%</span>
+          </div>`;
+        }).join('');
+    } else {
+      stratContainer.innerHTML = '<div style="color:var(--text-muted);font-family:\'DM Mono\',monospace;font-size:11px;letter-spacing:.1em;">No signals yet — engine scanning</div>';
+    }
+
+    // Portfolio exposure
+    const portContainer = document.getElementById('arbi-portfolio');
+    if (d.portfolio && d.portfolio.length > 0) {
+      portContainer.innerHTML = d.portfolio.map(p =>
+        `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;">
+           <span style="color:var(--cream);font-family:'DM Mono',monospace;">${p.ticker}</span>
+           <span style="color:var(--text-dim);">${Number(p.shares).toFixed(4)} @ $${Number(p.avg_cost).toFixed(2)}</span>
+         </div>`
+      ).join('');
+    } else {
+      portContainer.textContent = 'No open positions tracked';
+    }
+
+    // Recent signals table
+    const tbody = document.getElementById('arbi-tbody');
+    if (!d.signals || d.signals.length === 0) {
+      tbody.innerHTML = '<tr class="no-data-row"><td colspan="5">No signals yet — ARBI engine is scanning markets</td></tr>';
+      return;
+    }
+    tbody.innerHTML = d.signals.map(s => {
+      const parts = (s.signal || '').split(' ');
+      const side     = parts[0] || '—';
+      const strategy = parts.slice(1).join(' ').replace(/_/g, ' ') || '—';
+      const time     = new Date(s.created_at).toLocaleString();
+      const confHi   = s.confidence >= 70;
+      const isBuy    = side === 'BUY' || side === 'ENTER';
+      const sideStyle = isBuy
+        ? 'border-color:var(--green-mid);color:var(--green-bright);background:rgba(42,94,64,.12);'
+        : 'border-color:var(--gold-dim);color:var(--gold);background:rgba(200,164,74,.08);';
+      return `<tr>
+        <td class="ticker">${s.ticker}</td>
+        <td style="font-size:11px;color:var(--text-muted);">${strategy}</td>
+        <td><span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.1em;padding:3px 9px;border:1px solid;${sideStyle}">${side}</span></td>
+        <td><div class="conf-bar"><div class="conf-track"><div class="conf-fill ${confHi ? 'hi' : ''}" style="width:${Math.min(s.confidence, 100)}%"></div></div><span class="conf-pct">${s.confidence}%</span></div></td>
+        <td style="color:var(--text-muted);font-size:11px;">${time}</td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    console.error('ARBI load error:', e);
+  }
+}
+
 // ── INIT ─────────────────────────────────────────────────────────────
+let _activePeriod = '7d';
 loadStats();
-loadPicks('7d');
+loadPicks(_activePeriod);
 loadChangelog();
+loadArbi();
+
+// ── AUTO-REFRESH (60s) ───────────────────────────────────────────────
+setInterval(() => {
+  loadStats();
+  loadPicks(_activePeriod);
+  loadChangelog();
+  loadArbi();
+}, 60000);
 </script>
 </body>
 </html>

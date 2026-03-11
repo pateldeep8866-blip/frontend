@@ -1,13 +1,7 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { isInvestorAuthorizedFromCookies } from "@/app/api/_lib/investor-auth";
 import { getSystemLog } from "@/app/api/_lib/trade-db";
 
 export async function GET() {
-  const jar = await cookies();
-  if (!isInvestorAuthorizedFromCookies(jar)) {
-    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
-  }
 
   const log = getSystemLog(500);
 
