@@ -619,9 +619,8 @@ tr:last-child td{border-bottom:none;}
 </div><!-- /wrap -->
 
 <script>
-// ── AUTH ──────────────────────────────────────────────────────────────────────
-// Read the Supabase session that the main website stored in localStorage.
-// No extra SDK needed — Supabase writes it automatically after login.
+// ── USER (optional) ───────────────────────────────────────────────────────────
+// If the user is signed in, show their name in the chip. No login required.
 const SUPABASE_PROJECT = 'htnkjncvkzbberblhnve';
 
 function getSupabaseUser() {
@@ -629,41 +628,24 @@ function getSupabaseUser() {
     const raw = localStorage.getItem(`sb-${SUPABASE_PROJECT}-auth-token`);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    // Supabase v2 session shape
     return parsed?.user ?? parsed?.currentSession?.user ?? null;
   } catch { return null; }
 }
 
-function applyUser(user) {
-  if (!user) {
-    // Not logged in — show a sign-in prompt instead of silently redirecting
-    document.body.innerHTML = `
-      <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#05070d;font-family:system-ui,sans-serif;">
-        <div style="text-align:center;padding:2rem;max-width:380px;">
-          <div style="font-size:2rem;margin-bottom:1rem;">🔒</div>
-          <h2 style="color:#fff;font-size:1.25rem;font-weight:600;margin:0 0 0.5rem;">Sign in required</h2>
-          <p style="color:rgba(255,255,255,0.6);font-size:0.875rem;margin:0 0 1.5rem;">Sign in to your Arthastra account to access the ARBI dashboard.</p>
-          <a href="/home" style="display:inline-block;background:#2563eb;color:#fff;font-size:0.875rem;font-weight:600;padding:0.625rem 1.5rem;border-radius:0.5rem;text-decoration:none;">Sign In</a>
-        </div>
-      </div>`;
-    return;
-  }
-  const name     = user.user_metadata?.full_name
-                || user.user_metadata?.name
-                || user.email?.split('@')[0]
-                || 'User';
-  const initials = name.trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
-  const chip     = document.querySelector('.user-chip');
-  if (chip) chip.innerHTML = `<div class="avatar">${initials}</div>${name.split(' ')[0]}`;
-  return name; // returned so launch() can use it as sim_user
-}
-
-// Run on load
+// Run on load — guest access always allowed
 let _simUser = 'user';
 document.addEventListener('DOMContentLoaded', () => {
   const user = getSupabaseUser();
-  const name = applyUser(user);
-  if (name) _simUser = name.toLowerCase().replace(/\s+/g, '_');
+  if (user) {
+    const name     = user.user_metadata?.full_name
+                  || user.user_metadata?.name
+                  || user.email?.split('@')[0]
+                  || 'User';
+    const initials = name.trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+    const chip     = document.querySelector('.user-chip');
+    if (chip) chip.innerHTML = `<div class="avatar">${initials}</div>${name.split(' ')[0]}`;
+    _simUser = name.toLowerCase().replace(/\s+/g, '_');
+  }
 });
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
