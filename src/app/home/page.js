@@ -3385,7 +3385,7 @@ export default function Home() {
           return;
         }
 
-        const { error: verifyError } = await supabase.auth.verifyOtp({
+        const { data: otpData, error: verifyError } = await supabase.auth.verifyOtp({
           email,
           token: authSignupCode.trim(),
           type: "email",
@@ -3394,6 +3394,7 @@ export default function Home() {
           setAuthError(verifyError.message || "Code verification failed.");
           return;
         }
+        if (otpData?.user) setAuthUser(otpData.user);
 
         const { error: updateError } = await supabase.auth.updateUser({
           password,
@@ -3415,11 +3416,12 @@ export default function Home() {
         setAuthPassword("");
         setAuthConfirmPassword("");
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) {
           setAuthError(error.message || "Sign in failed.");
           return;
         }
+        if (signInData?.user) setAuthUser(signInData.user);
         setAuthPassword("");
         setAuthConfirmPassword("");
         setAuthPanelOpen(false);
@@ -3492,7 +3494,7 @@ export default function Home() {
   const handleSignOut = async () => {
     const supabase = getSupabaseClient();
     if (!supabase) return;
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: "local" });
     setAuthUser(null);
     setUserMenuOpen(false);
     setProfilePanelOpen(false);

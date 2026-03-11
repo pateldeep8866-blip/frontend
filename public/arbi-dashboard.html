@@ -636,8 +636,16 @@ function getSupabaseUser() {
 
 function applyUser(user) {
   if (!user) {
-    // Not logged in — send back to home so they can sign in
-    window.location.replace('/home');
+    // Not logged in — show a sign-in prompt instead of silently redirecting
+    document.body.innerHTML = `
+      <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#05070d;font-family:system-ui,sans-serif;">
+        <div style="text-align:center;padding:2rem;max-width:380px;">
+          <div style="font-size:2rem;margin-bottom:1rem;">🔒</div>
+          <h2 style="color:#fff;font-size:1.25rem;font-weight:600;margin:0 0 0.5rem;">Sign in required</h2>
+          <p style="color:rgba(255,255,255,0.6);font-size:0.875rem;margin:0 0 1.5rem;">Sign in to your Arthastra account to access the ARBI dashboard.</p>
+          <a href="/home" style="display:inline-block;background:#2563eb;color:#fff;font-size:0.875rem;font-weight:600;padding:0.625rem 1.5rem;border-radius:0.5rem;text-decoration:none;">Sign In</a>
+        </div>
+      </div>`;
     return;
   }
   const name     = user.user_metadata?.full_name

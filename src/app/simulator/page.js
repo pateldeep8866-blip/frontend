@@ -2206,12 +2206,12 @@ export default function SimulatorPage() {
                 </p>
               </div>
               <Link
-                href="/home"
+                href="/arbi-dashboard.html"
                 className={`px-3 py-1.5 rounded-lg border text-xs font-semibold ${
-                  isLight ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-100" : "border-white/15 bg-white/10 text-white/85 hover:bg-white/15"
+                  isLight ? "border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100" : "border-blue-500/40 bg-blue-600/20 text-blue-300 hover:bg-blue-600/30"
                 }`}
               >
-                Open Global Market
+                Open ARBI Dashboard →
               </Link>
             </div>
             <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -2239,6 +2239,14 @@ export default function SimulatorPage() {
                 }`}
               >
                 Back Home
+              </Link>
+              <Link
+                href="/arbi-dashboard.html"
+                className={`px-3 py-1.5 rounded-lg border text-xs font-semibold ${
+                  isLight ? "border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100" : "border-blue-500/40 bg-blue-600/20 text-blue-300 hover:bg-blue-600/30"
+                }`}
+              >
+                Open ARBI Dashboard →
               </Link>
             </div>
           </section>
