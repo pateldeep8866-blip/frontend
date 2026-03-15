@@ -1002,64 +1002,151 @@ function normalizeAiPayload(payload) {
   };
 }
 
-function drawLineChart(canvas, points) {
+function drawLineChart(canvas, points, { isLight = false } = {}) {
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
 
-  const w = canvas.width;
-  const h = canvas.height;
+  // HiDPI — match CSS size
+  const dpr = typeof window !== "undefined" ? (window.devicePixelRatio || 1) : 1;
+  const cssW = canvas.clientWidth || 560;
+  const cssH = canvas.clientHeight || 240;
+  canvas.width = cssW * dpr;
+  canvas.height = cssH * dpr;
+  ctx.scale(dpr, dpr);
+  const w = cssW;
+  const h = cssH;
 
   ctx.clearRect(0, 0, w, h);
 
-  if (!points?.length) {
-    ctx.fillStyle = "rgba(255,255,255,0.55)";
-    ctx.font = "12px system-ui";
-    ctx.fillText("No chart data", 10, 20);
+  if (!points?.length || points.length < 2) {
+    ctx.fillStyle = isLight ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.4)";
+    ctx.font = "13px system-ui";
+    ctx.textAlign = "left";
+    ctx.fillText("No chart data", 14, h / 2);
     return;
   }
 
-  const closes = points.map((p) => p.close);
-  const min = Math.min(...closes);
-  const max = Math.max(...closes);
-  const pad = 10;
+  const closes = points.map((p) => Number(p.close));
+  const volumes = points.map((p) => p.volume).filter((v) => Number.isFinite(v) && v > 0);
+  const hasVolume = volumes.length === points.length;
 
-  const xStep = (w - pad * 2) / (points.length - 1 || 1);
+  const minClose = Math.min(...closes);
+  const maxClose = Math.max(...closes);
+  const priceRange = maxClose - minClose || maxClose * 0.01 || 1;
+  const isUp = closes[closes.length - 1] >= closes[0];
 
-  const y = (val) => {
-    if (max === min) return h / 2;
-    const t = (val - min) / (max - min);
-    return h - pad - t * (h - pad * 2);
-  };
+  // Color theme
+  const lineColor  = isUp ? "#22c55e" : "#ef4444";
+  const fillTop    = isUp ? "rgba(34,197,94,0.22)"  : "rgba(239,68,68,0.22)";
+  const fillBot    = isUp ? "rgba(34,197,94,0)"     : "rgba(239,68,68,0)";
+  const gridColor  = isLight ? "rgba(0,0,0,0.07)"   : "rgba(255,255,255,0.07)";
+  const labelColor = isLight ? "rgba(0,0,0,0.42)"   : "rgba(255,255,255,0.42)";
+  const volColor   = isUp ? "rgba(34,197,94,0.30)"  : "rgba(239,68,68,0.30)";
 
-  // grid
-  ctx.strokeStyle = "rgba(255,255,255,0.08)";
-  ctx.lineWidth = 1;
-  for (let i = 1; i <= 3; i++) {
-    const gy = (h / 4) * i;
+  // Layout padding
+  const padL = 62;
+  const padR = 12;
+  const padT = 16;
+  const volBarH = hasVolume ? 28 : 0;
+  const xAxisH  = 20;
+  const padB    = xAxisH + volBarH + 4;
+  const chartW  = w - padL - padR;
+  const chartH  = h - padT - padB;
+
+  const xAt = (i) => padL + (i / (points.length - 1 || 1)) * chartW;
+  const yAt = (v) => padT + (1 - (v - minClose) / priceRange) * chartH;
+
+  // ── Y-axis grid + price labels ────────────────────────────────────────────
+  const yTicks = 4;
+  ctx.font = "10px system-ui";
+  ctx.textAlign = "right";
+  for (let i = 0; i <= yTicks; i++) {
+    const pv  = minClose + (i / yTicks) * priceRange;
+    const gy  = yAt(pv);
+    ctx.strokeStyle = gridColor;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 4]);
     ctx.beginPath();
-    ctx.moveTo(0, gy);
-    ctx.lineTo(w, gy);
+    ctx.moveTo(padL, gy);
+    ctx.lineTo(w - padR, gy);
     ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = labelColor;
+    const label = pv >= 1000 ? `$${(pv / 1000).toFixed(1)}k` : `$${pv.toFixed(pv < 10 ? 3 : 2)}`;
+    ctx.fillText(label, padL - 5, gy + 3.5);
   }
 
-  // line
-  ctx.strokeStyle = "rgba(59,130,246,0.9)";
-  ctx.lineWidth = 2;
+  // ── Gradient fill ─────────────────────────────────────────────────────────
+  const grad = ctx.createLinearGradient(0, padT, 0, padT + chartH);
+  grad.addColorStop(0, fillTop);
+  grad.addColorStop(1, fillBot);
+
   ctx.beginPath();
   points.forEach((p, i) => {
-    const px = pad + i * xStep;
-    const py = y(p.close);
-    if (i === 0) ctx.moveTo(px, py);
-    else ctx.lineTo(px, py);
+    const px = xAt(i), py = yAt(p.close);
+    i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+  });
+  ctx.lineTo(xAt(points.length - 1), padT + chartH);
+  ctx.lineTo(padL, padT + chartH);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // ── Price line ────────────────────────────────────────────────────────────
+  ctx.strokeStyle = lineColor;
+  ctx.lineWidth = 2;
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  points.forEach((p, i) => {
+    const px = xAt(i), py = yAt(p.close);
+    i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
   });
   ctx.stroke();
 
-  // last value label
-  const last = points[points.length - 1]?.close;
-  ctx.fillStyle = "rgba(255,255,255,0.75)";
-  ctx.font = "12px system-ui";
-  ctx.fillText(`Last: $${last?.toFixed?.(2) ?? last}`, 10, 18);
+  // ── Last price dot ────────────────────────────────────────────────────────
+  const lx = xAt(points.length - 1);
+  const ly = yAt(closes[closes.length - 1]);
+  ctx.fillStyle = "#fff";
+  ctx.beginPath();
+  ctx.arc(lx, ly, 4.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = lineColor;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(lx, ly, 4.5, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // ── X-axis date labels ────────────────────────────────────────────────────
+  ctx.textAlign = "center";
+  ctx.fillStyle = labelColor;
+  ctx.font = "10px system-ui";
+  const dateIdxs = [0, Math.floor(points.length * 0.25), Math.floor(points.length * 0.5), Math.floor(points.length * 0.75), points.length - 1];
+  const seen = new Set();
+  dateIdxs.forEach((idx) => {
+    if (seen.has(idx) || idx >= points.length) return;
+    seen.add(idx);
+    const p = points[idx];
+    if (!p?.date) return;
+    const d = new Date(p.date);
+    if (isNaN(d)) return;
+    const label = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    ctx.fillText(label, xAt(idx), padT + chartH + xAxisH - 3);
+  });
+
+  // ── Volume bars ───────────────────────────────────────────────────────────
+  if (hasVolume) {
+    const maxVol = Math.max(...volumes);
+    const volBaseY = padT + chartH + xAxisH;
+    const barW = Math.max(1, chartW / points.length * 0.7);
+    points.forEach((p, i) => {
+      if (!Number.isFinite(p.volume) || p.volume <= 0) return;
+      const bh = (p.volume / maxVol) * volBarH;
+      ctx.fillStyle = volColor;
+      ctx.fillRect(xAt(i) - barW / 2, volBaseY + volBarH - bh, barW, bh);
+    });
+  }
 }
 
 function Card({ title, right, children }) {
@@ -1110,6 +1197,11 @@ export default function Home() {
   const [theme, setTheme] = useState("dark");
   const [language, setLanguage] = useState("en");
   const [analysisViewMode, setAnalysisViewMode] = useState("short");
+  const [stockSubTab, setStockSubTab] = useState("overview");
+  const [cryptoSubTab, setCryptoSubTab] = useState("overview");
+  const [metalSubTab, setMetalSubTab] = useState("overview");
+  const [tabBarOpen, setTabBarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [marketNews, setMarketNews] = useState([]);
   const [globalMarketCountry, setGlobalMarketCountry] = useState("US");
   const [globalCountryQuery, setGlobalCountryQuery] = useState("");
@@ -2041,10 +2133,8 @@ export default function Home() {
   useEffect(() => {
     const c = chartRef.current;
     if (!c) return;
-    c.width = 640;
-    c.height = 180;
-    drawLineChart(c, chartPoints);
-  }, [chartPoints]);
+    drawLineChart(c, chartPoints, { isLight: theme === "light" || theme === "cherry" });
+  }, [chartPoints, theme]);
 
   async function resolveSymbol(input) {
     const raw = String(input || "").trim();
@@ -2496,10 +2586,11 @@ export default function Home() {
     if (!symbol) return;
     const key = range || "1M";
     const configByRange = {
-      "1D": { resolution: "5", days: 1, historyPoints: 1 },
-      "1W": { resolution: "D", days: 7, historyPoints: 7 },
-      "1M": { resolution: "D", days: 30, historyPoints: 30 },
-      "1Y": { resolution: "D", days: 365, historyPoints: 252 },
+      "1D": { resolution: "5",  days: 1,   historyPoints: 1 },
+      "1W": { resolution: "D",  days: 7,   historyPoints: 7 },
+      "1M": { resolution: "D",  days: 30,  historyPoints: 30 },
+      "3M": { resolution: "D",  days: 90,  historyPoints: 90 },
+      "1Y": { resolution: "D",  days: 365, historyPoints: 252 },
     };
     const cfg = configByRange[key] || configByRange["1M"];
 
@@ -3777,11 +3868,6 @@ export default function Home() {
     () => resolveLocalizedText(searchSectionSummaryRaw, language, headlineTranslationCacheRef.current),
     [searchSectionSummaryRaw, language, headlineTranslationVersion]
   );
-  const fxSearchSummaryRaw = useMemo(() => buildFxSearchSummary(fxResult), [fxResult]);
-  const fxSearchSummary = useMemo(
-    () => resolveLocalizedText(fxSearchSummaryRaw, language, headlineTranslationCacheRef.current),
-    [fxSearchSummaryRaw, language, headlineTranslationVersion]
-  );
   const isCherry = theme === "cherry";
   const isAzula = theme === "azula";
   const isAlerik = theme === "alerik";
@@ -4312,6 +4398,16 @@ export default function Home() {
       cancelled = true;
     };
   }, [isGlobalMarketMode, selectedGlobalCountry]);
+  // Auto-run comparison when user navigates to Compare sub-tab
+  useEffect(() => {
+    if (assetMode !== "stock" || stockSubTab !== "compare") return;
+    if (compareLoading) return;
+    if (compareRows.length === 0) {
+      runComparison();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stockSubTab, assetMode]);
+
   const t = (key) => UI_TEXT[language]?.[key] || UI_TEXT.en[key] || key;
   const tx = (text) => resolveLocalizedText(text, language, headlineTranslationCacheRef.current);
   const closeParentDropdown = (event) => {
@@ -4776,75 +4872,91 @@ export default function Home() {
         {/* MAIN LAYOUT — vertical sidebar + content */}
         <div className="flex gap-4 items-start">
           {/* VERTICAL NAV SIDEBAR */}
-          <aside className={`w-44 shrink-0 sticky top-6 rounded-xl border p-2 flex flex-col gap-0.5 ${
-            isLight ? "border-slate-300 bg-white/90 shadow-sm" : "border-white/15 bg-slate-900/70"
-          }`}>
-            {[
-              { mode: "home",        label: t("home") },
-              { mode: "stock",       label: t("stock") },
-              { mode: "crypto",      label: t("crypto") },
-              { mode: "metals",      label: t("metals") },
-              { mode: "fx",          label: t("fx") },
-              { mode: "geopolitics", label: t("geoPolitics") },
-              { mode: "globalmarket",label: t("globalMarket") },
-            ].map(({ mode, label }) => (
-              <button
-                key={mode}
-                onClick={() => setAssetMode(mode)}
-                className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
-                  assetMode === mode
-                    ? "bg-blue-600 text-white"
-                    : isLight
-                      ? "text-slate-700 hover:bg-slate-100"
-                      : "text-white/80 hover:bg-white/10"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-            <div className={`my-1 h-px ${isLight ? "bg-slate-200" : "bg-white/10"}`} />
-            <Link
-              href="/bots"
-              className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 ${
-                isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"
+          <aside className={`shrink-0 sticky top-6 rounded-xl border p-2 flex flex-col gap-0.5 transition-all duration-200 ${
+            sidebarOpen ? "w-44" : "w-9 items-center"
+          } ${isLight ? "border-slate-300 bg-white/90 shadow-sm" : "border-white/15 bg-slate-900/70"}`}>
+            {/* Hamburger toggle */}
+            <button
+              onClick={() => setSidebarOpen(o => !o)}
+              title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+              className={`p-1.5 rounded-lg transition-colors mb-0.5 ${sidebarOpen ? "self-end" : ""} ${
+                isLight ? "text-slate-400 hover:bg-slate-100 hover:text-slate-600" : "text-white/35 hover:bg-white/10 hover:text-white/65"
               }`}
             >
-              {t("simulator")}
-              {simulatorAutoPilotActive && <span title="Auto-Pilot active" className="text-[10px]">📊</span>}
-              {Number.isFinite(simulatorReturnPct) && (
-                <span className={`ml-auto rounded-full px-1.5 py-[1px] text-[10px] font-semibold ${
-                  simulatorReturnPct >= 0
-                    ? isLight ? "bg-emerald-100 text-emerald-700" : "bg-emerald-500/20 text-emerald-300"
-                    : isLight ? "bg-rose-100 text-rose-700" : "bg-rose-500/20 text-rose-300"
-                }`}>
-                  {simulatorReturnPct >= 0 ? "+" : ""}{simulatorReturnPct.toFixed(1)}%
-                </span>
-              )}
-            </Link>
-            <Link
-              href="/market-school"
-              className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold ${
-                isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"
-              }`}
-            >
-              {t("learn")}
-            </Link>
-            <Link
-              href="/warroom.html"
-              className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold ${
-                isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"
-              }`}
-            >
-              {t("warRoom")}
-            </Link>
-            <Link
-              href="/briefing"
-              className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold ${
-                isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"
-              }`}
-            >
-              {t("briefing")}
-            </Link>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                <rect y="2" width="16" height="2" rx="1"/><rect y="7" width="16" height="2" rx="1"/><rect y="12" width="16" height="2" rx="1"/>
+              </svg>
+            </button>
+            {sidebarOpen && (
+              <>
+                {[
+                  { mode: "home",        label: t("home") },
+                  { mode: "stock",       label: t("stock") },
+                  { mode: "crypto",      label: t("crypto") },
+                  { mode: "metals",      label: t("metals") },
+                  { mode: "fx",          label: t("fx") },
+                  { mode: "geopolitics", label: t("geoPolitics") },
+                  { mode: "globalmarket",label: t("globalMarket") },
+                ].map(({ mode, label }) => (
+                  <button
+                    key={mode}
+                    onClick={() => setAssetMode(mode)}
+                    className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                      assetMode === mode
+                        ? "bg-blue-600 text-white"
+                        : isLight
+                          ? "text-slate-700 hover:bg-slate-100"
+                          : "text-white/80 hover:bg-white/10"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+                <div className={`my-1 h-px ${isLight ? "bg-slate-200" : "bg-white/10"}`} />
+                <Link
+                  href="/bots"
+                  className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 ${
+                    isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"
+                  }`}
+                >
+                  {t("simulator")}
+                  {simulatorAutoPilotActive && <span title="Auto-Pilot active" className="text-[10px]">📊</span>}
+                  {Number.isFinite(simulatorReturnPct) && (
+                    <span className={`ml-auto rounded-full px-1.5 py-[1px] text-[10px] font-semibold ${
+                      simulatorReturnPct >= 0
+                        ? isLight ? "bg-emerald-100 text-emerald-700" : "bg-emerald-500/20 text-emerald-300"
+                        : isLight ? "bg-rose-100 text-rose-700" : "bg-rose-500/20 text-rose-300"
+                    }`}>
+                      {simulatorReturnPct >= 0 ? "+" : ""}{simulatorReturnPct.toFixed(1)}%
+                    </span>
+                  )}
+                </Link>
+                <Link
+                  href="/market-school"
+                  className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold ${
+                    isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"
+                  }`}
+                >
+                  {t("learn")}
+                </Link>
+                <Link
+                  href="/warroom.html"
+                  className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold ${
+                    isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"
+                  }`}
+                >
+                  {t("warRoom")}
+                </Link>
+                <Link
+                  href="/briefing"
+                  className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold ${
+                    isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"
+                  }`}
+                >
+                  {t("briefing")}
+                </Link>
+              </>
+            )}
           </aside>
           {/* CONTENT AREA */}
           <div className="flex-1 min-w-0">
@@ -5186,8 +5298,170 @@ export default function Home() {
           </div>
         )}
 
+        {/* STOCK SUB-TABS */}
+        {assetMode === "stock" && !isNarrativeMode && (() => {
+          const tabs = [
+            { key: "overview",     label: "Overview" },
+            { key: "analysis",     label: "Analysis" },
+            { key: "fundamentals", label: "Fundamentals" },
+            { key: "news",         label: "News" },
+            { key: "compare",      label: "Compare" },
+          ];
+          const activeLabel = tabs.find(t => t.key === stockSubTab)?.label || "Overview";
+          const HamburgerIcon = () => (
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" className="shrink-0">
+              <rect y="2" width="16" height="2" rx="1"/><rect y="7" width="16" height="2" rx="1"/><rect y="12" width="16" height="2" rx="1"/>
+            </svg>
+          );
+          return (
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-1.5 px-0.5">
+                {!tabBarOpen ? (
+                  <button
+                    onClick={() => setTabBarOpen(true)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${isLight ? "border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200" : "border-white/10 bg-slate-800/60 text-white/80 hover:bg-white/10"}`}
+                  >
+                    <HamburgerIcon />
+                    {activeLabel}
+                    <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" className="shrink-0"><path d="M2 4l4 4 4-4"/></svg>
+                  </button>
+                ) : <div />}
+                <button
+                  onClick={() => setTabBarOpen(o => !o)}
+                  className={`p-1.5 rounded-lg transition-colors ${isLight ? "text-slate-400 hover:bg-slate-200 hover:text-slate-600" : "text-white/35 hover:bg-white/10 hover:text-white/65"}`}
+                  title={tabBarOpen ? "Collapse tabs" : "Expand tabs"}
+                >
+                  <HamburgerIcon />
+                </button>
+              </div>
+              {tabBarOpen && (
+                <div className={`flex gap-1 p-1 rounded-xl border ${isLight ? "border-slate-200 bg-slate-100/80" : "border-white/10 bg-slate-900/60"}`}>
+                  {tabs.map(({ key, label }) => (
+                    <button
+                      key={key}
+                      onClick={() => setStockSubTab(key)}
+                      className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                        stockSubTab === key
+                          ? "bg-blue-600 text-white shadow-sm"
+                          : isLight ? "text-slate-600 hover:bg-slate-200" : "text-white/65 hover:bg-white/10"
+                      }`}
+                    >{label}</button>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* CRYPTO SUB-TABS */}
+        {assetMode === "crypto" && !isNarrativeMode && (() => {
+          const tabs = [
+            { key: "overview",     label: "Overview" },
+            { key: "analysis",     label: "Analysis" },
+            { key: "fundamentals", label: "Fundamentals" },
+            { key: "news",         label: "News" },
+            { key: "compare",      label: "Compare" },
+          ];
+          const activeLabel = tabs.find(t => t.key === cryptoSubTab)?.label || "Overview";
+          const HamburgerIcon = () => (
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" className="shrink-0">
+              <rect y="2" width="16" height="2" rx="1"/><rect y="7" width="16" height="2" rx="1"/><rect y="12" width="16" height="2" rx="1"/>
+            </svg>
+          );
+          return (
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-1.5 px-0.5">
+                {!tabBarOpen ? (
+                  <button
+                    onClick={() => setTabBarOpen(true)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${isLight ? "border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200" : "border-white/10 bg-slate-800/60 text-white/80 hover:bg-white/10"}`}
+                  >
+                    <HamburgerIcon />
+                    {activeLabel}
+                    <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" className="shrink-0"><path d="M2 4l4 4 4-4"/></svg>
+                  </button>
+                ) : <div />}
+                <button
+                  onClick={() => setTabBarOpen(o => !o)}
+                  className={`p-1.5 rounded-lg transition-colors ${isLight ? "text-slate-400 hover:bg-slate-200 hover:text-slate-600" : "text-white/35 hover:bg-white/10 hover:text-white/65"}`}
+                  title={tabBarOpen ? "Collapse tabs" : "Expand tabs"}
+                >
+                  <HamburgerIcon />
+                </button>
+              </div>
+              {tabBarOpen && (
+                <div className={`flex gap-1 p-1 rounded-xl border ${isLight ? "border-slate-200 bg-slate-100/80" : "border-white/10 bg-slate-900/60"}`}>
+                  {tabs.map(({ key, label }) => (
+                    <button
+                      key={key}
+                      onClick={() => setCryptoSubTab(key)}
+                      className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                        cryptoSubTab === key
+                          ? "bg-blue-600 text-white shadow-sm"
+                          : isLight ? "text-slate-600 hover:bg-slate-200" : "text-white/65 hover:bg-white/10"
+                      }`}
+                    >{label}</button>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* METALS SUB-TABS */}
+        {assetMode === "metals" && !isNarrativeMode && (() => {
+          const tabs = [
+            { key: "overview", label: "Overview" },
+            { key: "news",     label: "News" },
+          ];
+          const activeLabel = tabs.find(t => t.key === metalSubTab)?.label || "Overview";
+          const HamburgerIcon = () => (
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" className="shrink-0">
+              <rect y="2" width="16" height="2" rx="1"/><rect y="7" width="16" height="2" rx="1"/><rect y="12" width="16" height="2" rx="1"/>
+            </svg>
+          );
+          return (
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-1.5 px-0.5">
+                {!tabBarOpen ? (
+                  <button
+                    onClick={() => setTabBarOpen(true)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${isLight ? "border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200" : "border-white/10 bg-slate-800/60 text-white/80 hover:bg-white/10"}`}
+                  >
+                    <HamburgerIcon />
+                    {activeLabel}
+                    <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" className="shrink-0"><path d="M2 4l4 4 4-4"/></svg>
+                  </button>
+                ) : <div />}
+                <button
+                  onClick={() => setTabBarOpen(o => !o)}
+                  className={`p-1.5 rounded-lg transition-colors ${isLight ? "text-slate-400 hover:bg-slate-200 hover:text-slate-600" : "text-white/35 hover:bg-white/10 hover:text-white/65"}`}
+                  title={tabBarOpen ? "Collapse tabs" : "Expand tabs"}
+                >
+                  <HamburgerIcon />
+                </button>
+              </div>
+              {tabBarOpen && (
+                <div className={`flex gap-1 p-1 rounded-xl border ${isLight ? "border-slate-200 bg-slate-100/80" : "border-white/10 bg-slate-900/60"}`}>
+                  {tabs.map(({ key, label }) => (
+                    <button
+                      key={key}
+                      onClick={() => setMetalSubTab(key)}
+                      className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                        metalSubTab === key
+                          ? "bg-amber-500 text-white shadow-sm"
+                          : isLight ? "text-slate-600 hover:bg-slate-200" : "text-white/65 hover:bg-white/10"
+                      }`}
+                    >{label}</button>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         {/* MARKET OVERVIEW */}
-        {!isNarrativeMode && (
+        {!isNarrativeMode && (assetMode !== "stock" || stockSubTab === "overview") && (assetMode !== "crypto" || cryptoSubTab === "overview") && (assetMode !== "metals" || metalSubTab === "overview") && (
         <div className="mb-6">
           <Card
             title={isFxMode ? "FX Market Overview" : "Market Overview"}
@@ -5223,37 +5497,90 @@ export default function Home() {
                         ? "#22c55e"
                         : "#ef4444";
 
+                  // ── Metals tile (completely redesigned) ────────────────────
+                  if (isMetalsMode) {
+                    const isUp = fmt(o.percent) != null && o.percent >= 0;
+                    const isDown = fmt(o.percent) != null && o.percent < 0;
+                    return (
+                      <button
+                        type="button"
+                        key={`${o.symbol}-${idx}`}
+                        onClick={() => handleQuickSelect(o.symbol)}
+                        title={`Open ${o.symbol}`}
+                        className={`w-full p-4 rounded-xl text-left transition-all duration-200 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-amber-500/40 border ${
+                          isUp
+                            ? isLight
+                              ? "bg-amber-50 border-amber-200/80"
+                              : "bg-amber-500/8 border-amber-400/25"
+                            : isDown
+                              ? isLight
+                                ? "bg-rose-50 border-rose-200/70"
+                                : "bg-rose-500/8 border-rose-400/20"
+                              : isLight
+                                ? "bg-slate-50 border-slate-200"
+                                : "bg-white/5 border-white/10"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <div className={`text-base font-bold leading-tight ${isLight ? "text-slate-800" : "text-white"}`}>
+                              {o.name || metalNameBySymbol[o.symbol] || o.symbol}
+                            </div>
+                            <div className={`text-[11px] font-medium mt-0.5 ${isLight ? "text-slate-400" : "text-white/40"}`}>{o.symbol}</div>
+                          </div>
+                          {fmt(o.percent) != null && (
+                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                              isUp
+                                ? isLight ? "bg-emerald-100 text-emerald-700" : "bg-green-500/20 text-green-400"
+                                : isLight ? "bg-rose-100 text-rose-700" : "bg-red-500/20 text-red-400"
+                            }`}>
+                              {isUp ? "+" : ""}{Number(o.percent).toFixed(2)}%
+                            </span>
+                          )}
+                        </div>
+                        <div className={`text-2xl font-bold mb-3 ${isLight ? "text-slate-900" : "text-white"}`}>
+                          {fmt(o.price) != null ? `$${Number(o.price).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
+                        </div>
+                        <div className="h-[34px] w-full">
+                          {sparkPoints ? (
+                            <svg width="100%" height="34" viewBox="0 0 60 30" preserveAspectRatio="none" aria-hidden="true">
+                              <polyline fill="none" stroke={sparkStroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" points={sparkPoints} />
+                            </svg>
+                          ) : (
+                            <div className={`h-[34px] w-full rounded animate-pulse ${isLight ? "bg-slate-200/60" : "bg-white/8"}`} />
+                          )}
+                        </div>
+                      </button>
+                    );
+                  }
+
+                  // ── Stocks / Crypto / FX tile (unchanged) ──────────────────
                   return (
                     <button
                       type="button"
                       key={`${o.symbol}-${idx}`}
                       onClick={() => handleQuickSelect(o.symbol)}
                       title={`Open ${o.symbol}`}
-                      className={`${isMetalsMode ? "w-full min-h-[180px] md:min-h-[200px] p-5" : isFxMode ? "w-36 p-3" : "w-28 p-3"} shrink-0 rounded-xl text-left transition-all duration-200 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-blue-500/40 ${
+                      className={`${isFxMode ? "w-36 p-3" : "w-28 p-3"} shrink-0 rounded-xl text-left transition-all duration-200 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-blue-500/40 ${
                       isLight
                         ? "bg-white/92 border border-sky-200/70 shadow-[0_10px_22px_-18px_rgba(56,189,248,0.35)]"
                         : "bg-slate-900/70 border border-white/10 shadow-[0_6px_20px_-16px_rgba(14,165,233,0.7)]"
                     }`}>
-                    <div className={`${isMetalsMode ? "text-3xl" : isFxMode ? "text-lg" : "text-sm"} font-semibold leading-tight`}>{isMetalsMode ? (o.name || metalNameBySymbol[o.symbol] || o.symbol) : o.symbol}</div>
-                    {isMetalsMode && (
-                      <div className={`text-base mt-1 ${isLight ? "text-slate-500" : "text-slate-400"}`}>{o.symbol}</div>
-                    )}
+                    <div className={`${isFxMode ? "text-lg" : "text-sm"} font-semibold leading-tight`}>{o.symbol}</div>
                     {isFxMode && (
                       <div className={`text-[11px] mt-1 ${isLight ? "text-slate-500" : "text-slate-400"}`}>{o.name || ""}</div>
                     )}
-                    <div className={`${isMetalsMode ? "text-2xl mt-5" : isFxMode ? "text-sm mt-2" : "text-xs"} ${isLight ? "text-slate-700" : "text-slate-300/85"}`}>
+                    <div className={`${isFxMode ? "text-sm mt-2" : "text-xs"} ${isLight ? "text-slate-700" : "text-slate-300/85"}`}>
                       {fmt(o.price) != null ? `${isFxMode ? Number(o.price).toFixed(4) : `$${Number(o.price).toFixed(2)}`}` : "—"}
                     </div>
-                    {!isMetalsMode && (
-                      <div
-                        className={`${isFxMode ? "text-xs" : "text-xs"} ${
-                          fmt(o.percent) == null ? (isLight ? "text-slate-500" : "text-slate-400") : o.percent >= 0 ? (isLight ? "text-emerald-600" : "text-green-300") : (isLight ? "text-rose-600" : "text-red-300")
-                        }`}
-                      >
-                        {fmt(o.percent) != null ? `${o.percent >= 0 ? "+" : ""}${Number(o.percent).toFixed(2)}%` : (isFxMode ? "Live FX" : "—")}
-                      </div>
-                    )}
-                    {assetMode === "stock" && !isMetalsMode && !isFxMode && (
+                    <div
+                      className={`text-xs ${
+                        fmt(o.percent) == null ? (isLight ? "text-slate-500" : "text-slate-400") : o.percent >= 0 ? (isLight ? "text-emerald-600" : "text-green-300") : (isLight ? "text-rose-600" : "text-red-300")
+                      }`}
+                    >
+                      {fmt(o.percent) != null ? `${o.percent >= 0 ? "+" : ""}${Number(o.percent).toFixed(2)}%` : (isFxMode ? "Live FX" : "—")}
+                    </div>
+                    {assetMode === "stock" && !isFxMode && (
                       <div className="mt-2 h-[30px] w-[60px]">
                         {sparkPoints ? (
                           <svg
@@ -5292,53 +5619,92 @@ export default function Home() {
 
         {isFxMode && !isNarrativeMode && (
           <div className="mb-6">
-            <Card
-              title={tx("Exchange Rate Converter")}
-              right={
-                <button
-                  onClick={convertFx}
-                  disabled={fxLoading}
-                  className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs disabled:opacity-50"
-                >
-                  {fxLoading ? tx("Converting...") : tx("Convert")}
-                </button>
-              }
-            >
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                <input
-                  value={fxAmount}
-                  onChange={(e) => setFxAmount(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && convertFx()}
-                  placeholder="Amount (ex: 1)"
-                  className="px-4 py-3 rounded-xl bg-white text-black border-2 border-white/20 outline-none"
-                />
-                <input
-                  value={fxFrom}
-                  onChange={(e) => setFxFrom(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && convertFx()}
-                  placeholder="From (USD or India)"
-                  list="fx-currency-options"
-                  className="px-4 py-3 rounded-xl bg-white text-black border-2 border-white/20 outline-none"
-                />
-                <input
-                  value={fxTo}
-                  onChange={(e) => setFxTo(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && convertFx()}
-                  placeholder="To (INR or Japan)"
-                  list="fx-currency-options"
-                  className="px-4 py-3 rounded-xl bg-white text-black border-2 border-white/20 outline-none"
-                />
-                <button
-                  onClick={() => {
-                    const a = fxFrom;
-                    setFxFrom(fxTo);
-                    setFxTo(a);
-                  }}
-                  className="px-4 py-3 rounded-xl bg-white/10 hover:bg-white/15 text-sm"
-                >
-                  Swap
-                </button>
+            <Card title={tx("Currency Converter")}>
+              {/* Quick pair presets */}
+              <div className="flex flex-wrap gap-2 mb-5">
+                {[["EUR","USD"],["GBP","USD"],["USD","JPY"],["USD","INR"],["USD","CNY"],["USD","AED"],["AUD","USD"],["USD","CAD"],["USD","MXN"],["CHF","USD"]].map(([f, t]) => (
+                  <button
+                    key={`${f}${t}`}
+                    onClick={() => { setFxFrom(f); setFxTo(t); setTimeout(() => convertFx(), 0); }}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors ${
+                      fxFrom === f && fxTo === t
+                        ? "bg-blue-600 text-white border-blue-600"
+                        : isLight
+                          ? "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100"
+                          : "border-white/10 bg-white/5 text-white/60 hover:bg-white/10"
+                    }`}
+                  >
+                    {f}/{t}
+                  </button>
+                ))}
               </div>
+
+              {/* Main converter row */}
+              <div className="flex items-stretch gap-3">
+                {/* FROM */}
+                <div className={`flex-1 rounded-xl border p-4 ${isLight ? "border-slate-200 bg-slate-50" : "border-white/10 bg-white/5"}`}>
+                  <div className={`text-[11px] uppercase tracking-wide mb-2 ${isLight ? "text-slate-500" : "text-white/45"}`}>From</div>
+                  <input
+                    value={fxAmount}
+                    onChange={(e) => setFxAmount(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && convertFx()}
+                    type="number"
+                    min="0"
+                    placeholder="1"
+                    className={`w-full text-3xl font-bold bg-transparent outline-none mb-3 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${isLight ? "text-slate-900 placeholder:text-slate-300" : "text-white placeholder:text-white/20"}`}
+                  />
+                  <div className={`border-t pt-2 ${isLight ? "border-slate-200" : "border-white/10"}`}>
+                    <input
+                      value={fxFrom}
+                      onChange={(e) => setFxFrom(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && convertFx()}
+                      list="fx-currency-options"
+                      placeholder="USD"
+                      className={`w-full text-sm font-bold bg-transparent outline-none uppercase ${isLight ? "text-slate-700 placeholder:text-slate-400" : "text-white/80 placeholder:text-white/30"}`}
+                    />
+                    <div className={`text-[10px] mt-0.5 ${isLight ? "text-slate-400" : "text-white/30"}`}>
+                      {FX_CURRENCY_OPTIONS.find(c => c.code === fxFrom.toUpperCase())?.name || "currency code or country"}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Swap */}
+                <div className="flex items-center self-center">
+                  <button
+                    onClick={() => { const a = fxFrom; setFxFrom(fxTo); setFxTo(a); }}
+                    className={`w-9 h-9 rounded-full flex items-center justify-center border text-base transition-colors ${isLight ? "border-slate-200 bg-white hover:bg-slate-50 text-slate-600" : "border-white/10 bg-white/5 hover:bg-white/10 text-white/70"}`}
+                  >
+                    ⇄
+                  </button>
+                </div>
+
+                {/* TO */}
+                <div className={`flex-1 rounded-xl border p-4 ${isLight ? "border-blue-200 bg-blue-50" : "border-blue-500/20 bg-blue-500/8"}`}>
+                  <div className={`text-[11px] uppercase tracking-wide mb-2 ${isLight ? "text-slate-500" : "text-white/45"}`}>To</div>
+                  <div className={`text-3xl font-bold mb-3 leading-none ${isLight ? "text-slate-900" : "text-white"}`}>
+                    {fxLoading
+                      ? <span className={`animate-pulse text-xl ${isLight ? "text-slate-400" : "text-white/40"}`}>Converting…</span>
+                      : fxResult
+                        ? Number(fxResult.converted).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 })
+                        : <span className={isLight ? "text-slate-300" : "text-white/20"}>—</span>
+                    }
+                  </div>
+                  <div className={`border-t pt-2 ${isLight ? "border-blue-200" : "border-blue-500/20"}`}>
+                    <input
+                      value={fxTo}
+                      onChange={(e) => setFxTo(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && convertFx()}
+                      list="fx-currency-options"
+                      placeholder="INR"
+                      className={`w-full text-sm font-bold bg-transparent outline-none uppercase ${isLight ? "text-slate-700 placeholder:text-slate-400" : "text-white/80 placeholder:text-white/30"}`}
+                    />
+                    <div className={`text-[10px] mt-0.5 ${isLight ? "text-slate-400" : "text-white/30"}`}>
+                      {FX_CURRENCY_OPTIONS.find(c => c.code === fxTo.toUpperCase())?.name || "currency code or country"}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <datalist id="fx-currency-options">
                 {FX_CURRENCY_OPTIONS.map((c) => (
                   <option key={c.code} value={c.code} label={`${c.name} (${c.code})`} />
@@ -5348,48 +5714,41 @@ export default function Home() {
                 ))}
               </datalist>
 
-              <div className="mt-2 text-xs text-white/60">
-                Tip: use code (`INR`) or country/currency name (`India`, `Japanese Yen`, `UK`).
+              {/* Footer: rate + convert button */}
+              <div className={`flex items-center justify-between mt-4 pt-4 border-t ${isLight ? "border-slate-100" : "border-white/8"}`}>
+                <div className={`text-sm ${isLight ? "text-slate-500" : "text-white/50"}`}>
+                  {fxResult
+                    ? <>1 {fxResult.from} = <strong className={isLight ? "text-slate-700" : "text-white/85"}>{Number(fxResult.rate).toFixed(6)}</strong> {fxResult.to}</>
+                    : <span className={isLight ? "text-slate-400" : "text-white/30"}>Enter amount and press Convert</span>
+                  }
+                  {fxResult?.asOf && (
+                    <span className={`ml-2 text-[11px] ${isLight ? "text-slate-400" : "text-white/30"}`}>· {fxResult.asOf}</span>
+                  )}
+                </div>
+                <button
+                  onClick={convertFx}
+                  disabled={fxLoading}
+                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold disabled:opacity-50 transition-colors"
+                >
+                  {fxLoading ? tx("Converting...") : tx("Convert")}
+                </button>
               </div>
-              <SummaryPanel
-                label={tx("Search Summary")}
-                text={fxSearchSummary || tx("No FX summary yet. Convert a pair to see the plain-language summary.")}
-                isLight={isLight}
-                className="mt-3"
-              />
 
               {fxError && (
-                <div className="mt-3 rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                <div className={`mt-3 rounded-lg border px-3 py-2 text-xs ${isLight ? "border-red-200 bg-red-50 text-red-600" : "border-red-400/30 bg-red-500/10 text-red-300"}`}>
                   {fxError}
                 </div>
               )}
 
-              {fxResult && (
-                <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="rounded-lg border border-white/10 bg-white/5 p-3">
-                    <div className="text-xs text-white/60 mb-1">Rate</div>
-                    <div className="text-lg font-semibold">
-                      1 {fxResult.from} = {Number(fxResult.rate).toFixed(6)} {fxResult.to}
-                    </div>
-                  </div>
-                  <div className="rounded-lg border border-white/10 bg-white/5 p-3">
-                    <div className="text-xs text-white/60 mb-1">Converted</div>
-                    <div className="text-lg font-semibold">
-                      {Number(fxResult.amount).toFixed(2)} {fxResult.from} = {Number(fxResult.converted).toFixed(4)} {fxResult.to}
-                    </div>
-                  </div>
-                  <div className="rounded-lg border border-white/10 bg-white/5 p-3">
-                    <div className="text-xs text-white/60 mb-1">As Of</div>
-                    <div className="text-lg font-semibold">{fxResult.asOf || "—"}</div>
-                  </div>
-                </div>
-              )}
+              <div className={`mt-2 text-[11px] ${isLight ? "text-slate-400" : "text-white/30"}`}>
+                Tip: type a currency code (INR) or country name (India, Japan, UK).
+              </div>
             </Card>
           </div>
         )}
 
         {/* MOVERS + MARKET NEWS */}
-        {!isFxMode && !isNarrativeMode && (
+        {!isFxMode && !isNarrativeMode && (assetMode !== "stock" || stockSubTab === "overview") && (
         <div className={`grid grid-cols-1 ${isMetalsMode ? "" : "lg:grid-cols-2"} gap-6 mb-6`}>
           {!isMetalsMode && (
             <Card
@@ -5481,8 +5840,9 @@ export default function Home() {
         )}
 
         {/* DAILY PICK + SEARCH ROW */}
-        {!isFxMode && !isNarrativeMode && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {!isFxMode && !isNarrativeMode && (assetMode !== "stock" || stockSubTab === "overview" || stockSubTab === "compare") && (assetMode !== "crypto" || cryptoSubTab === "overview" || cryptoSubTab === "compare") && (assetMode !== "metals" || metalSubTab === "overview") && (
+        <div className={`grid grid-cols-1 ${assetMode !== "stock" ? "lg:grid-cols-2" : ""} gap-6 mb-6`}>
+          {(assetMode !== "stock" || stockSubTab === "overview") && (assetMode !== "crypto" || cryptoSubTab === "overview") && (assetMode !== "metals" || metalSubTab === "overview") && (
           <div className="space-y-6">
           <Card
             title={tx("ASTRA Today Pick")}
@@ -5783,7 +6143,9 @@ export default function Home() {
             </Card>
           )}
           </div>
+          )}
 
+          {(assetMode !== "stock" || stockSubTab === "compare") && (assetMode !== "crypto" || cryptoSubTab === "compare") && (assetMode !== "metals" || metalSubTab === "compare") && (
           <Card
             title={`Multi-${assetMode === "crypto" ? "Crypto" : assetMode === "metals" ? "Metals" : "Stock"} Comparison`}
             right={
@@ -5796,6 +6158,21 @@ export default function Home() {
               </button>
             }
           >
+            {usingTicker && !compareInput.toUpperCase().split(",").map(s=>s.trim()).includes(usingTicker) && (
+              <div className={`mb-2 flex items-center gap-2 text-xs ${isLight ? "text-slate-500" : "text-white/50"}`}>
+                <span>Currently viewing: <strong className={isLight ? "text-slate-700" : "text-white/80"}>{usingTicker}</strong></span>
+                <button
+                  onClick={() => setCompareInput(prev => {
+                    const syms = prev.split(",").map(s=>s.trim()).filter(Boolean);
+                    if (!syms.includes(usingTicker)) syms.unshift(usingTicker);
+                    return syms.slice(0,6).join(",");
+                  })}
+                  className={`px-2 py-0.5 rounded-md border text-[11px] font-medium ${isLight ? "border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100" : "border-blue-400/30 bg-blue-500/15 text-blue-300 hover:bg-blue-500/25"}`}
+                >
+                  + Add to comparison
+                </button>
+              </div>
+            )}
             <div className="flex gap-2 mb-3">
               <input
                 value={compareInput}
@@ -5894,6 +6271,7 @@ export default function Home() {
               </table>
             </div>
           </Card>
+          )}
         </div>
         )}
 
@@ -6011,7 +6389,7 @@ export default function Home() {
         )}
 
         {/* SEARCH */}
-        {!isFxMode && !isNarrativeMode && (
+        {!isFxMode && !isNarrativeMode && (assetMode !== "stock" || stockSubTab !== "compare") && (
         <div className="mb-6">
           <Card
             title={tx("Search")}
@@ -7147,7 +7525,7 @@ export default function Home() {
         )}
 
         {/* COMPANY */}
-        {!isNarrativeMode && company?.name && (
+        {!isNarrativeMode && company?.name && (assetMode !== "stock" || stockSubTab === "overview") && (assetMode !== "crypto" || cryptoSubTab === "overview") && (assetMode !== "metals" || metalSubTab === "overview") && (
           <div className="mb-6">
             <Card title={assetMode === "stock" ? "Company" : "Market Asset"}>
               <div className="flex items-center gap-3">
@@ -7191,7 +7569,7 @@ export default function Home() {
           </div>
         )}
 
-        {assetMode === "stock" && !isNarrativeMode && sectorInfo && (
+        {assetMode === "stock" && !isNarrativeMode && sectorInfo && stockSubTab === "overview" && (
           <div className="mb-6">
             <Card title="Sector Analysis">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
@@ -7217,7 +7595,7 @@ export default function Home() {
         )}
 
         {/* QUOTE + CHART */}
-        {!isNarrativeMode && (result || chartLoading || (chartPoints?.length > 0)) && (
+        {!isNarrativeMode && (result || chartLoading || (chartPoints?.length > 0)) && (assetMode !== "stock" || stockSubTab === "overview") && (assetMode !== "crypto" || cryptoSubTab === "overview") && (assetMode !== "metals" || metalSubTab === "overview") && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             {result && (
               <Card
@@ -7263,12 +7641,16 @@ export default function Home() {
               <Card
                 title={`${assetMode === "crypto" ? "Crypto" : assetMode === "metals" ? "Metals" : "Stock"} Chart`}
                 right={
-                  <div className="inline-flex rounded-lg overflow-hidden border border-white/10">
-                    {["1D", "1W", "1M", "1Y"].map((r) => (
+                  <div className={`inline-flex gap-0.5 rounded-lg p-0.5 ${isLight ? "bg-slate-100 border border-slate-200" : "bg-white/5 border border-white/10"}`}>
+                    {["1D", "1W", "1M", "3M", "1Y"].map((r) => (
                       <button
                         key={r}
                         onClick={() => setChartRange(r)}
-                        className={`px-2 py-1 text-[11px] ${chartRange === r ? "bg-blue-600 text-white" : "bg-white/5 text-white/80"}`}
+                        className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+                          chartRange === r
+                            ? "bg-blue-600 text-white shadow-sm"
+                            : isLight ? "text-slate-500 hover:text-slate-800" : "text-white/55 hover:text-white/90"
+                        }`}
                       >
                         {r}
                       </button>
@@ -7282,7 +7664,7 @@ export default function Home() {
                   <>
                     {chartPoints?.length > 0 ? (
                       <>
-                        <canvas ref={chartRef} className="w-full h-[180px] rounded-xl bg-black/30" />
+                        <canvas ref={chartRef} className={`w-full h-[240px] rounded-xl ${isLight ? "bg-slate-50/80" : "bg-black/20"}`} />
                         <div className="text-xs text-white/50 mt-2">
                           Data source: {assetMode === "stock" ? "Finnhub/Stooq" : assetMode === "metals" ? "Yahoo/Alpha Vantage" : "CoinGecko"} candles. Educational view.
                         </div>
@@ -7297,218 +7679,379 @@ export default function Home() {
           </div>
         )}
 
-        {assetMode === "crypto" && !isNarrativeMode && (result || company?.name) && (
-          <div className="mb-6">
-            <Card title="Crypto Investor Checklist">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
-                <div className={`rounded-xl border p-3 ${isLight ? "border-sky-200 bg-sky-50" : "border-sky-400/30 bg-sky-500/12"}`}>
-                  <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>Real-World Utility</div>
-                  <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>
-                    {company?.finnhubIndustry || "Digital Asset"}
-                  </div>
-                  <div className={`text-xs mt-1 ${isLight ? "text-slate-600" : "text-white/70"}`}>
-                    {company?.utilitySummary || "Check if this token solves a real user or business problem."}
-                  </div>
-                </div>
-                <div className={`rounded-xl border p-3 ${isLight ? "border-emerald-200 bg-emerald-50" : "border-emerald-400/30 bg-emerald-500/12"}`}>
-                  <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>Market Cap</div>
-                  <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>
-                    ${fmtLarge(fundamentals?.marketCap)}
-                  </div>
-                  <div className={`text-xs mt-1 ${isLight ? "text-slate-600" : "text-white/70"}`}>
-                    Size proxy: larger caps are usually less fragile than micro caps.
-                  </div>
-                </div>
-                <div className={`rounded-xl border p-3 ${isLight ? "border-violet-200 bg-violet-50" : "border-violet-400/30 bg-violet-500/12"}`}>
-                  <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>Liquidity (24h Volume)</div>
-                  <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>
-                    ${fmtLarge(latestVolume)}
-                  </div>
-                  <div className={`text-xs mt-1 ${isLight ? "text-slate-600" : "text-white/70"}`}>
-                    Volume / market cap: {fmt(volumeToMarketCapPct) != null ? `${volumeToMarketCapPct.toFixed(2)}%` : "—"}
-                  </div>
-                </div>
-              </div>
+        {assetMode === "crypto" && cryptoSubTab === "fundamentals" && !isNarrativeMode && (result || company?.name) && (
+          <div className="mb-6 space-y-4">
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
-                <div className={`rounded-xl border p-3 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
-                  <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>Trend Confirmation</div>
-                  <div className={`text-sm font-semibold ${trendDelta >= 0 ? (isLight ? "text-emerald-700" : "text-green-300") : (isLight ? "text-rose-700" : "text-red-300")}`}>
-                    {trendLabel} {chartPoints.length > 1 ? `(${trendDelta >= 0 ? "+" : ""}${trendPct.toFixed(2)}%)` : ""}
-                  </div>
-                  <div className={`text-xs mt-1 ${isLight ? "text-slate-600" : "text-white/70"}`}>
-                    Investors usually align entries with trend instead of fighting it.
+            {/* ── Row 1: Key Market Metrics ──────────────────────────────────── */}
+            <Card
+              title="Market Overview"
+              right={
+                fundamentals?.marketCapRank ? (
+                  <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${isLight ? "bg-amber-50 border-amber-200 text-amber-700" : "bg-amber-500/15 border-amber-400/30 text-amber-300"}`}>
+                    Rank #{fundamentals.marketCapRank}
+                  </span>
+                ) : null
+              }
+            >
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className={`rounded-xl border p-3 ${isLight ? "bg-slate-50 border-slate-200" : "bg-white/5 border-white/10"}`}>
+                  <div className={`text-[11px] uppercase tracking-wide mb-1.5 ${isLight ? "text-slate-500" : "text-white/45"}`}>Market Cap</div>
+                  <div className={`text-xl font-bold leading-none ${isLight ? "text-slate-900" : "text-white"}`}>${fmtLarge(fundamentals?.marketCap)}</div>
+                  <div className={`text-[11px] mt-1.5 ${isLight ? "text-slate-400" : "text-white/40"}`}>{company?.finnhubIndustry || "Digital Asset"}</div>
+                </div>
+                <div className={`rounded-xl border p-3 ${isLight ? "bg-slate-50 border-slate-200" : "bg-white/5 border-white/10"}`}>
+                  <div className={`text-[11px] uppercase tracking-wide mb-1.5 ${isLight ? "text-slate-500" : "text-white/45"}`}>24h Volume</div>
+                  <div className={`text-xl font-bold leading-none ${isLight ? "text-slate-900" : "text-white"}`}>${fmtLarge(latestVolume)}</div>
+                  <div className={`text-[11px] mt-1.5 ${
+                    fmt(volumeToMarketCapPct) != null && volumeToMarketCapPct > 10
+                      ? (isLight ? "text-emerald-600" : "text-green-400")
+                      : fmt(volumeToMarketCapPct) != null && volumeToMarketCapPct < 2
+                      ? (isLight ? "text-amber-600" : "text-amber-400")
+                      : (isLight ? "text-slate-400" : "text-white/40")
+                  }`}>
+                    {fmt(volumeToMarketCapPct) != null ? `${volumeToMarketCapPct.toFixed(2)}% of MCap` : "Vol/MCap: —"}
                   </div>
                 </div>
-                <div className={`rounded-xl border p-3 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
-                  <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>Volatility Check</div>
-                  <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>
-                    Intraday range: {fmt(intradayRangePct) != null ? `${intradayRangePct.toFixed(2)}%` : "—"}
-                  </div>
-                  <div className={`text-xs mt-1 ${isLight ? "text-slate-600" : "text-white/70"}`}>
-                    Wider ranges generally mean bigger risk and wider stop sizing.
-                  </div>
-                </div>
-                <div className={`rounded-xl border p-3 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
-                  <div className={`text-[11px] uppercase tracking-wide ${isLight ? "text-slate-600" : "text-white/65"}`}>News & Sentiment</div>
-                  <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>
-                    {news.length} recent headline{news.length === 1 ? "" : "s"}
-                  </div>
-                  <div className={`text-xs mt-1 ${isLight ? "text-slate-600" : "text-white/70"}`}>
-                    Momentum can change quickly around exchange, regulation, or ETF headlines.
+                <div className={`rounded-xl border p-3 ${isLight ? "bg-slate-50 border-slate-200" : "bg-white/5 border-white/10"}`}>
+                  <div className={`text-[11px] uppercase tracking-wide mb-1.5 ${isLight ? "text-slate-500" : "text-white/45"}`}>Fully Diluted Val.</div>
+                  <div className={`text-xl font-bold leading-none ${isLight ? "text-slate-900" : "text-white"}`}>${fmtLarge(fundamentals?.fdv)}</div>
+                  <div className={`text-[11px] mt-1.5 ${
+                    fmt(fdvToMarketCapRatio) != null && fdvToMarketCapRatio > 1.5
+                      ? (isLight ? "text-amber-600" : "text-amber-400")
+                      : (isLight ? "text-slate-400" : "text-white/40")
+                  }`}>
+                    {fmt(fdvToMarketCapRatio) != null ? `FDV/MCap: ${fdvToMarketCapRatio.toFixed(2)}×` : "FDV/MCap: —"}
                   </div>
                 </div>
-              </div>
-
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className={`rounded-xl border p-3 ${isLight ? "border-cyan-200 bg-cyan-50" : "border-cyan-400/30 bg-cyan-500/12"}`}>
-                  <div className={`text-xs font-semibold mb-2 ${isLight ? "text-slate-700" : "text-white/85"}`}>1) On-Chain Usage (Available Proxies)</div>
-                  <div className={`space-y-1 text-sm ${isLight ? "text-slate-700" : "text-white/75"}`}>
-                    <div>24h Volume: ${fmtLarge(latestVolume)}</div>
-                    <div>Volume / Market Cap: {fmt(volumeToMarketCapPct) != null ? `${volumeToMarketCapPct.toFixed(2)}%` : "—"}</div>
-                    <div>Community Reach: {fmtLarge(fundamentals?.twitterFollowers)} X • {fmtLarge(fundamentals?.redditSubscribers)} Reddit</div>
-                    <div className={`${isLight ? "text-slate-600" : "text-white/60"}`}>Note: active addresses / TVL not in current feed yet.</div>
-                    <div className={`${isLight ? "text-slate-600" : "text-white/60"}`}>Why this matters: higher real usage and liquidity usually means better durability and easier execution.</div>
+                <div className={`rounded-xl border p-3 ${isLight ? "bg-slate-50 border-slate-200" : "bg-white/5 border-white/10"}`}>
+                  <div className={`text-[11px] uppercase tracking-wide mb-1.5 ${isLight ? "text-slate-500" : "text-white/45"}`}>Trend ({chartRange})</div>
+                  <div className={`text-xl font-bold leading-none ${trendDelta >= 0 ? (isLight ? "text-emerald-700" : "text-green-400") : (isLight ? "text-rose-700" : "text-red-400")}`}>
+                    {trendLabel}
                   </div>
-                </div>
-
-                <div className={`rounded-xl border p-3 ${isLight ? "border-indigo-200 bg-indigo-50" : "border-indigo-400/30 bg-indigo-500/12"}`}>
-                  <div className={`text-xs font-semibold mb-2 ${isLight ? "text-slate-700" : "text-white/85"}`}>2) Tokenomics & Supply Pressure</div>
-                  <div className={`space-y-1 text-sm ${isLight ? "text-slate-700" : "text-white/75"}`}>
-                    <div>Circulating Supply: {fmtLarge(fundamentals?.circulatingSupply)}</div>
-                    <div>Max Supply: {fmtLarge(fundamentals?.maxSupply)}</div>
-                    <div>Circulating / Max: {fmt(circulatingToMaxPct) != null ? `${circulatingToMaxPct.toFixed(2)}%` : "—"}</div>
-                    <div>FDV: ${fmtLarge(fundamentals?.fdv)} • FDV/MCap: {fmt(fdvToMarketCapRatio) != null ? `${fdvToMarketCapRatio.toFixed(2)}x` : "—"}</div>
-                    <div className={`${isLight ? "text-slate-600" : "text-white/60"}`}>Why this matters: future token unlock pressure can dilute holders and cap upside.</div>
-                  </div>
-                </div>
-
-                <div className={`rounded-xl border p-3 ${isLight ? "border-rose-200 bg-rose-50" : "border-rose-400/30 bg-rose-500/12"}`}>
-                  <div className={`text-xs font-semibold mb-2 ${isLight ? "text-slate-700" : "text-white/85"}`}>3) Holder Concentration Risk</div>
-                  <div className={`space-y-1 text-sm ${isLight ? "text-slate-700" : "text-white/75"}`}>
-                    <div>Top wallet concentration: Not connected</div>
-                    <div>Exchange wallet concentration: Not connected</div>
-                    <div>Whale transfer alerts: Not connected</div>
-                    <div className={`${isLight ? "text-slate-600" : "text-white/60"}`}>Can be added via on-chain provider integration.</div>
-                    <div className={`${isLight ? "text-slate-600" : "text-white/60"}`}>Why this matters: high concentration increases dump/manipulation risk.</div>
-                  </div>
-                </div>
-
-                <div className={`rounded-xl border p-3 ${isLight ? "border-emerald-200 bg-emerald-50" : "border-emerald-400/30 bg-emerald-500/12"}`}>
-                  <div className={`text-xs font-semibold mb-2 ${isLight ? "text-slate-700" : "text-white/85"}`}>4) Security & Governance Risk</div>
-                  <div className={`space-y-1 text-sm ${isLight ? "text-slate-700" : "text-white/75"}`}>
-                    <div>Developer Score: {fmt(fundamentals?.developerScore) != null ? Number(fundamentals.developerScore).toFixed(2) : "—"}</div>
-                    <div>Liquidity Score: {fmt(fundamentals?.liquidityScore) != null ? Number(fundamentals.liquidityScore).toFixed(2) : "—"}</div>
-                    <div>Sentiment Upvotes: {fmt(fundamentals?.sentimentUpVotesPct) != null ? `${Number(fundamentals.sentimentUpVotesPct).toFixed(1)}%` : "—"}</div>
-                    <div>Public Interest Score: {fmt(fundamentals?.publicInterestScore) != null ? Number(fundamentals.publicInterestScore).toFixed(2) : "—"}</div>
-                    <div className={`${isLight ? "text-slate-600" : "text-white/60"}`}>Why this matters: stronger security/developer signals can reduce protocol failure risk.</div>
-                  </div>
-                </div>
-
-                <div className={`rounded-xl border p-3 ${isLight ? "border-amber-200 bg-amber-50" : "border-amber-400/30 bg-amber-500/12"}`}>
-                  <div className={`text-xs font-semibold mb-2 ${isLight ? "text-slate-700" : "text-white/85"}`}>5) Revenue Quality / Project Health</div>
-                  <div className={`space-y-1 text-sm ${isLight ? "text-slate-700" : "text-white/75"}`}>
-                    <div>GitHub Stars: {fmtLarge(fundamentals?.githubStars)} • Forks: {fmtLarge(fundamentals?.githubForks)}</div>
-                    <div>Commits (4w): {fmtLarge(fundamentals?.githubCommits4w)}</div>
-                    <div>Issue Close Rate: {fmt(issueCloseRatePct) != null ? `${issueCloseRatePct.toFixed(1)}%` : "—"}</div>
-                    {fundamentals?.githubRepo ? (
-                      <a href={fundamentals.githubRepo} target="_blank" rel="noreferrer" className={`${isLight ? "text-blue-700" : "text-blue-300"} underline`}>
-                        View primary GitHub repo
-                      </a>
-                    ) : (
-                      <div>GitHub repo: —</div>
-                    )}
-                    <div className={`${isLight ? "text-slate-600" : "text-white/60"}`}>Why this matters: active and responsive development often supports long-term project quality.</div>
-                  </div>
-                </div>
-
-                <div className={`rounded-xl border p-3 ${isLight ? "border-violet-200 bg-violet-50" : "border-violet-400/30 bg-violet-500/12"}`}>
-                  <div className={`text-xs font-semibold mb-2 ${isLight ? "text-slate-700" : "text-white/85"}`}>6) Catalyst & Event Tracker</div>
-                  <div className={`space-y-1 text-sm ${isLight ? "text-slate-700" : "text-white/75"}`}>
-                    {news.length > 0 ? (
-                      news.slice(0, 3).map((n, idx) => (
-                        <div key={`cat-${idx}`} className="truncate">• {n.headline}</div>
-                      ))
-                    ) : (
-                      <div>No near-term catalyst headlines loaded.</div>
-                    )}
-                    <div className={`${isLight ? "text-slate-600" : "text-white/60"}`}>Track upgrades, ETF decisions, listings, and unlock calendars.</div>
-                    <div className={`${isLight ? "text-slate-600" : "text-white/60"}`}>Why this matters: catalysts can quickly reprice crypto up or down.</div>
-                  </div>
-                </div>
-
-                <div className={`rounded-xl border p-3 md:col-span-2 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
-                  <div className={`text-xs font-semibold mb-2 ${isLight ? "text-slate-700" : "text-white/85"}`}>7) Relative Valuation Comps</div>
-                  <div className={`grid grid-cols-1 md:grid-cols-3 gap-3 text-sm ${isLight ? "text-slate-700" : "text-white/75"}`}>
-                    <div className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-slate-50" : "border-white/10 bg-black/20"}`}>
-                      <div className={`${isLight ? "text-slate-500" : "text-white/60"} text-xs mb-1`}>Market Cap Rank</div>
-                      <div className="font-semibold">#{fmtLarge(fundamentals?.marketCapRank)}</div>
-                    </div>
-                    <div className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-slate-50" : "border-white/10 bg-black/20"}`}>
-                      <div className={`${isLight ? "text-slate-500" : "text-white/60"} text-xs mb-1`}>Distance from ATH</div>
-                      <div className="font-semibold">{fmt(fundamentals?.athChangePct) != null ? `${Number(fundamentals.athChangePct).toFixed(2)}%` : "—"}</div>
-                    </div>
-                    <div className={`rounded-lg border p-3 ${isLight ? "border-slate-200 bg-slate-50" : "border-white/10 bg-black/20"}`}>
-                      <div className={`${isLight ? "text-slate-500" : "text-white/60"} text-xs mb-1`}>Distance from ATL</div>
-                      <div className="font-semibold">{fmt(fundamentals?.atlChangePct) != null ? `${Number(fundamentals.atlChangePct).toFixed(2)}%` : "—"}</div>
-                    </div>
-                  </div>
-                  <div className={`mt-2 text-xs ${isLight ? "text-slate-600" : "text-white/60"}`}>Why this matters: relative valuation helps compare upside/downside versus other crypto assets.</div>
-                </div>
-
-                <div className={`rounded-xl border p-3 md:col-span-2 ${isLight ? "border-slate-300 bg-white" : "border-white/10 bg-white/5"}`}>
-                  <div className={`text-xs font-semibold mb-2 ${isLight ? "text-slate-700" : "text-white/85"}`}>ASTRA Investor Brief</div>
-                  <div className={`space-y-1.5 text-sm ${isLight ? "text-slate-700" : "text-white/75"}`}>
-                    <div>
-                      1) Start with utility: confirm this asset solves a real problem and has growing adoption.
-                    </div>
-                    <div>
-                      2) Check liquidity + tokenomics together: deep volume with manageable dilution risk is healthier.
-                    </div>
-                    <div>
-                      3) Use trend and volatility for position sizing: {trendLabel} with intraday range {fmt(intradayRangePct) != null ? `${intradayRangePct.toFixed(2)}%` : "—"}.
-                    </div>
-                    <div>
-                      4) Let catalysts and security signals adjust conviction before entering/exiting.
-                    </div>
-                  </div>
-                  <div className={`mt-3 mb-2 h-px ${isLight ? "bg-slate-200" : "bg-white/10"}`} />
-                  <div className={`text-[11px] font-semibold uppercase tracking-wide mb-2 ${isLight ? "text-slate-600" : "text-white/70"}`}>Data Guide (What Each Metric Means)</div>
-                  <div className={`grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 text-sm ${isLight ? "text-slate-700" : "text-white/75"}`}>
-                    <div><span className="font-semibold">24h Volume:</span> Dollar value traded in last 24h; higher generally means better liquidity.</div>
-                    <div><span className="font-semibold">Volume / Market Cap:</span> Trading activity relative to size; very low can mean weak participation.</div>
-                    <div><span className="font-semibold">Community Reach:</span> Social footprint (X/Reddit); useful for attention, not proof of fundamentals.</div>
-                    <div><span className="font-semibold">Circulating Supply:</span> Tokens currently in public market circulation.</div>
-                    <div><span className="font-semibold">Total Supply:</span> Existing minted supply (can be above circulating if some tokens are locked).</div>
-                    <div><span className="font-semibold">Max Supply:</span> Hard cap of tokens if defined by protocol.</div>
-                    <div><span className="font-semibold">Circulating / Max:</span> Percent already released; lower percent can imply more future dilution risk.</div>
-                    <div><span className="font-semibold">FDV:</span> Fully Diluted Valuation, market value if all max tokens were circulating.</div>
-                    <div><span className="font-semibold">FDV/MCap:</span> Dilution pressure signal; much above 1.0 can indicate future supply overhang.</div>
-                    <div><span className="font-semibold">ATH / ATL:</span> All-time high/low prices used to judge cycle position and downside memory.</div>
-                    <div><span className="font-semibold">Developer Score:</span> Composite dev activity indicator from data provider.</div>
-                    <div><span className="font-semibold">Community Score:</span> Composite social/community activity indicator from data provider.</div>
-                    <div><span className="font-semibold">Liquidity Score:</span> Market depth/quality proxy from data provider.</div>
-                    <div><span className="font-semibold">Coin Score:</span> Broad quality signal from provider (market + community + developer inputs).</div>
-                    <div><span className="font-semibold">Sentiment Upvotes:</span> Positive-vote share from crowd sentiment sources.</div>
-                    <div><span className="font-semibold">Public Interest Score:</span> Search/attention proxy; useful for momentum context.</div>
-                    <div><span className="font-semibold">GitHub Stars/Forks/Subscribers/Commits:</span> Open-source activity and ecosystem engagement proxies.</div>
-                    <div><span className="font-semibold">GitHub Repo:</span> Main public codebase link used for project activity validation.</div>
-                    <div><span className="font-semibold">Issue Close Rate:</span> Closed issues / total issues; shows maintenance responsiveness.</div>
-                    <div><span className="font-semibold">Market Cap Rank:</span> Relative size rank among all cryptocurrencies.</div>
-                    <div><span className="font-semibold">Distance from ATH/ATL:</span> Current position vs historical extremes; helps frame cycle risk/reward.</div>
-                  </div>
-                  <div className={`mt-3 text-xs ${isLight ? "text-slate-600" : "text-white/60"}`}>
-                    Quick read bands: Volume/MCap below 2% often weak, 2%-10% normal, above 10% strong activity.
-                    FDV/MCap near 1.0 is cleaner supply profile; above 1.5 can imply heavier future dilution.
-                    Circulating/Max above 70% generally lower unlock risk than early-stage low-circulation tokens.
+                  <div className={`text-[11px] mt-1.5 ${trendDelta >= 0 ? (isLight ? "text-emerald-600" : "text-green-400/70") : (isLight ? "text-rose-600" : "text-red-400/70")}`}>
+                    {chartPoints.length > 1 ? `${trendDelta >= 0 ? "+" : ""}${trendPct.toFixed(2)}%` : "—"}
                   </div>
                 </div>
               </div>
             </Card>
+
+            {/* ── Row 2: Price History + Supply & Tokenomics ─────────────────── */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card title="Price History">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className={`text-[11px] uppercase tracking-wide mb-0.5 ${isLight ? "text-slate-500" : "text-white/45"}`}>All-Time High</div>
+                      <div className={`text-base font-bold ${isLight ? "text-slate-800" : "text-white"}`}>${fmtLarge(fundamentals?.ath)}</div>
+                    </div>
+                    <span className={`text-sm font-semibold px-2.5 py-1 rounded-lg ${isLight ? "bg-rose-50 text-rose-700" : "bg-red-500/15 text-red-400"}`}>
+                      {fmt(fundamentals?.athChangePct) != null ? `${Number(fundamentals.athChangePct).toFixed(1)}%` : "—"}
+                    </span>
+                  </div>
+                  <div className={`h-px ${isLight ? "bg-slate-100" : "bg-white/8"}`} />
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className={`text-[11px] uppercase tracking-wide mb-0.5 ${isLight ? "text-slate-500" : "text-white/45"}`}>All-Time Low</div>
+                      <div className={`text-base font-bold ${isLight ? "text-slate-800" : "text-white"}`}>${fmtLarge(fundamentals?.atl)}</div>
+                    </div>
+                    <span className={`text-sm font-semibold px-2.5 py-1 rounded-lg ${isLight ? "bg-emerald-50 text-emerald-700" : "bg-green-500/15 text-green-400"}`}>
+                      {fmt(fundamentals?.atlChangePct) != null ? `+${Number(fundamentals.atlChangePct).toFixed(1)}%` : "—"}
+                    </span>
+                  </div>
+                  <div className={`h-px ${isLight ? "bg-slate-100" : "bg-white/8"}`} />
+                  <div className="flex items-center justify-between">
+                    <span className={`text-xs ${isLight ? "text-slate-500" : "text-white/50"}`}>Intraday Range</span>
+                    <span className={`text-sm font-semibold ${isLight ? "text-slate-700" : "text-white/80"}`}>
+                      {fmt(intradayRangePct) != null ? `${intradayRangePct.toFixed(2)}%` : "—"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className={`text-xs ${isLight ? "text-slate-500" : "text-white/50"}`}>24h High / Low</span>
+                    <span className={`text-sm font-semibold ${isLight ? "text-slate-700" : "text-white/80"}`}>
+                      {result?.high && result?.low ? `$${fmtLarge(result.high)} / $${fmtLarge(result.low)}` : "—"}
+                    </span>
+                  </div>
+                </div>
+              </Card>
+
+              <Card title="Supply & Tokenomics">
+                <div className="space-y-2.5">
+                  <div className="flex justify-between items-center">
+                    <span className={`text-xs ${isLight ? "text-slate-500" : "text-white/50"}`}>Circulating Supply</span>
+                    <span className={`text-sm font-semibold ${isLight ? "text-slate-700" : "text-white/80"}`}>{fmtLarge(fundamentals?.circulatingSupply) || "—"}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className={`text-xs ${isLight ? "text-slate-500" : "text-white/50"}`}>Total Supply</span>
+                    <span className={`text-sm font-semibold ${isLight ? "text-slate-700" : "text-white/80"}`}>{fmtLarge(fundamentals?.totalSupply) || "—"}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className={`text-xs ${isLight ? "text-slate-500" : "text-white/50"}`}>Max Supply</span>
+                    <span className={`text-sm font-semibold ${isLight ? "text-slate-700" : "text-white/80"}`}>{fmtLarge(fundamentals?.maxSupply) || "∞ No cap"}</span>
+                  </div>
+                  {fmt(circulatingToMaxPct) != null && (
+                    <div className="pt-1">
+                      <div className="flex justify-between mb-1.5">
+                        <span className={`text-[11px] ${isLight ? "text-slate-500" : "text-white/45"}`}>Circulating / Max</span>
+                        <span className={`text-[11px] font-bold ${isLight ? "text-slate-700" : "text-white/80"}`}>{circulatingToMaxPct.toFixed(1)}%</span>
+                      </div>
+                      <div className={`h-2 rounded-full overflow-hidden ${isLight ? "bg-slate-200" : "bg-white/10"}`}>
+                        <div
+                          className={`h-full rounded-full transition-all ${circulatingToMaxPct > 70 ? "bg-emerald-500" : circulatingToMaxPct > 40 ? "bg-amber-500" : "bg-rose-500"}`}
+                          style={{ width: `${Math.min(circulatingToMaxPct, 100)}%` }}
+                        />
+                      </div>
+                      <div className={`flex justify-between mt-0.5 text-[10px] ${isLight ? "text-slate-400" : "text-white/30"}`}>
+                        <span>0%</span><span>50%</span><span>100%</span>
+                      </div>
+                    </div>
+                  )}
+                  <div className={`h-px ${isLight ? "bg-slate-100" : "bg-white/8"}`} />
+                  <div className="flex justify-between items-center">
+                    <span className={`text-xs ${isLight ? "text-slate-500" : "text-white/50"}`}>FDV / Market Cap</span>
+                    <span className={`text-sm font-semibold ${
+                      fmt(fdvToMarketCapRatio) != null && fdvToMarketCapRatio > 1.5
+                        ? (isLight ? "text-amber-600" : "text-amber-400")
+                        : (isLight ? "text-slate-700" : "text-white/80")
+                    }`}>
+                      {fmt(fdvToMarketCapRatio) != null ? `${fdvToMarketCapRatio.toFixed(2)}×` : "—"}
+                    </span>
+                  </div>
+                </div>
+              </Card>
+            </div>
+
+            {/* ── Row 3: Project Scores + Community & Dev ─────────────────────── */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card title="Project Scores">
+                <div className="space-y-3">
+                  {[
+                    { label: "Developer Activity", value: fundamentals?.developerScore, color: "bg-blue-500" },
+                    { label: "Community", value: fundamentals?.communityScore, color: "bg-purple-500" },
+                    { label: "Liquidity", value: fundamentals?.liquidityScore, color: "bg-emerald-500" },
+                    { label: "Public Interest", value: fundamentals?.publicInterestScore, color: "bg-amber-500" },
+                  ].map(({ label, value, color }) => {
+                    const v = fmt(value) != null ? Number(value) : null;
+                    const pct = v != null ? Math.min((v / 100) * 100, 100) : 0;
+                    return (
+                      <div key={label}>
+                        <div className="flex justify-between mb-1">
+                          <span className={`text-xs ${isLight ? "text-slate-500" : "text-white/50"}`}>{label}</span>
+                          <span className={`text-xs font-semibold ${isLight ? "text-slate-700" : "text-white/80"}`}>{v != null ? v.toFixed(1) : "—"}</span>
+                        </div>
+                        <div className={`h-1.5 rounded-full overflow-hidden ${isLight ? "bg-slate-200" : "bg-white/10"}`}>
+                          <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div className={`h-px ${isLight ? "bg-slate-100" : "bg-white/8"}`} />
+                  <div className="flex justify-between items-center">
+                    <span className={`text-xs ${isLight ? "text-slate-500" : "text-white/50"}`}>Sentiment Upvotes</span>
+                    <span className={`text-xs font-semibold ${isLight ? "text-slate-700" : "text-white/80"}`}>
+                      {fmt(fundamentals?.sentimentUpVotesPct) != null ? `${Number(fundamentals.sentimentUpVotesPct).toFixed(1)}%` : "—"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className={`text-xs ${isLight ? "text-slate-500" : "text-white/50"}`}>CoinGecko Score</span>
+                    <span className={`text-xs font-semibold ${isLight ? "text-slate-700" : "text-white/80"}`}>
+                      {fmt(fundamentals?.coingeckoScore) != null ? Number(fundamentals.coingeckoScore).toFixed(1) : "—"}
+                    </span>
+                  </div>
+                </div>
+              </Card>
+
+              <Card title="Community & Dev Activity">
+                <div className="space-y-2">
+                  <div className={`text-[10px] font-semibold uppercase tracking-wider mb-1 ${isLight ? "text-slate-400" : "text-white/30"}`}>Community</div>
+                  {[
+                    { label: "X (Twitter)", value: fmtLarge(fundamentals?.twitterFollowers) },
+                    { label: "Reddit", value: fmtLarge(fundamentals?.redditSubscribers) },
+                    { label: "Telegram", value: fmtLarge(fundamentals?.telegramUsers) },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="flex justify-between items-center">
+                      <span className={`text-xs ${isLight ? "text-slate-500" : "text-white/50"}`}>{label}</span>
+                      <span className={`text-xs font-semibold ${isLight ? "text-slate-700" : "text-white/80"}`}>{value || "—"}</span>
+                    </div>
+                  ))}
+                  <div className={`h-px my-1 ${isLight ? "bg-slate-100" : "bg-white/8"}`} />
+                  <div className={`text-[10px] font-semibold uppercase tracking-wider mb-1 ${isLight ? "text-slate-400" : "text-white/30"}`}>GitHub</div>
+                  {[
+                    { label: "Stars", value: fmtLarge(fundamentals?.githubStars) },
+                    { label: "Forks", value: fmtLarge(fundamentals?.githubForks) },
+                    { label: "Commits (4 weeks)", value: fmtLarge(fundamentals?.githubCommits4w) },
+                    { label: "Issue Close Rate", value: fmt(issueCloseRatePct) != null ? `${issueCloseRatePct.toFixed(1)}%` : "—" },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="flex justify-between items-center">
+                      <span className={`text-xs ${isLight ? "text-slate-500" : "text-white/50"}`}>{label}</span>
+                      <span className={`text-xs font-semibold ${isLight ? "text-slate-700" : "text-white/80"}`}>{value || "—"}</span>
+                    </div>
+                  ))}
+                  {fundamentals?.githubRepo && (
+                    <a
+                      href={fundamentals.githubRepo}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={`mt-1 block text-[11px] underline underline-offset-2 ${isLight ? "text-blue-600 hover:text-blue-700" : "text-blue-400 hover:text-blue-300"}`}
+                    >
+                      View GitHub Repository ↗
+                    </a>
+                  )}
+                </div>
+              </Card>
+            </div>
+
+            {/* ── Row 4: Recent Catalysts + ASTRA Brief ───────────────────────── */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card
+                title="Recent Catalysts"
+                right={
+                  <span className={`text-[11px] px-2 py-0.5 rounded-full border ${isLight ? "bg-slate-50 border-slate-200 text-slate-500" : "bg-white/5 border-white/15 text-white/45"}`}>
+                    {news.length} article{news.length !== 1 ? "s" : ""}
+                  </span>
+                }
+              >
+                <div className="space-y-2">
+                  {news.length > 0 ? news.slice(0, 4).map((n, idx) => (
+                    <a
+                      key={`catal-${idx}`}
+                      href={n.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={`block rounded-xl border p-2.5 transition-colors ${isLight ? "border-slate-200 bg-slate-50 hover:bg-slate-100" : "border-white/8 bg-white/4 hover:bg-white/8"}`}
+                    >
+                      <div className={`text-xs font-medium leading-snug line-clamp-2 ${isLight ? "text-slate-800 hover:text-blue-700" : "text-white/85 hover:text-white"}`}>
+                        {n.headline || n.headlineDisplay}
+                      </div>
+                      {(n.source || n.datetime) && (
+                        <div className={`flex items-center gap-1 mt-1.5 text-[10px] ${isLight ? "text-slate-400" : "text-white/35"}`}>
+                          {n.source && <span className="font-medium">{n.source}</span>}
+                          {n.source && n.datetime && <span>·</span>}
+                          {n.datetime && <span>{geopoliticsAgeLabel(n.datetime)}</span>}
+                        </div>
+                      )}
+                    </a>
+                  )) : (
+                    <div className={`text-xs ${isLight ? "text-slate-400" : "text-white/35"}`}>No catalyst headlines loaded.</div>
+                  )}
+                </div>
+              </Card>
+
+              <Card title="ASTRA Investor Brief">
+                <div className={`space-y-3 text-sm ${isLight ? "text-slate-700" : "text-white/75"}`}>
+                  {[
+                    "Confirm real utility and growing adoption before entering.",
+                    "Check liquidity + tokenomics together: deep volume with manageable dilution risk is healthier.",
+                    <>Use trend + volatility for sizing: <strong className={trendDelta >= 0 ? (isLight ? "text-emerald-700" : "text-green-400") : (isLight ? "text-rose-700" : "text-red-400")}>{trendLabel}</strong> · intraday range {fmt(intradayRangePct) != null ? `${intradayRangePct.toFixed(2)}%` : "—"}.</>,
+                    "Let catalysts and security signals adjust conviction before entering or exiting.",
+                  ].map((text, i) => (
+                    <div key={i} className="flex gap-2.5 items-start">
+                      <span className={`shrink-0 mt-0.5 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center ${isLight ? "bg-blue-100 text-blue-700" : "bg-blue-500/20 text-blue-400"}`}>{i + 1}</span>
+                      <span>{text}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className={`mt-4 pt-3 border-t text-[11px] leading-relaxed ${isLight ? "border-slate-100 text-slate-400" : "border-white/8 text-white/35"}`}>
+                  <strong className={isLight ? "text-slate-500" : "text-white/50"}>Quick read bands:</strong>{" "}
+                  Vol/MCap &lt; 2% weak · 2–10% normal · &gt;10% strong.
+                  FDV/MCap &gt; 1.5× may imply dilution risk.
+                  Circ/Max &gt; 70% = lower unlock risk.
+                </div>
+              </Card>
+            </div>
+
           </div>
         )}
 
-        {assetMode === "stock" && !isNarrativeMode && (fundInsightsLoading || fundInsights?.isFund) && (
+        {/* METALS OVERVIEW EXTRA — Gold/Silver ratio + all-metals snapshot */}
+        {assetMode === "metals" && metalSubTab === "overview" && !isNarrativeMode && overview.length > 0 && (
+          (() => {
+            const goldEntry   = overview.find(o => String(o.symbol).toUpperCase() === "XAU");
+            const silverEntry = overview.find(o => String(o.symbol).toUpperCase() === "XAG");
+            const gsRatio = goldEntry?.price && silverEntry?.price
+              ? (Number(goldEntry.price) / Number(silverEntry.price))
+              : null;
+            return (
+              <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Gold / Silver Ratio */}
+                <Card title="Gold / Silver Ratio">
+                  {gsRatio != null ? (
+                    <div className="space-y-3">
+                      <div className="flex items-end gap-3">
+                        <div className={`text-4xl font-bold ${isLight ? "text-slate-900" : "text-white"}`}>{gsRatio.toFixed(1)}×</div>
+                        <div className={`mb-1 text-sm ${isLight ? "text-slate-500" : "text-white/50"}`}>XAU / XAG</div>
+                      </div>
+                      <div className={`h-2 rounded-full overflow-hidden ${isLight ? "bg-slate-200" : "bg-white/10"}`}>
+                        <div
+                          className={`h-full rounded-full transition-all ${gsRatio < 55 ? "bg-emerald-500" : gsRatio < 80 ? "bg-amber-500" : "bg-rose-500"}`}
+                          style={{ width: `${Math.min(Math.max(((gsRatio - 40) / 80) * 100, 2), 98)}%` }}
+                        />
+                      </div>
+                      <div className={`flex justify-between text-[10px] ${isLight ? "text-slate-400" : "text-white/30"}`}>
+                        <span>40× (silver rich)</span><span>80× avg</span><span>120× (gold rich)</span>
+                      </div>
+                      <div className={`pt-2 border-t text-xs leading-relaxed ${isLight ? "border-slate-100 text-slate-500" : "border-white/8 text-white/50"}`}>
+                        {gsRatio < 55
+                          ? "Below 55× — silver historically expensive relative to gold."
+                          : gsRatio < 80
+                            ? "Normal range (55–80×). Neither metal is clearly cheap vs the other."
+                            : "Above 80× — silver historically cheap vs gold. Elevated ratios have often reverted."}
+                      </div>
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between items-center">
+                          <span className={`text-xs ${isLight ? "text-slate-500" : "text-white/50"}`}>Gold (XAU)</span>
+                          <span className={`text-xs font-semibold ${isLight ? "text-amber-700" : "text-amber-400"}`}>
+                            {`$${Number(goldEntry.price).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className={`text-xs ${isLight ? "text-slate-500" : "text-white/50"}`}>Silver (XAG)</span>
+                          <span className={`text-xs font-semibold ${isLight ? "text-slate-600" : "text-slate-300"}`}>
+                            {`$${Number(silverEntry.price).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className={`text-xs ${isLight ? "text-slate-400" : "text-white/40"}`}>
+                      Gold and silver prices loading… The ratio measures how many ounces of silver buy one ounce of gold. Historically 50–80×.
+                    </div>
+                  )}
+                </Card>
+
+                {/* All Metals Snapshot */}
+                <Card title="All Metals">
+                  <div className="space-y-2">
+                    {overview.map((m) => (
+                      <button
+                        key={m.symbol}
+                        onClick={() => handleQuickSelect(m.symbol)}
+                        className={`w-full flex items-center justify-between rounded-xl border px-3 py-2.5 transition-colors ${isLight ? "border-slate-200 bg-slate-50 hover:bg-slate-100" : "border-white/8 bg-white/4 hover:bg-white/8"}`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className={`w-1.5 h-1.5 rounded-full ${fmt(m.percent) != null && m.percent >= 0 ? "bg-emerald-500" : fmt(m.percent) != null ? "bg-rose-500" : "bg-slate-400"}`} />
+                          <div>
+                            <div className={`text-xs font-semibold ${isLight ? "text-slate-700" : "text-white/85"}`}>{m.name || metalNameBySymbol[m.symbol] || m.symbol}</div>
+                            <div className={`text-[10px] ${isLight ? "text-slate-400" : "text-white/35"}`}>{m.symbol}</div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className={`text-xs font-bold ${isLight ? "text-slate-800" : "text-white/90"}`}>
+                            {fmt(m.price) != null ? `$${Number(m.price).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
+                          </div>
+                          <div className={`text-[10px] font-semibold ${fmt(m.percent) != null && m.percent >= 0 ? (isLight ? "text-emerald-600" : "text-green-400") : (isLight ? "text-rose-600" : "text-red-400")}`}>
+                            {fmt(m.percent) != null ? `${m.percent >= 0 ? "+" : ""}${Number(m.percent).toFixed(2)}%` : "—"}
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </Card>
+              </div>
+            );
+          })()
+        )}
+
+        {assetMode === "stock" && !isNarrativeMode && (fundInsightsLoading || fundInsights?.isFund) && stockSubTab === "fundamentals" && (
           <div className="mb-6">
             <Card title="Fundamental Data (Fund / ETF / Mutual Fund)">
               {fundInsightsLoading ? (
@@ -7700,7 +8243,7 @@ export default function Home() {
           </div>
         )}
 
-        {assetMode === "stock" && !isNarrativeMode && !fundInsights?.isFund && (secFundamentalsLoading || secFundamentals) && (
+        {assetMode === "stock" && !isNarrativeMode && !fundInsights?.isFund && (secFundamentalsLoading || secFundamentals) && stockSubTab === "fundamentals" && (
           <div className="mb-6">
             <Card
               title="Fundamental Data"
@@ -7938,7 +8481,7 @@ export default function Home() {
         )}
 
         {/* ANALYTICAL INFORMATION */}
-        {!isNarrativeMode && (analysisLoading || analysisObj) && (
+        {!isNarrativeMode && (analysisLoading || analysisObj) && (assetMode !== "stock" || stockSubTab === "analysis") && (assetMode !== "crypto" || cryptoSubTab === "analysis") && assetMode !== "metals" && (
           <div className="mb-6">
             <Card
               title={tx("ASTRA Analysis")}
@@ -8116,19 +8659,94 @@ export default function Home() {
         )}
 
         {/* NEWS */}
-        {!isNarrativeMode && news.length > 0 && (
-          <div className="mb-6">
-            <Card title={tx("Latest News")}>
-              <div className="space-y-3">
+        {!isNarrativeMode && news.length > 0 && (assetMode !== "stock" || stockSubTab === "news") && (assetMode !== "crypto" || cryptoSubTab === "news") && (assetMode !== "metals" || metalSubTab === "news") && (
+          <div className="mb-6 space-y-4">
+            {/* Company / Asset News */}
+            <Card
+              title={assetMode === "stock" ? "Company News" : tx("Latest News")}
+              right={
+                assetMode === "stock" ? (
+                  <span className={`text-[11px] px-2 py-0.5 rounded-full border ${isLight ? "bg-slate-100 text-slate-500 border-slate-200" : "bg-white/10 text-white/50 border-white/10"}`}>
+                    {news.length} article{news.length !== 1 ? "s" : ""}
+                  </span>
+                ) : null
+              }
+            >
+              <div className="space-y-1">
                 {latestNewsDigest && <SummaryPanel label={tx("Summary")} text={latestNewsDigest} isLight={isLight} />}
-                {localizedNewsWithSummary.map((n, i) => (
-                  <a key={i} href={n.url} target="_blank" rel="noreferrer" className={`block rounded-lg border p-2.5 ${isLight ? "border-slate-200 bg-white hover:bg-slate-50" : "border-white/10 bg-white/[0.03] hover:bg-white/[0.07]"}`}>
-                    <div className={`text-sm font-medium hover:underline ${isLight ? "text-blue-700" : "text-blue-300"}`}>• {n.headlineDisplay}</div>
-                    <div className={`mt-1 text-xs leading-relaxed ${isLight ? "text-slate-600" : "text-white/65"}`}>{n.laymanSummary}</div>
-                  </a>
-                ))}
+                <div className="mt-3 space-y-2">
+                  {localizedNewsWithSummary.map((n, i) => {
+                    const summaryLow = String(n.laymanSummary || "").toLowerCase();
+                    const sentimentLabel = summaryLow.includes("positive") ? "Bullish"
+                      : summaryLow.includes("negative") ? "Bearish"
+                      : (summaryLow.includes("policy") || summaryLow.includes("macro")) ? "Macro"
+                      : "Neutral";
+                    const sentimentCls = sentimentLabel === "Bullish"
+                      ? (isLight ? "bg-green-50 text-green-700 border-green-200" : "bg-green-500/10 text-green-300 border-green-500/20")
+                      : sentimentLabel === "Bearish"
+                      ? (isLight ? "bg-red-50 text-red-700 border-red-200" : "bg-red-500/10 text-red-300 border-red-500/20")
+                      : sentimentLabel === "Macro"
+                      ? (isLight ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-amber-500/10 text-amber-300 border-amber-500/20")
+                      : (isLight ? "bg-slate-100 text-slate-500 border-slate-200" : "bg-white/5 text-white/45 border-white/10");
+                    const ageLabel = geopoliticsAgeLabel(n.datetime);
+                    return (
+                      <a key={i} href={n.url} target="_blank" rel="noreferrer"
+                        className={`block rounded-xl border p-3 transition-colors ${isLight ? "border-slate-200 bg-white hover:bg-slate-50" : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"}`}
+                      >
+                        <div className="flex items-start justify-between gap-2 mb-1.5">
+                          <div className={`text-sm font-semibold leading-snug hover:underline ${isLight ? "text-blue-700" : "text-blue-300"}`}>{n.headlineDisplay}</div>
+                          <span className={`shrink-0 text-[10px] font-semibold rounded-full border px-2 py-0.5 ${sentimentCls}`}>{sentimentLabel}</span>
+                        </div>
+                        <div className={`text-xs leading-relaxed mb-2 ${isLight ? "text-slate-600" : "text-white/65"}`}>{n.laymanSummary}</div>
+                        {(n.source || ageLabel) && (
+                          <div className={`flex items-center gap-1.5 text-[11px] ${isLight ? "text-slate-400" : "text-white/35"}`}>
+                            {n.source && <span className="font-medium">{n.source}</span>}
+                            {n.source && ageLabel && <span>·</span>}
+                            {ageLabel && <span>{ageLabel}</span>}
+                          </div>
+                        )}
+                      </a>
+                    );
+                  })}
+                </div>
               </div>
             </Card>
+
+            {/* Market Context — only in stock News sub-tab */}
+            {assetMode === "stock" && localizedMarketNewsWithSummary.length > 0 && (
+              <Card
+                title="Market Context"
+                right={
+                  <button onClick={fetchMarketNews} className={`px-3 py-1.5 rounded-lg text-xs ${isLight ? "bg-slate-100 hover:bg-slate-200 text-slate-600" : "bg-white/10 hover:bg-white/15 text-white/70"}`}>
+                    {tx("Refresh")}
+                  </button>
+                }
+              >
+                <div className="space-y-1">
+                  {marketNewsDigest && <SummaryPanel label={tx("Summary")} text={marketNewsDigest} isLight={isLight} />}
+                  <div className="mt-3 space-y-2">
+                    {localizedMarketNewsWithSummary.slice(0, 4).map((n, i) => {
+                      const ageLabel = geopoliticsAgeLabel(n.datetime);
+                      return (
+                        <a key={i} href={n.url} target="_blank" rel="noreferrer"
+                          className={`block rounded-xl border p-3 transition-colors ${isLight ? "border-slate-200 bg-white hover:bg-slate-50" : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"}`}
+                        >
+                          <div className={`text-sm font-medium leading-snug hover:underline mb-1.5 ${isLight ? "text-blue-700" : "text-blue-300"}`}>{n.headlineDisplay}</div>
+                          <div className={`text-xs leading-relaxed mb-2 ${isLight ? "text-slate-600" : "text-white/65"}`}>{n.laymanSummary}</div>
+                          {(n.source || ageLabel) && (
+                            <div className={`flex items-center gap-1.5 text-[11px] ${isLight ? "text-slate-400" : "text-white/35"}`}>
+                              {n.source && <span className="font-medium">{n.source}</span>}
+                              {n.source && ageLabel && <span>·</span>}
+                              {ageLabel && <span>{ageLabel}</span>}
+                            </div>
+                          )}
+                        </a>
+                      );
+                    })}
+                  </div>
+                </div>
+              </Card>
+            )}
           </div>
         )}
 
@@ -8224,7 +8842,7 @@ export default function Home() {
         )}
       </div>
       {investorOpen && (() => {
-        const G='#ffd700', GD='rgba(255,215,0,0.1)', GB='1px solid rgba(255,215,0,0.22)', GG='rgba(255,215,0,0.05)';
+        const G='#ffd700', GB='1px solid rgba(255,215,0,0.22)', GG='rgba(255,215,0,0.05)';
         const ss={marginBottom:'28px',background:GG,border:GB,position:'relative',overflow:'hidden'};
         const sh={background:'rgba(255,215,0,0.06)',borderBottom:GB,padding:'10px 20px',display:'flex',alignItems:'center',gap:'10px'};
         const st={fontFamily:'Orbitron,sans-serif',fontSize:'11px',letterSpacing:'0.2em',color:G,textTransform:'uppercase'};
