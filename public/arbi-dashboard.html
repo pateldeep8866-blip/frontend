@@ -45,6 +45,7 @@ body::before{content:'';position:fixed;inset:0;
   align-items:center;
   justify-content:center;
   padding:40px 20px;
+  position:relative;
 }
 
 .brand{
@@ -368,6 +369,7 @@ tr:last-child td{border-bottom:none;}
      ONBOARDING
 ════════════════════════════════════════════════════ -->
 <div id="onboard">
+  <a href="/home" style="position:absolute;top:20px;left:24px;display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;letter-spacing:.08em;color:var(--dim);text-decoration:none;border:1px solid var(--border);padding:6px 12px;border-radius:8px;transition:color .2s,border-color .2s;" onmouseover="this.style.color='var(--gold)';this.style.borderColor='var(--gold)';" onmouseout="this.style.color='var(--dim)';this.style.borderColor='var(--border)';">← Home</a>
   <div class="brand">
     <div class="brand-mark"></div>
     <div class="brand-name">ARTHASTRA</div>
@@ -406,37 +408,24 @@ tr:last-child td{border-bottom:none;}
     <button class="btn btn-gold" onclick="goStep(1)">Continue →</button>
   </div>
 
-  <!-- STEP 1: Exchange -->
+  <!-- STEP 1: Exchange (paper trading — no API keys needed) -->
   <div class="card" id="step1" style="display:none;">
-    <div class="card-title">Connect your exchange</div>
-    <div class="card-sub">We only use read + trade permissions. Withdrawals are always disabled. Your keys are encrypted before storage.</div>
+    <div class="card-title">Which exchange do you want to simulate?</div>
+    <div class="card-sub">This is paper trading — no real money, no API keys required. Pick the exchange whose pairs and fees you want the bot to simulate against.</div>
 
     <div class="field">
-      <label>Select Exchange</label>
       <div class="exchange-grid">
         <div class="ex-btn selected" onclick="setExchange('kraken',this)"><div class="ex-name">Kraken</div><div class="ex-sub">Spot · EU/US</div></div>
         <div class="ex-btn" onclick="setExchange('coinbase',this)"><div class="ex-name">Coinbase</div><div class="ex-sub">Spot · US</div></div>
         <div class="ex-btn" onclick="setExchange('bybit',this)"><div class="ex-name">Bybit</div><div class="ex-sub">Spot + Perps</div></div>
+        <div class="ex-btn" onclick="setExchange('binance',this)"><div class="ex-name">Binance</div><div class="ex-sub">Global · High Vol</div></div>
       </div>
-      <div style="font-size:10px;color:var(--dim);margin-top:6px;">💡 Bybit unlocks funding rate arbitrage — our highest-yield strategy</div>
-    </div>
-
-    <div class="field">
-      <label>API Key</label>
-      <input type="text" id="apiKey" placeholder="Paste your API key here">
-    </div>
-    <div class="field">
-      <label>API Secret</label>
-      <input type="password" id="apiSecret" placeholder="Paste your API secret here">
-    </div>
-    <div class="field" id="passphraseField" style="display:none;">
-      <label>Passphrase (KuCoin / Bybit)</label>
-      <input type="password" id="apiPass" placeholder="API passphrase">
+      <div style="font-size:10px;color:var(--dim);margin-top:8px;">💡 Bybit simulates funding rate arbitrage — our highest-yield strategy</div>
     </div>
 
     <div class="btn-row">
       <button class="btn btn-ghost" onclick="goStep(0)">← Back</button>
-      <button class="btn btn-gold" onclick="goStep(2)">Validate & Continue →</button>
+      <button class="btn btn-gold" onclick="goStep(2)">Continue →</button>
     </div>
   </div>
 
@@ -490,6 +479,7 @@ tr:last-child td{border-bottom:none;}
       <div class="ticker-strip" id="tickers"></div>
     </div>
     <div class="topbar-right">
+      <a href="/home" style="font-size:11px;font-weight:600;letter-spacing:.08em;color:var(--dim);text-decoration:none;border:1px solid var(--border);padding:5px 12px;border-radius:7px;transition:color .2s,border-color .2s;" onmouseover="this.style.color='var(--gold)';this.style.borderColor='var(--gold)';" onmouseout="this.style.color='var(--dim)';this.style.borderColor='var(--border)';">← Home</a>
       <span id="clock"></span>
       <div class="user-chip"><div class="avatar">--</div>Loading...</div>
     </div>
@@ -619,23 +609,36 @@ tr:last-child td{border-bottom:none;}
 </div><!-- /wrap -->
 
 <script>
-// ── USER (optional) ───────────────────────────────────────────────────────────
-// If the user is signed in, show their name in the chip. No login required.
-const SUPABASE_PROJECT = 'htnkjncvkzbberblhnve';
+// ── USER ──────────────────────────────────────────────────────────────────────
+// Reads session from the MAIN app Supabase project (same as login on home page).
+const SUPABASE_PROJECT = 'frpnmlzetnxpkracrytn';
+const ARBI_SETUP_KEY   = 'arbi_wizard_v1';
 
 function getSupabaseUser() {
   try {
-    const raw = localStorage.getItem(`sb-${SUPABASE_PROJECT}-auth-token`);
+    // Try Supabase v2 format first (sb-{ref}-auth-token), then v1 format
+    const raw = localStorage.getItem(`sb-${SUPABASE_PROJECT}-auth-token`)
+             || localStorage.getItem('supabase.auth.token');
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     return parsed?.user ?? parsed?.currentSession?.user ?? null;
   } catch { return null; }
 }
 
-// Run on load — guest access always allowed
+function loadArbiSetup() {
+  try { return JSON.parse(localStorage.getItem(ARBI_SETUP_KEY) || 'null'); } catch { return null; }
+}
+
+function saveArbiSetup(setup) {
+  try { localStorage.setItem(ARBI_SETUP_KEY, JSON.stringify(setup)); } catch {}
+}
+
+// Run on load — guest access always allowed; skip wizard if returning user
 let _simUser = 'user';
 document.addEventListener('DOMContentLoaded', () => {
-  const user = getSupabaseUser();
+  const user  = getSupabaseUser();
+  const setup = loadArbiSetup();
+
   if (user) {
     const name     = user.user_metadata?.full_name
                   || user.user_metadata?.name
@@ -645,6 +648,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const chip     = document.querySelector('.user-chip');
     if (chip) chip.innerHTML = `<div class="avatar">${initials}</div>${name.split(' ')[0]}`;
     _simUser = name.toLowerCase().replace(/\s+/g, '_');
+  }
+
+  // If user is logged in AND has previously completed setup, skip straight to dashboard
+  if (user && setup) {
+    capital  = setup.capital  || 5000;
+    exchange = setup.exchange || 'kraken';
+    document.getElementById('onboard').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    const sub = document.getElementById('dash-sub');
+    if (sub) sub.textContent = `Paper trading · ${exchange.charAt(0).toUpperCase()+exchange.slice(1)} · $${(capital*0.8).toLocaleString(undefined,{maximumFractionDigits:0})} allocated`;
+    initDashboard();
   }
 });
 
@@ -743,6 +757,8 @@ function launch() {
 }
 
 function showDashboard() {
+  // Persist setup so the wizard is skipped on future visits
+  saveArbiSetup({ capital, exchange });
   document.getElementById('onboard').style.display = 'none';
   document.getElementById('dashboard').style.display = 'block';
   document.getElementById('dash-sub').textContent =

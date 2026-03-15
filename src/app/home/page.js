@@ -4331,8 +4331,241 @@ export default function Home() {
 
         <div className="relative z-10 mx-auto w-full max-w-6xl px-6 py-10 md:py-14">
         {/* HEADER */}
-        <div className="text-center mb-10">
-          <div className="absolute right-6 top-0 z-40 pointer-events-auto">
+        <div className="text-center mb-6">
+          <div className="absolute right-6 top-0 z-40 pointer-events-auto flex items-center gap-2">
+            {/* ── Auth buttons — always visible outside the menu ── */}
+            {authReady && (
+              authUser ? (
+                <div className="relative">
+                  <button
+                    onClick={() => setUserMenuOpen((v) => !v)}
+                    className={`h-8 min-w-8 px-2 rounded-full border text-xs font-semibold shadow ${
+                      isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/20 bg-slate-900/70 text-white"
+                    }`}
+                    title={displayName}
+                  >
+                    {userInitials}
+                  </button>
+                  {userMenuOpen && (
+                    <div className={`absolute right-0 top-full mt-2 w-52 rounded-xl border p-2 shadow-2xl z-30 ${
+                      isLight ? "border-slate-300 bg-white/95" : "border-white/15 bg-slate-900/95"
+                    }`}>
+                      <div className={`px-3 py-1.5 text-xs font-semibold truncate max-w-[180px] ${isLight ? "text-slate-500" : "text-white/50"}`}>{displayName}</div>
+                      <div className={`my-1 h-px ${isLight ? "bg-slate-200" : "bg-white/10"}`} />
+                      <button
+                        onClick={() => { setProfilePanelOpen(true); setUserMenuOpen(false); setProfileError(""); setProfileNotice(""); }}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-sm ${isLight ? "hover:bg-slate-100 text-slate-700" : "hover:bg-white/10 text-white/90"}`}
+                      >Profile</button>
+                      <button
+                        onClick={() => { setQuizPanelOpen(true); setQuizFollowupMode(false); setQuizDismissed(false); setUserMenuOpen(false); }}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-sm ${isLight ? "hover:bg-slate-100 text-slate-700" : "hover:bg-white/10 text-white/90"}`}
+                      >Change preferences</button>
+                      <button
+                        onClick={handleSignOut}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-sm ${isLight ? "hover:bg-red-50 text-red-600" : "hover:bg-white/10 text-red-200"}`}
+                      >Sign out</button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="relative flex items-center gap-2">
+                  <button
+                    onClick={() => { setAuthMode("signin"); setAuthPanelOpen((v) => !v); setAuthError(""); setAuthNotice(""); }}
+                    className={`px-3 py-1.5 rounded-lg border text-xs font-semibold ${
+                      isLight ? "border-slate-300 bg-white/90 text-slate-700 hover:bg-slate-100" : "border-white/20 bg-transparent text-white/85 hover:bg-white/10"
+                    }`}
+                  >Log in</button>
+                  <button
+                    onClick={() => { setAuthMode("signup"); setAuthPanelOpen((v) => !v); setAuthError(""); setAuthNotice(""); }}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white"
+                  >Sign up</button>
+                  {authPanelOpen && (
+                    <div className={`absolute right-0 top-full mt-2 w-[92vw] max-w-xl rounded-2xl border p-4 shadow-2xl z-40 ${
+                      isLight ? "border-slate-300 bg-white/95" : "border-white/15 bg-slate-900/95"
+                    }`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>Account Access</div>
+                        <button onClick={() => setAuthPanelOpen(false)} className={`px-2.5 py-1 rounded-md text-xs ${isLight ? "bg-slate-100 hover:bg-slate-200 text-slate-700" : "bg-white/10 hover:bg-white/15 text-white/90"}`}>Close</button>
+                      </div>
+                      <div className={`text-xs mb-3 ${isLight ? "text-slate-600" : "text-white/70"}`}>Optional now. Required later for advanced member-only features.</div>
+                      <div className="flex gap-2 mb-3">
+                        <button onClick={() => { setAuthMode("signin"); setAuthError(""); setAuthNotice(""); }} className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${authMode === "signin" ? "bg-blue-600 text-white border-blue-500" : isLight ? "bg-white text-slate-700 border-slate-300 hover:bg-slate-50" : "bg-transparent text-white/70 border-white/20 hover:bg-white/10"}`}>Log in</button>
+                        <button onClick={() => { setAuthMode("signup"); setAuthError(""); setAuthNotice(""); setAuthFirstName(""); setAuthLastName(""); setAuthConfirmPassword(""); setAuthSignupCode(""); setAuthSignupCodeSent(false); }} className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${authMode === "signup" ? "bg-blue-600 text-white border-blue-500" : isLight ? "bg-white text-slate-700 border-slate-300 hover:bg-slate-50" : "bg-transparent text-white/70 border-white/20 hover:bg-white/10"}`}>Sign up</button>
+                      </div>
+                      {!supabaseConfigured ? (
+                        <div className={`rounded-xl border px-3 py-2 text-sm ${
+                          isLight ? "border-amber-300 bg-amber-50 text-amber-700" : "border-amber-400/30 bg-amber-500/10 text-amber-200"
+                        }`}>
+                          Auth is not configured yet. Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+                        </div>
+                      ) : (
+                        <>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                            {authMode === "signup" && (
+                              <>
+                                <input
+                                  type="text"
+                                  value={authFirstName}
+                                  onChange={(e) => setAuthFirstName(e.target.value)}
+                                  placeholder="First name"
+                                  className="w-full px-3 py-2.5 rounded-xl bg-white text-black border border-slate-300 outline-none focus:border-blue-500"
+                                />
+                                <input
+                                  type="text"
+                                  value={authLastName}
+                                  onChange={(e) => setAuthLastName(e.target.value)}
+                                  placeholder="Last name"
+                                  className="w-full px-3 py-2.5 rounded-xl bg-white text-black border border-slate-300 outline-none focus:border-blue-500"
+                                />
+                              </>
+                            )}
+                            {authMode !== "reset" && (
+                              <input
+                                type="email"
+                                value={authEmail}
+                                onChange={(e) => setAuthEmail(e.target.value)}
+                                placeholder="Email"
+                                className="w-full px-3 py-2.5 rounded-xl bg-white text-black border border-slate-300 outline-none focus:border-blue-500"
+                              />
+                            )}
+                            {(authMode === "signin" || authMode === "signup" || authMode === "reset") && (
+                              <input
+                                type="password"
+                                value={authPassword}
+                                onChange={(e) => setAuthPassword(e.target.value)}
+                                placeholder={authMode === "reset" ? "New password (min 8 chars)" : "Password (min 8 chars)"}
+                                className="w-full px-3 py-2.5 rounded-xl bg-white text-black border border-slate-300 outline-none focus:border-blue-500"
+                              />
+                            )}
+                            {(authMode === "signup" || authMode === "reset") && (
+                              <input
+                                type="password"
+                                value={authConfirmPassword}
+                                onChange={(e) => setAuthConfirmPassword(e.target.value)}
+                                placeholder="Confirm password"
+                                className="w-full px-3 py-2.5 rounded-xl bg-white text-black border border-slate-300 outline-none focus:border-blue-500"
+                              />
+                            )}
+                            {authMode === "signup" && authSignupCodeSent && (
+                              <input
+                                type="text"
+                                value={authSignupCode}
+                                onChange={(e) => setAuthSignupCode(e.target.value)}
+                                placeholder="Enter verification code"
+                                className="w-full px-3 py-2.5 rounded-xl bg-white text-black border border-slate-300 outline-none focus:border-blue-500"
+                              />
+                            )}
+                          </div>
+
+                          {authError && (
+                            <div className={`mt-2 rounded-lg border px-3 py-2 text-sm ${
+                              isLight ? "border-red-300 bg-red-50 text-red-700" : "border-red-500/30 bg-red-500/10 text-red-200"
+                            }`}>
+                              {authError}
+                            </div>
+                          )}
+                          {authNotice && (
+                            <div className={`mt-2 rounded-lg border px-3 py-2 text-sm ${
+                              isLight ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
+                            }`}>
+                              {authNotice}
+                            </div>
+                          )}
+
+                          {(authMode === "signin" || (authMode === "signup" && !authSignupCodeSent)) && (
+                            <div className="mt-3">
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className={`h-px flex-1 ${isLight ? "bg-slate-300" : "bg-white/15"}`} />
+                                <span className={`text-[11px] ${isLight ? "text-slate-500" : "text-white/55"}`}>or continue with</span>
+                                <div className={`h-px flex-1 ${isLight ? "bg-slate-300" : "bg-white/15"}`} />
+                              </div>
+                              <div className="grid grid-cols-1 gap-2">
+                                <button
+                                  onClick={() => handleOAuthLogin("google")}
+                                  disabled={authLoading || !authReady}
+                                  className={`px-3 py-2 rounded-xl text-sm font-medium border disabled:opacity-60 ${
+                                    isLight
+                                      ? "border-slate-300 bg-white text-slate-800 hover:bg-slate-100"
+                                      : "border-white/20 bg-white/5 text-white hover:bg-white/10"
+                                  }`}
+                                >
+                                  Continue with Google
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                            {authMode !== "forgot" && (
+                              <button
+                                onClick={handleAuthSubmit}
+                                disabled={authLoading || !authReady}
+                                className="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm disabled:opacity-60"
+                              >
+                                {authLoading
+                                  ? "Please wait..."
+                                  : authMode === "signup"
+                                    ? (authSignupCodeSent ? "Verify Code & Finish" : "Create Account")
+                                    : authMode === "reset"
+                                      ? "Update Password"
+                                      : "Sign In"}
+                              </button>
+                            )}
+                            {authMode === "signin" && (
+                              <button
+                                onClick={() => { setAuthMode("forgot"); setAuthError(""); setAuthNotice(""); }}
+                                className={`px-3 py-2 rounded-xl text-sm ${
+                                  isLight ? "bg-slate-100 hover:bg-slate-200 text-slate-700" : "bg-white/10 hover:bg-white/15 text-white/90"
+                                }`}
+                              >
+                                Forgot Password
+                              </button>
+                            )}
+                            {authMode === "forgot" && (
+                              <>
+                                <button
+                                  onClick={handleForgotPassword}
+                                  disabled={authLoading || !authReady}
+                                  className="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm disabled:opacity-60"
+                                >
+                                  Send Reset Email
+                                </button>
+                                <button
+                                  onClick={() => { setAuthMode("signin"); setAuthError(""); setAuthNotice(""); }}
+                                  className={`px-3 py-2 rounded-xl text-sm ${
+                                    isLight ? "bg-slate-100 hover:bg-slate-200 text-slate-700" : "bg-white/10 hover:bg-white/15 text-white/90"
+                                  }`}
+                                >
+                                  Back to Sign in
+                                </button>
+                              </>
+                            )}
+                            <button
+                              onClick={() => {
+                                setAuthMode((prev) => (prev === "signin" ? "signup" : "signin"));
+                                setAuthError("");
+                                setAuthNotice("");
+                                setAuthFirstName("");
+                                setAuthLastName("");
+                                setAuthConfirmPassword("");
+                                setAuthSignupCode("");
+                                setAuthSignupCodeSent(false);
+                              }}
+                              disabled={authMode === "forgot" || authMode === "reset"}
+                              className={`px-3 py-2 rounded-xl text-sm ${
+                                isLight ? "bg-slate-100 hover:bg-slate-200 text-slate-700" : "bg-white/10 hover:bg-white/15 text-white/90"
+                              }`}
+                            >
+                              {authMode === "signin" ? "Switch to Sign up" : "Switch to Sign in"}
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            )}
             <details className="relative">
               <summary className={`list-none inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer [&::-webkit-details-marker]:hidden ${
                 isCherry
@@ -4505,279 +4738,6 @@ export default function Home() {
                 </div>
               )}
             </div>
-            {authUser ? (
-              <div className="relative">
-                <button
-                  onClick={() => setUserMenuOpen((v) => !v)}
-                  className={`h-8 min-w-8 px-2 rounded-full border text-xs font-semibold shadow ${
-                    isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/20 bg-slate-900/70 text-white"
-                  }`}
-                  title={displayName}
-                >
-                  {userInitials}
-                </button>
-                {userMenuOpen && (
-                  <div className={`absolute right-0 top-full mt-2 w-52 rounded-xl border p-2 shadow-2xl z-30 ${
-                    isLight ? "border-slate-300 bg-white/95" : "border-white/15 bg-slate-900/95"
-                  }`}>
-                    <button
-                      onClick={() => {
-                        setProfilePanelOpen(true);
-                        setUserMenuOpen(false);
-                        setProfileError("");
-                        setProfileNotice("");
-                      }}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-sm ${
-                        isLight ? "hover:bg-slate-100 text-slate-700" : "hover:bg-white/10 text-white/90"
-                      }`}
-                    >
-                      Profile
-                    </button>
-                    <button
-                      onClick={() => {
-                        setQuizPanelOpen(true);
-                        setQuizFollowupMode(false);
-                        setQuizDismissed(false);
-                        setUserMenuOpen(false);
-                      }}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-sm ${
-                        isLight ? "hover:bg-slate-100 text-slate-700" : "hover:bg-white/10 text-white/90"
-                      }`}
-                    >
-                      Change preferences
-                    </button>
-                    <button
-                      onClick={handleSignOut}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-sm ${
-                        isLight ? "hover:bg-red-50 text-red-600" : "hover:bg-white/10 text-red-200"
-                      }`}
-                    >
-                      Sign out
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="relative">
-                <button
-                  onClick={(event) => {
-                    closeParentDropdown(event);
-                    setAuthPanelOpen((v) => !v);
-                    setAuthError("");
-                    setAuthNotice("");
-                  }}
-                  className={`px-3 py-1.5 rounded-lg border text-xs ${
-                    isLight
-                      ? "border-slate-300 bg-white/90 text-slate-700 hover:bg-slate-100"
-                      : "border-white/15 bg-slate-900/60 text-white/85 hover:bg-slate-800/70"
-                  }`}
-                >
-                  {t("loginSignup")}
-                </button>
-                {authPanelOpen && (
-                  <div
-                    className={`absolute right-0 top-full mt-2 w-[92vw] max-w-xl rounded-2xl border p-4 shadow-2xl z-40 ${
-                      isLight ? "border-slate-300 bg-white/95" : "border-white/15 bg-slate-900/95"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>Account Access</div>
-                      <button
-                        onClick={() => setAuthPanelOpen(false)}
-                        className={`px-2.5 py-1 rounded-md text-xs ${
-                          isLight ? "bg-slate-100 hover:bg-slate-200 text-slate-700" : "bg-white/10 hover:bg-white/15 text-white/90"
-                        }`}
-                      >
-                        Close
-                      </button>
-                    </div>
-                    <div className={`text-xs mb-3 ${isLight ? "text-slate-600" : "text-white/70"}`}>
-                      Optional now. Required later for advanced member-only features.
-                    </div>
-                    {!supabaseConfigured ? (
-                      <div className={`rounded-xl border px-3 py-2 text-sm ${
-                        isLight ? "border-amber-300 bg-amber-50 text-amber-700" : "border-amber-400/30 bg-amber-500/10 text-amber-200"
-                      }`}>
-                        Auth is not configured yet. Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
-                      </div>
-                    ) : (
-                      <>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                          {authMode === "signup" && (
-                            <>
-                              <input
-                                type="text"
-                                value={authFirstName}
-                                onChange={(e) => setAuthFirstName(e.target.value)}
-                                placeholder="First name"
-                                className="w-full px-3 py-2.5 rounded-xl bg-white text-black border border-slate-300 outline-none focus:border-blue-500"
-                              />
-                              <input
-                                type="text"
-                                value={authLastName}
-                                onChange={(e) => setAuthLastName(e.target.value)}
-                                placeholder="Last name"
-                                className="w-full px-3 py-2.5 rounded-xl bg-white text-black border border-slate-300 outline-none focus:border-blue-500"
-                              />
-                            </>
-                          )}
-                          {authMode !== "reset" && (
-                            <input
-                              type="email"
-                              value={authEmail}
-                              onChange={(e) => setAuthEmail(e.target.value)}
-                              placeholder="Email"
-                              className="w-full px-3 py-2.5 rounded-xl bg-white text-black border border-slate-300 outline-none focus:border-blue-500"
-                            />
-                          )}
-                          {(authMode === "signin" || authMode === "signup" || authMode === "reset") && (
-                            <input
-                              type="password"
-                              value={authPassword}
-                              onChange={(e) => setAuthPassword(e.target.value)}
-                              placeholder={authMode === "reset" ? "New password (min 8 chars)" : "Password (min 8 chars)"}
-                              className="w-full px-3 py-2.5 rounded-xl bg-white text-black border border-slate-300 outline-none focus:border-blue-500"
-                            />
-                          )}
-                          {(authMode === "signup" || authMode === "reset") && (
-                            <input
-                              type="password"
-                              value={authConfirmPassword}
-                              onChange={(e) => setAuthConfirmPassword(e.target.value)}
-                              placeholder="Confirm password"
-                              className="w-full px-3 py-2.5 rounded-xl bg-white text-black border border-slate-300 outline-none focus:border-blue-500"
-                            />
-                          )}
-                          {authMode === "signup" && authSignupCodeSent && (
-                            <input
-                              type="text"
-                              value={authSignupCode}
-                              onChange={(e) => setAuthSignupCode(e.target.value)}
-                              placeholder="Enter verification code"
-                              className="w-full px-3 py-2.5 rounded-xl bg-white text-black border border-slate-300 outline-none focus:border-blue-500"
-                            />
-                          )}
-                        </div>
-
-                        {authError && (
-                          <div className={`mt-2 rounded-lg border px-3 py-2 text-sm ${
-                            isLight ? "border-red-300 bg-red-50 text-red-700" : "border-red-500/30 bg-red-500/10 text-red-200"
-                          }`}>
-                            {authError}
-                          </div>
-                        )}
-                        {authNotice && (
-                          <div className={`mt-2 rounded-lg border px-3 py-2 text-sm ${
-                            isLight ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
-                          }`}>
-                            {authNotice}
-                          </div>
-                        )}
-
-                        {(authMode === "signin" || (authMode === "signup" && !authSignupCodeSent)) && (
-                          <div className="mt-3">
-                            <div className="flex items-center gap-2 mb-2">
-                              <div className={`h-px flex-1 ${isLight ? "bg-slate-300" : "bg-white/15"}`} />
-                              <span className={`text-[11px] ${isLight ? "text-slate-500" : "text-white/55"}`}>or continue with</span>
-                              <div className={`h-px flex-1 ${isLight ? "bg-slate-300" : "bg-white/15"}`} />
-                            </div>
-                            <div className="grid grid-cols-1 gap-2">
-                              <button
-                                onClick={() => handleOAuthLogin("google")}
-                                disabled={authLoading || !authReady}
-                                className={`px-3 py-2 rounded-xl text-sm font-medium border disabled:opacity-60 ${
-                                  isLight
-                                    ? "border-slate-300 bg-white text-slate-800 hover:bg-slate-100"
-                                    : "border-white/20 bg-white/5 text-white hover:bg-white/10"
-                                }`}
-                              >
-                                Continue with Google
-                              </button>
-                            </div>
-                          </div>
-                        )}
-
-                        <div className="mt-3 flex flex-wrap items-center gap-2">
-                          {authMode !== "forgot" && (
-                            <button
-                              onClick={handleAuthSubmit}
-                              disabled={authLoading || !authReady}
-                              className="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm disabled:opacity-60"
-                            >
-                              {authLoading
-                                ? "Please wait..."
-                                : authMode === "signup"
-                                  ? (authSignupCodeSent ? "Verify Code & Finish" : "Create Account")
-                                  : authMode === "reset"
-                                    ? "Update Password"
-                                    : "Sign In"}
-                            </button>
-                          )}
-                          {authMode === "signin" && (
-                            <button
-                              onClick={() => {
-                                setAuthMode("forgot");
-                                setAuthError("");
-                                setAuthNotice("");
-                              }}
-                              className={`px-3 py-2 rounded-xl text-sm ${
-                                isLight ? "bg-slate-100 hover:bg-slate-200 text-slate-700" : "bg-white/10 hover:bg-white/15 text-white/90"
-                              }`}
-                            >
-                              Forgot Password
-                            </button>
-                          )}
-                          {authMode === "forgot" && (
-                            <>
-                              <button
-                                onClick={handleForgotPassword}
-                                disabled={authLoading || !authReady}
-                                className="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm disabled:opacity-60"
-                              >
-                                Send Reset Email
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setAuthMode("signin");
-                                  setAuthError("");
-                                  setAuthNotice("");
-                                }}
-                                className={`px-3 py-2 rounded-xl text-sm ${
-                                  isLight ? "bg-slate-100 hover:bg-slate-200 text-slate-700" : "bg-white/10 hover:bg-white/15 text-white/90"
-                                }`}
-                              >
-                                Back to Sign in
-                              </button>
-                            </>
-                          )}
-                          <button
-                            onClick={() => {
-                              setAuthMode((prev) => (prev === "signin" ? "signup" : "signin"));
-                              setAuthError("");
-                              setAuthNotice("");
-                              setAuthFirstName("");
-                              setAuthLastName("");
-                              setAuthConfirmPassword("");
-                              setAuthSignupCode("");
-                              setAuthSignupCodeSent(false);
-                            }}
-                            disabled={authMode === "forgot" || authMode === "reset"}
-                            className={`px-3 py-2 rounded-xl text-sm ${
-                              isLight ? "bg-slate-100 hover:bg-slate-200 text-slate-700" : "bg-white/10 hover:bg-white/15 text-white/90"
-                            }`}
-                          >
-                            {authMode === "signin" ? "Switch to Sign up" : "Switch to Sign in"}
-                          </button>
-                          <span className={`text-xs ${isLight ? "text-slate-500" : "text-white/60"}`}>
-                            {authReady ? (authUser?.email ? `Signed in as ${authUser.email}` : "Guest mode active") : "Checking session..."}
-                          </span>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
               </div>
             </details>
           </div>
@@ -4812,97 +4772,66 @@ export default function Home() {
           </div>
           <p className={`mt-5 text-lg md:text-xl font-medium ${isCherry ? "text-rose-900/90" : isAzula ? "text-[#cfe9ff]/90" : isLight ? "text-slate-700" : "text-slate-200/90"}`}>{t("clarityLine")}</p>
           <p className={`text-xs mt-3 ${isCherry ? "text-rose-800/80" : isAzula ? "text-[#6a9fcc]" : isLight ? "text-slate-500" : "text-slate-400/80"}`}>{t("founder")}: Deep Patel • {t("coFounder")}: Juan M. Ramirez</p>
-          <div className={`mt-5 inline-flex rounded-xl overflow-hidden border ${
-            isLight ? "border-slate-300 bg-white/85 shadow-sm" : "border-white/15 bg-slate-900/60"
+        </div>
+        {/* MAIN LAYOUT — vertical sidebar + content */}
+        <div className="flex gap-4 items-start">
+          {/* VERTICAL NAV SIDEBAR */}
+          <aside className={`w-44 shrink-0 sticky top-6 rounded-xl border p-2 flex flex-col gap-0.5 ${
+            isLight ? "border-slate-300 bg-white/90 shadow-sm" : "border-white/15 bg-slate-900/70"
           }`}>
-            <button
-              onClick={() => setAssetMode("home")}
-              className={`px-3 py-1.5 text-xs font-semibold ${
-                assetMode === "home" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-700" : "bg-transparent text-white/80"
+            {[
+              { mode: "home",        label: t("home") },
+              { mode: "stock",       label: t("stock") },
+              { mode: "crypto",      label: t("crypto") },
+              { mode: "metals",      label: t("metals") },
+              { mode: "fx",          label: t("fx") },
+              { mode: "geopolitics", label: t("geoPolitics") },
+              { mode: "globalmarket",label: t("globalMarket") },
+            ].map(({ mode, label }) => (
+              <button
+                key={mode}
+                onClick={() => setAssetMode(mode)}
+                className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                  assetMode === mode
+                    ? "bg-blue-600 text-white"
+                    : isLight
+                      ? "text-slate-700 hover:bg-slate-100"
+                      : "text-white/80 hover:bg-white/10"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+            <div className={`my-1 h-px ${isLight ? "bg-slate-200" : "bg-white/10"}`} />
+            <Link
+              href="/bots"
+              className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 ${
+                isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"
               }`}
             >
-              {t("home")}
-            </button>
-            <button
-              onClick={() => setAssetMode("stock")}
-              className={`px-3 py-1.5 text-xs font-semibold ${
-                assetMode === "stock" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-700" : "bg-transparent text-white/80"
-              }`}
-            >
-              {t("stock")}
-            </button>
-            <button
-              onClick={() => setAssetMode("crypto")}
-              className={`px-3 py-1.5 text-xs font-semibold ${
-                assetMode === "crypto" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-700" : "bg-transparent text-white/80"
-              }`}
-            >
-              {t("crypto")}
-            </button>
-            <button
-              onClick={() => setAssetMode("metals")}
-              className={`px-3 py-1.5 text-xs font-semibold ${
-                assetMode === "metals" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-700" : "bg-transparent text-white/80"
-              }`}
-            >
-              {t("metals")}
-            </button>
-            <button
-              onClick={() => setAssetMode("fx")}
-              className={`px-3 py-1.5 text-xs font-semibold ${
-                assetMode === "fx" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-700" : "bg-transparent text-white/80"
-              }`}
-            >
-              {t("fx")}
-            </button>
+              {t("simulator")}
+              {simulatorAutoPilotActive && <span title="Auto-Pilot active" className="text-[10px]">📊</span>}
+              {Number.isFinite(simulatorReturnPct) && (
+                <span className={`ml-auto rounded-full px-1.5 py-[1px] text-[10px] font-semibold ${
+                  simulatorReturnPct >= 0
+                    ? isLight ? "bg-emerald-100 text-emerald-700" : "bg-emerald-500/20 text-emerald-300"
+                    : isLight ? "bg-rose-100 text-rose-700" : "bg-rose-500/20 text-rose-300"
+                }`}>
+                  {simulatorReturnPct >= 0 ? "+" : ""}{simulatorReturnPct.toFixed(1)}%
+                </span>
+              )}
+            </Link>
             <Link
               href="/market-school"
-              className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${
+              className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold ${
                 isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"
               }`}
             >
               {t("learn")}
             </Link>
             <Link
-              href="/bots"
-              className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center gap-1 ${
-                isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"
-              }`}
-            >
-              {t("simulator")}
-              {simulatorAutoPilotActive && <span title="Auto-Pilot active">📊</span>}
-              {Number.isFinite(simulatorReturnPct) && (
-                <span
-                  className={`rounded-full px-1.5 py-[2px] text-[10px] font-semibold ${
-                    simulatorReturnPct >= 0
-                      ? isLight ? "bg-emerald-100 text-emerald-700" : "bg-emerald-500/20 text-emerald-300"
-                      : isLight ? "bg-rose-100 text-rose-700" : "bg-rose-500/20 text-rose-300"
-                  }`}
-                >
-                  {simulatorReturnPct >= 0 ? "+" : ""}
-                  {simulatorReturnPct.toFixed(1)}%
-                </span>
-              )}
-            </Link>
-            <button
-              onClick={() => setAssetMode("geopolitics")}
-              className={`px-3 py-1.5 text-xs font-semibold ${
-                assetMode === "geopolitics" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-700" : "bg-transparent text-white/80"
-              }`}
-            >
-              {t("geoPolitics")}
-            </button>
-            <button
-              onClick={() => setAssetMode("globalmarket")}
-              className={`px-3 py-1.5 text-xs font-semibold ${
-                assetMode === "globalmarket" ? "bg-blue-600 text-white" : isLight ? "bg-transparent text-slate-700" : "bg-transparent text-white/80"
-              }`}
-            >
-              {t("globalMarket")}
-            </button>
-            <Link
               href="/warroom.html"
-              className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${
+              className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold ${
                 isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"
               }`}
             >
@@ -4910,14 +4839,15 @@ export default function Home() {
             </Link>
             <Link
               href="/briefing"
-              className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center ${
+              className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold ${
                 isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"
               }`}
             >
               {t("briefing")}
             </Link>
-          </div>
-        </div>
+          </aside>
+          {/* CONTENT AREA */}
+          <div className="flex-1 min-w-0">
 
         {welcomeBanner.show && (
           <div className="mb-6">
@@ -8205,6 +8135,8 @@ export default function Home() {
           <p className="text-center text-[11px] text-white/40 mt-8">
             For informational purposes only. This platform does not provide financial, investment, legal, tax, or accounting advice. All decisions and outcomes are solely your responsibility.
           </p>
+          </div>{/* end content area */}
+        </div>{/* end flex layout */}
         </div>
       </div>
 
