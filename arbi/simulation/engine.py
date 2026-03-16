@@ -248,17 +248,13 @@ class SimulationEngine:
 
     def stop(self):
         self._running = False
-        try:
-            conn = sqlite3.connect(SIM_DB_PATH)
-            conn.execute(
-                "UPDATE sim_trades SET status='CLOSED', exit_reason='session_end' "
-                "WHERE sim_user=? AND status='OPEN'",
-                (self.sim_user,),
-            )
-            conn.commit()
-            conn.close()
-        except Exception as exc:
-            log.warning("Could not close open positions on shutdown: %s", exc)
+        # Close any open positions through _paper_exit so they appear in the
+        # session summary and are counted in trade_count / session_wins.
+        for sym in list(self.positions.keys()):
+            pos   = self.positions[sym]
+            price = pos["entry_price"]   # use entry as mark — no live feed at shutdown
+            pnl_pct = 0.0
+            self._paper_exit(sym, price, pnl_pct, "session_end")
         log.info("Simulation stopped for %s", self.sim_user)
 
     def _tick(self):
@@ -890,6 +886,7 @@ def run_simulation(user_name: str, use_live_data: bool = True):
                 print(f"  {exit_type:<25} {mins:.1f} min")
 
         print(f"\nKnowledge DB: {SIM_DB_PATH}")
+        import sys as _sys; _sys.stdout.flush()
 
 
 # ── Fast Scalp Simulation ──────────────────────────────────────────────────────
