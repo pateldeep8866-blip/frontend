@@ -623,8 +623,11 @@ class SimulationEngine:
         """
         current_regime = regime.get("regime", "RANGING")
         for sym in list(self.positions.keys()):
+            row = market_data.get(sym, {})
+            if row.get("source") == "synthetic":
+                continue  # no exit evaluation on fake prices — wait for live data
             pos      = self.positions[sym]
-            price    = market_data.get(sym, {}).get("price", pos["entry_price"])
+            price    = row.get("price", pos["entry_price"])
             entry    = pos["entry_price"]
             strategy = pos["strategy"]
 
