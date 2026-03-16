@@ -576,7 +576,10 @@ class SimulationEngine:
     def _paper_enter(self, signal: dict, market_data: dict, regime: dict):
         """Simulate entering a trade. Log to shared DB."""
         sym      = signal["symbol"]
-        price    = market_data.get(sym, {}).get("price", 0)
+        row      = market_data.get(sym, {})
+        if row.get("source") == "synthetic":
+            return  # never paper-trade on fake prices (e.g. BNB has no live feed)
+        price    = row.get("price", 0)
         if not price or sym in self.positions:
             return
 
