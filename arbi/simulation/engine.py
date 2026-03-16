@@ -26,7 +26,8 @@ import random
 from datetime import datetime
 from utils.logger import get_logger
 from storage.supabase_writer import write_trade, write_stats, init_supabase
-from data.ws_feed import KrakenWSFeed
+from data.ws_feed import get_ws_feed as _get_ws_feed
+from config import EXCHANGE as _ACTIVE_EXCHANGE, ACTIVE_MAKER_FEE, ACTIVE_TAKER_FEE, EXCHANGE_CCXT_ID
 
 log = get_logger("simulation.engine")
 
@@ -36,7 +37,13 @@ SIM_DB_PATH        = "simulation_knowledge.db"   # shared across all sim instanc
 LOOP_INTERVAL_SEC  = 15       # how often the main loop runs
 CANDLE_TIMEFRAME   = "1h"
 STARTING_BALANCE   = 100.0
-RISK_PER_TRADE_PCT = 0.02     # 2% per trade
+# ── Aggressive paper-mode sizing ─────────────────────────────────────────────
+# These constants are intentionally large for paper / live-data simulation only.
+# Goal: make trade outcomes economically meaningful on a ~$100 account so signal
+# quality can actually be evaluated. Do NOT copy these values to a live-trading path.
+RISK_PER_TRADE_PCT = 0.30    # base: 30% of balance × (score/100) × size_mult
+PAPER_MIN_SIZE_PCT = 0.10    # floor: always deploy at least 10% regardless of score/regime
+PAPER_MAX_SIZE_PCT = 0.35    # cap:   never exceed 35% in a single position
 
 # Symbols to simulate across
 SYMBOLS = [
@@ -178,12 +185,13 @@ class SimulationEngine:
         self.use_live    = use_live_data
         self.balance     = STARTING_BALANCE
         self.positions   = {}     # symbol → open position
-        self.trade_count = 0
-        self.session_id  = str(uuid.uuid4())[:8]
+        self.trade_count  = 0
+        self.session_wins = 0   # in-memory closed wins this session
+        self.session_id   = str(uuid.uuid4())[:8]
         self._running    = False
         self._lock       = threading.Lock()
 
-        self._ws_feed = KrakenWSFeed(SYMBOLS)
+        self._ws_feed = _get_ws_feed(SYMBOLS, exchange=_ACTIVE_EXCHANGE)
         self._ws_feed.start()
 
         # Session-level exit tracking (in-memory, for summary stats)
@@ -240,6 +248,17 @@ class SimulationEngine:
 
     def stop(self):
         self._running = False
+        try:
+            conn = sqlite3.connect(SIM_DB_PATH)
+            conn.execute(
+                "UPDATE sim_trades SET status='CLOSED', exit_reason='session_end' "
+                "WHERE sim_user=? AND status='OPEN'",
+                (self.sim_user,),
+            )
+            conn.commit()
+            conn.close()
+        except Exception as exc:
+            log.warning("Could not close open positions on shutdown: %s", exc)
         log.info("Simulation stopped for %s", self.sim_user)
 
     def _tick(self):
@@ -262,7 +281,7 @@ class SimulationEngine:
         # 5. Paper trade the best signal
         if signals:
             best = max(signals, key=lambda s: s.get("score", 0))
-            if best["score"] > 40 and len(self.positions) < 3:
+            if best["score"] > 10 and len(self.positions) < 3:
                 self._paper_enter(best, market_data, regime)
 
         # 6. Monitor and close open positions
@@ -304,15 +323,23 @@ class SimulationEngine:
         return base
 
     def _fetch_live_data(self) -> dict:
-        """Fetch real prices from Kraken public API (no geo-blocking, no auth needed)."""
+        """Fetch real prices from the active exchange public API (no auth needed)."""
         try:
             import ccxt
-            client = ccxt.kraken()
-            # Kraken uses XBT not BTC, and doesn't have USDT pairs for all — map to USD
+            _ccxt_id = EXCHANGE_CCXT_ID.get(_ACTIVE_EXCHANGE, _ACTIVE_EXCHANGE)
+            client = getattr(ccxt, _ccxt_id)()
+            # Kraken uses XBT not BTC, and doesn't have USDT pairs for all — map to USD.
+            # Binance.US uses USDT pairs; the same USDT symbols work directly.
             sym_map = {
-                "BTC/USDT": "BTC/USD", "ETH/USDT": "ETH/USD", "SOL/USDT": "SOL/USD",
-                "XRP/USDT": "XRP/USD", "BNB/USDT": None,       "ADA/USDT": "ADA/USD",
-                "DOGE/USDT":"DOGE/USD","AVAX/USDT":"AVAX/USD",  "DOT/USDT": "DOT/USD",
+                "BTC/USDT": "BTC/USD" if _ACTIVE_EXCHANGE == "kraken" else "BTC/USDT",
+                "ETH/USDT": "ETH/USD" if _ACTIVE_EXCHANGE == "kraken" else "ETH/USDT",
+                "SOL/USDT": "SOL/USD" if _ACTIVE_EXCHANGE == "kraken" else "SOL/USDT",
+                "XRP/USDT": "XRP/USD" if _ACTIVE_EXCHANGE == "kraken" else "XRP/USDT",
+                "BNB/USDT": None,
+                "ADA/USDT": "ADA/USD" if _ACTIVE_EXCHANGE == "kraken" else "ADA/USDT",
+                "DOGE/USDT": "DOGE/USD" if _ACTIVE_EXCHANGE == "kraken" else "DOGE/USDT",
+                "AVAX/USDT": "AVAX/USD" if _ACTIVE_EXCHANGE == "kraken" else "AVAX/USDT",
+                "DOT/USDT": "DOT/USD" if _ACTIVE_EXCHANGE == "kraken" else "DOT/USDT",
             }
             data = {}
             for sym in SYMBOLS:
@@ -500,25 +527,30 @@ class SimulationEngine:
                 losses = float(np.mean([-d for d in deltas if d < 0] or [0.001]))
                 rsi    = 100 - (100 / (1 + gains / losses))
 
-                if zscore <= -2.0 and rsi <= 35:
+                # Continuous scoring — no hard zscore/RSI threshold gates
+                # Any z-score deviation + RSI agreement produces a signal scored by EV
+                rsi_signal = (50 - rsi) / 50.0  # +1=oversold, -1=overbought
+                if zscore < -0.5 or (rsi < 45 and zscore < 0):
+                    mr_score = min(abs(zscore) * 15 + abs(rsi_signal) * 20, 90)
                     signals.append({
                         "symbol":   sym,
                         "strategy": "mean_reversion",
                         "action":   "BUY",
-                        "score":    min(abs(zscore) * 25, 90),
+                        "score":    mr_score,
                         "features": {"zscore": zscore, "rsi": rsi,
                                      "regime": regime["regime"]},
-                        "reason":   f"zscore={zscore:.2f} rsi={rsi:.1f}",
+                        "reason":   f"zscore={zscore:.2f} rsi={rsi:.1f} score={mr_score:.1f}",
                     })
-                elif zscore >= 2.0 and rsi >= 65:
+                elif zscore > 0.5 or (rsi > 55 and zscore > 0):
+                    mr_score = min(abs(zscore) * 15 + abs(rsi_signal) * 20, 90)
                     signals.append({
                         "symbol":   sym,
                         "strategy": "mean_reversion",
                         "action":   "SELL",
-                        "score":    min(zscore * 25, 90),
+                        "score":    mr_score,
                         "features": {"zscore": zscore, "rsi": rsi,
                                      "regime": regime["regime"]},
-                        "reason":   f"zscore={zscore:.2f} rsi={rsi:.1f}",
+                        "reason":   f"zscore={zscore:.2f} rsi={rsi:.1f} score={mr_score:.1f}",
                     })
 
             # ── Liquidity signal ───────────────────────────────────────────
@@ -548,8 +580,9 @@ class SimulationEngine:
         if not price or sym in self.positions:
             return
 
-        size_usd = self.balance * RISK_PER_TRADE_PCT * signal.get("score", 50) / 100
-        size_usd = min(size_usd, self.balance * 0.10)   # max 10% in one trade
+        size_usd = self.balance * RISK_PER_TRADE_PCT * signal.get("score", 50) / 100 * regime.get("size_mult", 1.0)
+        size_usd = max(size_usd, self.balance * PAPER_MIN_SIZE_PCT)  # floor: at least 10%
+        size_usd = min(size_usd, self.balance * PAPER_MAX_SIZE_PCT)  # cap:   at most 35%
         regime_name = regime.get("regime", "RANGING")
 
         self.positions[sym] = {
@@ -631,6 +664,8 @@ class SimulationEngine:
         pnl_usd      = pos["size_usd"] * pnl_pct
         self.balance += pnl_usd
         self.trade_count += 1
+        if pnl_pct > 0:
+            self.session_wins += 1
         hold_hrs     = (time.time() - pos["entry_ts"]) / 3600
         hold_mins    = round(hold_hrs * 60, 1)
         regime_entry = pos.get("regime_at_entry", "UNKNOWN")
@@ -705,9 +740,11 @@ class SimulationEngine:
 
     def get_stats(self) -> dict:
         conn = sqlite3.connect(SIM_DB_PATH)
-        total  = conn.execute("SELECT COUNT(*) FROM sim_trades WHERE status='CLOSED'").fetchone()[0]
-        wins   = conn.execute("SELECT COUNT(*) FROM sim_trades WHERE profitable=1").fetchone()[0]
-        avgpnl = conn.execute("SELECT AVG(pnl_pct) FROM sim_trades WHERE status='CLOSED'").fetchone()[0] or 0
+        u = self.sim_user
+        global_total = conn.execute("SELECT COUNT(*) FROM sim_trades WHERE status='CLOSED'").fetchone()[0]
+        total  = conn.execute("SELECT COUNT(*) FROM sim_trades WHERE status='CLOSED' AND sim_user=?", (u,)).fetchone()[0]
+        wins   = conn.execute("SELECT COUNT(*) FROM sim_trades WHERE profitable=1 AND sim_user=?", (u,)).fetchone()[0]
+        avgpnl = conn.execute("SELECT AVG(pnl_pct) FROM sim_trades WHERE status='CLOSED' AND sim_user=?", (u,)).fetchone()[0] or 0
         signals_total = conn.execute("SELECT COUNT(*) FROM sim_signals").fetchone()[0]
 
         # Active simulations in last 5 minutes
@@ -718,33 +755,33 @@ class SimulationEngine:
 
         by_strat = conn.execute("""
             SELECT strategy, COUNT(*) as n, AVG(pnl_pct) as avg, SUM(profitable) as wins
-            FROM sim_trades WHERE status='CLOSED' GROUP BY strategy ORDER BY avg DESC
-        """).fetchall()
+            FROM sim_trades WHERE status='CLOSED' AND sim_user=? GROUP BY strategy ORDER BY avg DESC
+        """, (u,)).fetchall()
 
         # Exit reason breakdown from DB
         exit_rows = conn.execute("""
             SELECT exit_reason, COUNT(*) FROM sim_trades
-            WHERE status='CLOSED' AND exit_reason IS NOT NULL
+            WHERE status='CLOSED' AND sim_user=? AND exit_reason IS NOT NULL
             GROUP BY exit_reason
-        """).fetchall()
+        """, (u,)).fetchall()
 
         # Regime entry counts from DB
         regime_rows = conn.execute("""
             SELECT regime_at_entry, COUNT(*) FROM sim_trades
-            WHERE regime_at_entry IS NOT NULL
+            WHERE sim_user=? AND regime_at_entry IS NOT NULL
             GROUP BY regime_at_entry
-        """).fetchall()
+        """, (u,)).fetchall()
 
         # Avg hold time per exit type
         avg_hold_rows = conn.execute("""
             SELECT exit_reason, AVG(hold_hrs)*60 FROM sim_trades
-            WHERE status='CLOSED' AND exit_reason IS NOT NULL AND hold_hrs IS NOT NULL
+            WHERE status='CLOSED' AND sim_user=? AND exit_reason IS NOT NULL AND hold_hrs IS NOT NULL
             GROUP BY exit_reason
-        """).fetchall()
+        """, (u,)).fetchall()
 
         conn.close()
 
-        write_stats({"total_sim_trades": total, "win_rate_pct": round(wins/total*100,1) if total else 0})
+        write_stats({"total_sim_trades": global_total, "win_rate_pct": round(wins/total*100,1) if total else 0})
 
         avg_hold_mins = (
             round(sum(self._hold_minutes) / len(self._hold_minutes), 1)
@@ -752,7 +789,8 @@ class SimulationEngine:
         )
 
         return {
-            "total_sim_trades":  total,
+            "total_sim_trades":  global_total,
+            "my_closed_trades":  total,
             "win_rate_pct":      round(wins/total*100, 1) if total else 0,
             "avg_pnl_pct":       round(avgpnl, 4),
             "signals_logged":    signals_total,
@@ -763,6 +801,10 @@ class SimulationEngine:
             ],
             "my_balance":        round(self.balance, 2),
             "my_trades":         self.trade_count,
+            "session_win_rate_pct": (
+                round(self.session_wins / self.trade_count * 100, 1)
+                if self.trade_count else None
+            ),
             "avg_hold_minutes":  avg_hold_mins,
             "exit_breakdown":    {r[0]: r[1] for r in exit_rows},
             "regime_breakdown":  {r[0]: r[1] for r in regime_rows},
@@ -809,10 +851,13 @@ def run_simulation(user_name: str, use_live_data: bool = True):
     except KeyboardInterrupt:
         engine.stop()
         stats = engine.get_stats()
+        _swr = stats.get("session_win_rate_pct")
+        _wr_label = f"{_swr}%" if _swr is not None else "N/A"
         print(f"\n\nSession complete.")
-        print(f"Trades logged: {stats['total_sim_trades']}")
-        print(f"Win rate:      {stats['win_rate_pct']}%")
-        print(f"Final balance: ${stats['my_balance']:,.2f}")
+        print(f"Trades this session:          {stats['my_trades']}")
+        print(f"Win rate (this session):      {_wr_label}")
+        print(f"Final balance:                ${stats['my_balance']:,.2f}")
+        print(f"All-time closed trades (DB):  {stats['total_sim_trades']}")
         if stats.get("avg_hold_minutes") is not None:
             print(f"Avg hold time: {stats['avg_hold_minutes']} min")
 
@@ -865,32 +910,48 @@ FAST_SCALP_CONSEC_LOSS_LIMIT   = 3
 FAST_SCALP_COOLDOWN_SEC        = 1800          # 30 minutes
 FAST_SCALP_CAPITAL_PCT         = 0.25
 FAST_SCALP_DAILY_LOSS_CAP_PCT  = 0.10          # stop new entries after 10% daily drawdown
-FAST_SCALP_ENTRY_FEE_PCT       = 0.0016        # Kraken maker (limit entry)
-FAST_SCALP_EXIT_FEE_PCT        = 0.0026        # Kraken taker (market exit)
+FAST_SCALP_ENTRY_FEE_PCT       = ACTIVE_MAKER_FEE   # maker fee for active exchange
+FAST_SCALP_EXIT_FEE_PCT        = ACTIVE_TAKER_FEE   # taker fee for active exchange
 FAST_SCALP_BUY_SLIP            = 1.0003        # buy at ask + 0.03% slippage
 FAST_SCALP_SELL_SLIP           = 0.9997        # sell at bid − 0.03% slippage
 FAST_SCALP_VOL_SPIKE_MIN           = 0.20          # vol must be ≥ 0.20× rolling avg
 FAST_SCALP_ATR_SHORT           = 5
 FAST_SCALP_ATR_LONG            = 20
-FAST_SCALP_DEFAULT_TP          = 0.010         # 1.0% — realistic scalp target
-FAST_SCALP_DEFAULT_SL          = 0.005         # 0.5% — 1:2 risk/reward
+FAST_SCALP_DEFAULT_TP          = 0.015         # 1.5% baseline TP — 3:1 R:R
+FAST_SCALP_DEFAULT_SL          = 0.005         # 0.5% baseline SL
 
-# Adaptive TP/SL tiers based on ATR expansion at entry time
-# atr_ratio < 1.15 → low vol (tighter)  |  ≥ 1.5 → high vol (wider)
+# Adaptive TP/SL tiers based on ATR expansion at entry time.
+# All tiers use ≥3:1 reward:risk. With Kraken round-trip fees ≈ 0.42%, a 2:1 R:R
+# tier (e.g. 0.8%/0.4%) requires >73% win rate for positive EV — impossible with
+# realistic priors. A 3:1 R:R tier (1.2%/0.4%) only needs ~57% win rate, which
+# is achievable for moderate-quality signals.
 FAST_SCALP_ADAPTIVE_TP_SL = [
-    (1.15, 0.008, 0.004),   # (atr_ratio_min, tp, sl) — low expansion
-    (1.50, 0.010, 0.005),   # normal expansion (default)
-    (9.99, 0.015, 0.0075),  # high expansion
+    (1.15, 0.012, 0.004),   # low expansion:    1.2% TP / 0.4% SL (3:1 R:R)
+    (1.50, 0.015, 0.005),   # normal expansion: 1.5% TP / 0.5% SL (3:1 R:R)
+    (9.99, 0.020, 0.007),   # high expansion:   2.0% TP / 0.7% SL (~2.9:1 R:R)
 ]
 
-# Market regime filter thresholds — applied dynamically based on avg ATR expansion
-# VOLATILE: avg_atr_ratio >= 1.30  |  MODERATE: >= 1.10  |  CALM: >= 1.05
-# DEAD: avg_atr_ratio < 1.05 AND 00:00–07:00 UTC — overnight mean-reversion mode
+# Market regime filter thresholds — kept for _classify_regime() signature compatibility.
+# These are no longer used as hard alpha gates. Instead, REGIME_CONTEXT provides
+# continuous modifiers that scale EV, TP/SL, and position sizing.
 REGIME_THRESHOLDS = {
     "VOLATILE": {"atr_ratio": 1.10, "vol_ratio": 0.20, "zscore": 2.0, "rsi_long": 35, "rsi_short": 65},
     "MODERATE": {"atr_ratio": 1.05, "vol_ratio": 0.15, "zscore": 1.8, "rsi_long": 37, "rsi_short": 63},
     "CALM":     {"atr_ratio": 1.00, "vol_ratio": 0.10, "zscore": 1.5, "rsi_long": 40, "rsi_short": 60},
     "DEAD":     {"atr_ratio": 1.02, "vol_ratio": 0.10, "zscore": 1.2, "rsi_long": 42, "rsi_short": 58},
+}
+
+# Continuous regime modifiers — used instead of binary gates.
+# tp_mult:  scales TP/SL targets. Kept ≥0.85 so targets stay above the
+#           fee break-even point. Quiet markets reduce size and confidence,
+#           not reward — crushing TP below fees makes positive EV impossible.
+# regime_q: confidence multiplier in EV estimate (0–1); low in dead markets
+# size_cap: max fraction of capital_pct to deploy; DEAD → very small probes
+REGIME_CONTEXT = {
+    "VOLATILE": {"tp_mult": 1.20, "regime_q": 0.75, "size_cap": 1.00},
+    "MODERATE": {"tp_mult": 1.00, "regime_q": 0.60, "size_cap": 1.00},
+    "CALM":     {"tp_mult": 0.90, "regime_q": 0.40, "size_cap": 0.35},
+    "DEAD":     {"tp_mult": 0.85, "regime_q": 0.25, "size_cap": 0.15},
 }
 
 # Swing mode (CALM/DEAD regimes) — mean-reversion with relaxed thresholds
@@ -1112,35 +1173,54 @@ class FastScalpBot:
     def _scan_signals(self, market_data: dict,
                       regime: str = None, r_thr: dict = None,
                       avg_atr_ratio: float = None,
-                      min_score: int = FAST_SCALP_MIN_SCORE) -> list:
+                      min_score: int = 0) -> list:
         """
-        Fast scalp signals for FAST_SCALP_SYMBOLS (VOLATILE/MODERATE regimes).
-        Score built from RSI, Z-score, ATR expansion (+ volume boost when live).
-        Logs are throttled: only emits when result/values change materially
-        or every 30 seconds.
+        EV-based signal scanner. No hard alpha gates on ATR, volume, z-score or RSI.
+
+        Removed:
+          - SKIP_ATR hard gate (atr_ratio < threshold → block)
+          - SKIP_VOL hard gate (vol_ratio < threshold → block)
+          - Hard direction requirements (z AND rsi must both be extreme)
+          - Score minimum threshold as a trade gate
+
+        Replaced with:
+          - Continuous feature normalization (all features → [0,1])
+          - Composite signal score = weighted sum of normalized features
+          - EV = p_win * avg_win - p_loss * avg_loss - fees - slippage
+          - Only EV > 0 triggers a trade
+          - Regime modifies TP/SL targets and EV confidence, not gates
+
+        Logs every symbol every 5 min in the format:
+          SCAN | SYM | mr=.. vol=.. atr=.. exec_q=.. regime_q=.. composite=.. p_win=.. EV=.. decision=..
         """
         import numpy as np
         now_ts = time.time()
 
-        # ── Regime detection — use pre-classified if provided, else classify ───
         if regime is None or r_thr is None:
             regime, r_thr, avg_atr_ratio = _classify_regime(market_data)
+
+        # Regime as continuous modifiers (NOT gates)
+        ctx          = REGIME_CONTEXT.get(regime, REGIME_CONTEXT["MODERATE"])
+        regime_tp_mult = ctx["tp_mult"]
+        regime_q       = ctx["regime_q"]
+
         regime_state = FastScalpBot._scan_log_state.get("_regime", {})
         if regime != regime_state.get("tag") or (now_ts - regime_state.get("ts", 0.0)) >= 60:
             log.info(
-                "REGIME | %s | avg_atr=%.2f | atr≥%.2f vol≥%.2f |z|≥%.1f rsi_long≤%d rsi_short≥%d",
-                regime, avg_atr_ratio,
-                r_thr["atr_ratio"], r_thr["vol_ratio"],
-                r_thr["zscore"], r_thr["rsi_long"], r_thr["rsi_short"],
+                "REGIME | %s | avg_atr=%.2f | tp_mult=%.1f regime_q=%.2f size_cap=%.1f"
+                " (continuous modifiers — no hard gates)",
+                regime, avg_atr_ratio or 0.0, regime_tp_mult, regime_q, ctx["size_cap"],
             )
             FastScalpBot._scan_log_state["_regime"] = {"tag": regime, "ts": now_ts}
 
         signals = []
+
         for sym in FAST_SCALP_SYMBOLS:
             row     = market_data.get(sym, {})
             candles = row.get("candles", [])
 
-            # ── Feed gate ────────────────────────────────────────────────────
+            # ── Safety gate: feed integrity ────────────────────────────────
+            # This IS a safety gate (stale/bad data = execution risk), not an alpha gate.
             feed_ok, feed_reason = _validate_feed(sym, row, now_ts)
             if not feed_ok:
                 result_tag = "FEED_ERROR"
@@ -1150,18 +1230,10 @@ class FastScalpBot:
                     FastScalpBot._scan_log_state[sym] = {"tag": result_tag, "ts": now_ts}
                 continue
 
-            # Indicators always derived from real candles — no tick fallback.
             closes = [c["close"] for c in candles]
             vols   = [c["volume"] for c in candles]
 
-            # ── ATR ──────────────────────────────────────────────────────────
-            atr_period = min(FAST_SCALP_ATR_LONG, len(candles) - 1)
-            atr5  = _compute_atr(candles, FAST_SCALP_ATR_SHORT)
-            atr20 = _compute_atr(candles, atr_period)
-            atr_ratio = (atr5 / atr20) if atr20 > 0 else 0.0
-            atr_ok    = atr20 > 0 and atr_ratio >= r_thr["atr_ratio"]
-
-            # ── Volume ───────────────────────────────────────────────────────
+            # ── Volume cache (boundary candle) ─────────────────────────────
             n_vol   = min(20, len(vols))
             avg_vol = float(np.mean(vols[-n_vol:])) if n_vol > 0 else 0.0
             cur_vol = vols[-1]
@@ -1173,346 +1245,249 @@ class FastScalpBot:
                     log.debug("SCAN | %s | cur_vol=0 (candle boundary) — using cached vol=%.0f",
                               sym, cached["vol"])
                     cur_vol = cached["vol"]
+
             if avg_vol <= 0 or cur_vol <= 0:
-                result_tag = "SKIP_BAD_DATA"
-                scan_state = FastScalpBot._scan_log_state.get(sym, {})
-                if result_tag != scan_state.get("tag") or (now_ts - scan_state.get("ts", 0.0)) >= 300:
-                    log.warning("SCAN | %s | SKIP_BAD_DATA | avg_vol=%.0f cur_vol=%.0f atr_ratio=%.2f",
-                                sym, avg_vol, cur_vol, atr_ratio)
-                    FastScalpBot._scan_log_state[sym] = {"tag": result_tag, "ts": now_ts}
+                log.warning("SCAN | %s | BAD_VOL | avg_vol=%.0f cur_vol=%.0f — skipping",
+                            sym, avg_vol, cur_vol)
                 continue
+
             vol_ratio = cur_vol / avg_vol
             self._funnel["scans_total"] += 1
 
-            # ── Hard gate: ATR (blocks both families) ─────────────────────────
-            if not atr_ok:
-                result_tag = "SKIP_ATR"
-                scan_state = FastScalpBot._scan_log_state.get(sym, {})
-                if result_tag != scan_state.get("tag") or (now_ts - scan_state.get("ts", 0.0)) >= 300:
-                    log.info("SCAN | %s | SKIP_ATR | atr_ratio=%.2f < %.2f [%s]"
-                             " vol_ratio=%.2f rsi skipped",
-                             sym, atr_ratio, r_thr["atr_ratio"], regime, vol_ratio)
-                    FastScalpBot._scan_log_state[sym] = {"tag": result_tag, "ts": now_ts}
-                self._funnel["blocked_atr"] += 1
-                continue
+            # ── Compute ATR ────────────────────────────────────────────────
+            atr5      = _compute_atr(candles, FAST_SCALP_ATR_SHORT)
+            atr20     = _compute_atr(candles, FAST_SCALP_ATR_LONG)
+            atr_ratio = (atr5 / atr20) if atr20 > 0 else 1.0
 
-            # ── Hard gate: volume (blocks both families) ──────────────────────
-            vol_ok = vol_ratio >= r_thr["vol_ratio"]
-            if not vol_ok:
-                result_tag = "SKIP_VOL"
-                scan_state = FastScalpBot._scan_log_state.get(sym, {})
-                if result_tag != scan_state.get("tag") or (now_ts - scan_state.get("ts", 0.0)) >= 300:
-                    log.info("SCAN | %s | SKIP_VOL | cur=%.0f avg=%.0f ratio=%.2f < %.2f [%s]",
-                             sym, cur_vol, avg_vol, vol_ratio, r_thr["vol_ratio"], regime)
-                    FastScalpBot._scan_log_state[sym] = {"tag": result_tag, "ts": now_ts}
-                self._funnel["blocked_vol"] += 1
-                continue
-
-            # ── Common indicators (gates passed) ──────────────────────────────
+            # ── Common indicators ──────────────────────────────────────────
             n      = min(20, len(closes))
             rsi    = _compute_rsi(closes)
             mean_n = float(np.mean(closes[-n:]))
             std_n  = float(np.std(closes[-n:])) or 1e-9
             zscore = (closes[-1] - mean_n) / std_n
 
-            # ── Shared EV inputs (computed once, used by both families) ───────
-            _tp, _sl = self.tp_pct, self.sl_pct
-            for _atr_min, _tier_tp, _tier_sl in FAST_SCALP_ADAPTIVE_TP_SL:
-                if atr_ratio < _atr_min:
-                    _tp, _sl = _tier_tp, _tier_sl
+            # Short-term 3-bar return (momentum proxy)
+            ret_3 = (closes[-1] - closes[-4]) / closes[-4] if len(closes) >= 4 else 0.0
+
+            # Spread quality
+            bid = row.get("bid", 0)
+            ask = row.get("ask", 0)
+            mid = (bid + ask) / 2 if bid > 0 and ask > 0 else closes[-1]
+            spread_pct = ((ask - bid) / mid) if mid > 0 else 0.003
+
+            # ── Normalize features → [0, 1] deterministic scale ────────────
+            # ATR: 0 at ratio=1.0 (no expansion), 1 at ratio=2.0 (doubled)
+            atr_norm = float(np.clip((atr_ratio - 1.0) / 1.0, 0.0, 1.0))
+
+            # Volume: 0 at ratio=0.5, 1 at ratio=2.5+
+            vol_norm = float(np.clip((vol_ratio - 0.5) / 2.0, 0.0, 1.0))
+
+            # Z-score magnitude: 0 at |z|=0, 1 at |z|=3+
+            zscore_mag = float(np.clip(abs(zscore) / 3.0, 0.0, 1.0))
+
+            # RSI deviation from 50: 0 at RSI=50, 1 at RSI=20 or RSI=80+
+            rsi_dev = float(np.clip(abs(rsi - 50) / 30.0, 0.0, 1.0))
+
+            # Spread quality: 1 at spread=0%, 0 at spread>=0.5%
+            exec_quality = float(np.clip(1.0 - spread_pct / 0.005, 0.0, 1.0))
+
+            # ── Direction resolution ───────────────────────────────────────
+            # MR direction: zscore < 0 = oversold = BUY (positive signal)
+            zscore_dir = -float(np.sign(zscore)) if abs(zscore) > 0.2 else 0.0
+            rsi_dir    = float(np.sign(50 - rsi)) if abs(rsi - 50) > 3 else 0.0
+
+            # Agreement bonus: both z and RSI point same direction → stronger signal
+            if zscore_dir != 0 and rsi_dir != 0 and zscore_dir == rsi_dir:
+                mr_dir_agree = 1.0
+                mr_action = "BUY" if zscore_dir > 0 else "SELL"
+            elif zscore_dir != 0:
+                mr_dir_agree = 0.6
+                mr_action = "BUY" if zscore_dir > 0 else "SELL"
+            elif rsi_dir != 0:
+                mr_dir_agree = 0.4
+                mr_action = "BUY" if rsi_dir > 0 else "SELL"
+            else:
+                mr_dir_agree = 0.0
+                mr_action = None
+
+            # MOM direction: 3-bar return direction
+            if abs(ret_3) > 0.0003:
+                mom_action = "BUY" if ret_3 > 0 else "SELL"
+            else:
+                mom_action = None
+
+            # ── Signal scores (continuous [0, 1]) ──────────────────────────
+            # MR score: z-magnitude + RSI deviation + direction agreement
+            # Vol provides a quality multiplier (low vol → less reliable signal)
+            vol_quality = float(np.clip(vol_norm + 0.3, 0.0, 1.0))
+            mr_score = (zscore_mag * 0.5 + rsi_dev * 0.3 + mr_dir_agree * 0.2) * vol_quality
+            mr_score = float(np.clip(mr_score, 0.0, 1.0))
+
+            # MOM score: return magnitude + ATR expansion + breakout
+            n_lb = min(20, len(closes))
+            lb_high = max(closes[-n_lb:-1]) if n_lb >= 2 else closes[-1]
+            lb_low  = min(closes[-n_lb:-1]) if n_lb >= 2 else closes[-1]
+            breakout_up   = closes[-1] > lb_high
+            breakout_down = closes[-1] < lb_low
+            breakout_norm = 1.0 if (breakout_up or breakout_down) else 0.4
+            ret_mag = float(np.clip(abs(ret_3) / 0.005, 0.0, 1.0))
+            mom_score = (ret_mag * 0.5 + atr_norm * 0.3 + breakout_norm * 0.2) * vol_quality
+            mom_score = float(np.clip(mom_score, 0.0, 1.0))
+
+            # ── Adaptive TP/SL (ATR + regime adjusted) ────────────────────
+            pos_tp, pos_sl = self.tp_pct * regime_tp_mult, self.sl_pct * regime_tp_mult
+            for atr_min, tier_tp, tier_sl in FAST_SCALP_ADAPTIVE_TP_SL:
+                if atr_ratio < atr_min:
+                    pos_tp = tier_tp * regime_tp_mult
+                    pos_sl = tier_sl * regime_tp_mult
                     break
+
+            # ── EV calculation ─────────────────────────────────────────────
+            # Always compute for logging; only subtract in the prior case.
+            fees = FAST_SCALP_ENTRY_FEE_PCT + FAST_SCALP_EXIT_FEE_PCT   # ≈ 0.42% round-trip
+            slip = abs(FAST_SCALP_BUY_SLIP - 1.0) + abs(FAST_SCALP_SELL_SLIP - 1.0)  # ≈ 0.06%
+
             with self._lock:
                 trade_hist = list(self._trades)
-            if len(trade_hist) >= 10:
-                fees     = FAST_SCALP_ENTRY_FEE_PCT + FAST_SCALP_EXIT_FEE_PCT
+
+            if len(trade_hist) >= 20:
                 wins_h   = [t for t in trade_hist if t["win"]]
                 losses_h = [t for t in trade_hist if not t["win"]]
                 p_win    = len(wins_h) / len(trade_hist)
-                avg_win  = (sum(t["pnl_pct"] for t in wins_h)  / len(wins_h)  / 100) if wins_h  else _tp
-                avg_loss = (sum(abs(t["pnl_pct"]) for t in losses_h) / len(losses_h) / 100) if losses_h else _sl
+                # Historical pnl_pct is already net of fees and slippage from
+                # _close_position(). Subtracting again would double-count costs.
+                avg_win  = (sum(t["pnl_pct"] for t in wins_h)  / len(wins_h)  / 100) if wins_h  else pos_tp
+                avg_loss = (sum(abs(t["pnl_pct"]) for t in losses_h) / len(losses_h) / 100) if losses_h else pos_sl
+                p_loss   = 1.0 - p_win
+                # pnl_pct is (exit_price - entry) / entry where both prices are
+                # slippage-adjusted (FAST_SCALP_BUY_SLIP / FAST_SCALP_SELL_SLIP).
+                # Slip is therefore already reflected in avg_win / avg_loss.
+                # Fees are NOT in pnl_pct — they are tracked separately in fee_usd
+                # and deducted from net_pnl only. Subtract fees once here.
+                base_ev  = (p_win * avg_win) - (p_loss * avg_loss) - fees
             else:
-                fees     = FAST_SCALP_ENTRY_FEE_PCT   # bootstrap: exit fee already baked into TP target
-                p_win    = 0.55
-                avg_win  = _tp
-                avg_loss = _sl
-            p_loss = 1.0 - p_win
-            ev     = (p_win * avg_win) - (p_loss * avg_loss) - fees
-            self._last_ev = round(ev, 6)
+                # Prior: avg_win/avg_loss are raw TP/SL targets before execution costs.
+                # Subtract fees and slip here so the prior reflects realistic net edge.
+                # p_win: 0.45 at zero signal strength → 0.68 at full composite strength.
+                composite_strength = max(mr_score, mom_score)
+                p_win    = float(np.clip(0.48 + composite_strength * 0.17, 0.45, 0.68))
+                avg_win  = pos_tp
+                avg_loss = pos_sl
+                p_loss   = 1.0 - p_win
+                base_ev  = (p_win * avg_win) - (p_loss * avg_loss) - fees - slip
+
+            self._last_ev = round(base_ev, 6)
+
+            liq_quality = float(np.clip(vol_norm * 0.6 + exec_quality * 0.4, 0.0, 1.0))
 
             entered = False
 
-            # ── REVERSAL family ───────────────────────────────────────────────
-            rev_long  = zscore < -r_thr["zscore"] and rsi <= r_thr["rsi_long"]
-            rev_short = zscore >  r_thr["zscore"] and rsi >= r_thr["rsi_short"]
-            rev_action = "BUY" if rev_long else ("SELL" if rev_short else None)
+            # ── REVERSAL signal ────────────────────────────────────────────
             self._funnel["rev_seen"] += 1
+            if mr_action:
+                mr_composite  = mr_score * 0.6 + liq_quality * 0.2 + regime_q * 0.2
+                mr_ev_adj     = base_ev * (0.4 + mr_composite * 0.6)
+                score_100     = min(round(mr_composite * 100, 1), 99.0)
+                ev_label      = f"+{mr_ev_adj*100:.3f}%" if mr_ev_adj > 0 else f"{mr_ev_adj*100:.3f}%"
+                decision      = "TRADE_REVERSAL" if mr_ev_adj > 0 else "NO_TRADE"
 
-            if not rev_action:
-                self._funnel["skips_reversal"] += 1
-                rev_result = (f"REVERSAL_SKIP_DIR | zscore={zscore:.2f} rsi={rsi:.1f}"
-                              f" (need |z|>{r_thr['zscore']:.1f}"
-                              f" rsi≤{r_thr['rsi_long']} or ≥{r_thr['rsi_short']} [{regime}])")
-            else:
-                self._funnel["rev_pass_dir"] += 1
-                rev_score = (
-                    (atr_ratio - 1.0) * 50
-                    + abs(zscore) * 10
-                    + (abs(rsi - 50) / 50) * 20
-                )
-                rev_score = min(round(rev_score, 1), 99.0)
-                if rev_score < min_score:
-                    self._funnel["skips_reversal"] += 1
-                    rev_result = f"REVERSAL_SKIP_SCORE | score={rev_score:.1f} < {min_score}"
-                elif ev <= 0:
-                    self._funnel["skips_reversal"] += 1
-                    rev_result = (f"REVERSAL_SKIP_EV | ev={ev:.4f} p_win={p_win:.2f}"
-                                  f" avg_win={avg_win:.4f} avg_loss={avg_loss:.4f}")
-                else:
-                    self._funnel["rev_pass_score"] += 1
-                    self._funnel["rev_pass_ev"] += 1
-                    self._funnel["rev_entered"] += 1
-                    rev_result = f"ENTER_REVERSAL | score={rev_score} ev={ev:+.4f}"
+                scan_tag  = f"REV_{decision}"
+                rev_state = FastScalpBot._scan_log_state.get(f"rev_{sym}", {})
+                if scan_tag != rev_state.get("tag") or (now_ts - rev_state.get("ts", 0.0)) >= 300:
+                    log.info(
+                        "SCAN | %s | mr=%.2f vol=%.2f atr=%.2f exec_q=%.2f regime_q=%.2f"
+                        " composite=%.2f p_win=%.2f avg_win=%.3f%% avg_loss=%.3f%%"
+                        " fees=%.3f%% slip=%.3f%% EV=%s score=%.0f decision=%s",
+                        sym, mr_score, vol_norm, atr_norm, exec_quality, regime_q,
+                        mr_composite, p_win, avg_win*100, avg_loss*100,
+                        fees*100, slip*100, ev_label, score_100, decision,
+                    )
+                    FastScalpBot._scan_log_state[f"rev_{sym}"] = {"tag": scan_tag, "ts": now_ts}
+
+                if mr_ev_adj > 0:
+                    self._funnel["rev_pass_ev"]  += 1
+                    self._funnel["rev_entered"]  += 1
                     signals.append({
                         "symbol":        sym,
-                        "score":         rev_score,
-                        "action":        rev_action,
+                        "score":         score_100,
+                        "action":        mr_action,
                         "rsi":           round(rsi, 1),
                         "zscore":        round(zscore, 2),
                         "vol_ratio":     round(vol_ratio, 2),
                         "atr_ratio":     round(atr_ratio, 2),
-                        "ev":            round(ev, 6),
+                        "ev":            round(mr_ev_adj, 6),
                         "signal_family": "REVERSAL",
+                        "mr_score":      round(mr_score, 3),
+                        "liq_quality":   round(liq_quality, 3),
+                        "regime_mult":   regime_tp_mult,
+                        "pos_tp":        pos_tp,
+                        "pos_sl":        pos_sl,
                     })
                     entered = True
-
-            rev_tag   = rev_result.split(" | ")[0]
-            rev_state = FastScalpBot._scan_log_state.get(f"rev_{sym}", {})
-            if rev_tag != rev_state.get("tag") or (now_ts - rev_state.get("ts", 0.0)) >= 300:
-                log.info("SCAN_REVERSAL | %s | %s | atr_ratio=%.2f vol_ratio=%.2f rsi=%.1f zscore=%.2f",
-                         sym, rev_result, atr_ratio, vol_ratio, rsi, zscore)
-                FastScalpBot._scan_log_state[f"rev_{sym}"] = {"tag": rev_tag, "ts": now_ts}
-
-            # ── MOMENTUM family (only if reversal didn't enter) ───────────────
-            if not entered:
-                n_lb          = min(21, len(closes))
-                lb_slice      = closes[-n_lb:-1] if n_lb >= 2 else [closes[-1]]
-                lookback_high = max(lb_slice)
-                lookback_low  = min(lb_slice)
-                prev_high     = candles[-2]["high"] if len(candles) >= 2 else closes[-1]
-                prev_low      = candles[-2]["low"]  if len(candles) >= 2 else closes[-1]
-
-                breakout_long  = closes[-1] > lookback_high or closes[-1] > prev_high
-                breakout_short = closes[-1] < lookback_low  or closes[-1] < prev_low
-
-                mom_long  = (-1.5 <= zscore <= 1.5) and (45 <= rsi <= 68) and breakout_long
-                mom_short = (-1.5 <= zscore <= 1.5) and (32 <= rsi <= 55) and breakout_short
-                mom_action = "BUY" if mom_long else ("SELL" if mom_short else None)
-                self._funnel["mom_seen"] += 1
-
-                if not mom_action:
-                    self._funnel["skips_momentum"] += 1
-                    if not (-1.5 <= zscore <= 1.5):
-                        skip_why = f"zscore={zscore:.2f} outside -1.5..1.5"
-                    elif not breakout_long and not breakout_short:
-                        skip_why = (f"no_breakout close={closes[-1]:.4f}"
-                                    f" lb_high={lookback_high:.4f} prev_high={prev_high:.4f}")
-                    else:
-                        skip_why = f"rsi={rsi:.1f} not in range (45-68 long / 32-55 short)"
-                    mom_result = f"MOMENTUM_SKIP_DIR | {skip_why}"
                 else:
-                    self._funnel["mom_pass_dir"] += 1
-                    if mom_long:
-                        b_pct = (abs((closes[-1] - lookback_high) / lookback_high)
-                                 if closes[-1] > lookback_high
-                                 else abs((closes[-1] - prev_high) / prev_high))
-                        rsi_contrib = max(0.0, (rsi - 45) / 23) * 15
-                    else:
-                        b_pct = (abs((lookback_low - closes[-1]) / lookback_low)
-                                 if closes[-1] < lookback_low
-                                 else abs((prev_low - closes[-1]) / prev_low))
-                        rsi_contrib = max(0.0, (55 - rsi) / 23) * 15
+                    self._funnel["skips_reversal"] += 1
+            else:
+                self._funnel["skips_reversal"] += 1
 
-                    mom_score = (
-                        (atr_ratio - 1.0) * 50
-                        + b_pct * 6000
-                        + max(0.0, vol_ratio - 1.0) * 15
-                        + rsi_contrib
-                    )
-                    mom_score = min(round(mom_score, 1), 99.0)
+            # ── MOMENTUM signal (only if reversal did not enter) ───────────
+            if not entered:
+                self._funnel["mom_seen"] += 1
+                if mom_action:
+                    mom_composite = mom_score * 0.6 + liq_quality * 0.2 + regime_q * 0.2
+                    mom_ev_adj    = base_ev * (0.4 + mom_composite * 0.6)
+                    score_100     = min(round(mom_composite * 100, 1), 99.0)
+                    ev_label      = f"+{mom_ev_adj*100:.3f}%" if mom_ev_adj > 0 else f"{mom_ev_adj*100:.3f}%"
+                    decision      = "TRADE_MOMENTUM" if mom_ev_adj > 0 else "NO_TRADE"
 
-                    if mom_score < min_score:
-                        self._funnel["skips_momentum"] += 1
-                        mom_result = f"MOMENTUM_SKIP_SCORE | score={mom_score:.1f} < {min_score}"
-                    elif ev <= 0:
-                        self._funnel["skips_momentum"] += 1
-                        mom_result = (f"MOMENTUM_SKIP_EV | ev={ev:.4f} p_win={p_win:.2f}"
-                                      f" avg_win={avg_win:.4f} avg_loss={avg_loss:.4f}")
-                    else:
-                        self._funnel["mom_pass_score"] += 1
-                        self._funnel["mom_pass_ev"] += 1
-                        self._funnel["mom_entered"] += 1
-                        mom_result = (f"ENTER_MOMENTUM | score={mom_score}"
-                                      f" ev={ev:+.4f} b_pct={b_pct*100:.2f}%")
+                    scan_tag  = f"MOM_{decision}"
+                    mom_state = FastScalpBot._scan_log_state.get(f"mom_{sym}", {})
+                    if scan_tag != mom_state.get("tag") or (now_ts - mom_state.get("ts", 0.0)) >= 300:
+                        log.info(
+                            "SCAN | %s | mom=%.2f vol=%.2f atr=%.2f exec_q=%.2f regime_q=%.2f"
+                            " composite=%.2f p_win=%.2f avg_win=%.3f%% avg_loss=%.3f%%"
+                            " fees=%.3f%% slip=%.3f%% EV=%s score=%.0f decision=%s",
+                            sym, mom_score, vol_norm, atr_norm, exec_quality, regime_q,
+                            mom_composite, p_win, avg_win*100, avg_loss*100,
+                            fees*100, slip*100, ev_label, score_100, decision,
+                        )
+                        FastScalpBot._scan_log_state[f"mom_{sym}"] = {"tag": scan_tag, "ts": now_ts}
+
+                    if mom_ev_adj > 0:
+                        self._funnel["mom_pass_ev"]  += 1
+                        self._funnel["mom_entered"]  += 1
                         signals.append({
                             "symbol":        sym,
-                            "score":         mom_score,
+                            "score":         score_100,
                             "action":        mom_action,
                             "rsi":           round(rsi, 1),
                             "zscore":        round(zscore, 2),
                             "vol_ratio":     round(vol_ratio, 2),
                             "atr_ratio":     round(atr_ratio, 2),
-                            "ev":            round(ev, 6),
+                            "ev":            round(mom_ev_adj, 6),
                             "signal_family": "MOMENTUM",
+                            "mom_score":     round(mom_score, 3),
+                            "liq_quality":   round(liq_quality, 3),
+                            "regime_mult":   regime_tp_mult,
+                            "pos_tp":        pos_tp,
+                            "pos_sl":        pos_sl,
                         })
+                    else:
+                        self._funnel["skips_momentum"] += 1
+                else:
+                    self._funnel["skips_momentum"] += 1
 
-                mom_tag   = mom_result.split(" | ")[0]
-                mom_state = FastScalpBot._scan_log_state.get(f"mom_{sym}", {})
-                if mom_tag != mom_state.get("tag") or (now_ts - mom_state.get("ts", 0.0)) >= 300:
-                    log.info("SCAN_MOMENTUM | %s | %s | atr_ratio=%.2f vol_ratio=%.2f rsi=%.1f zscore=%.2f",
-                             sym, mom_result, atr_ratio, vol_ratio, rsi, zscore)
-                    FastScalpBot._scan_log_state[f"mom_{sym}"] = {"tag": mom_tag, "ts": now_ts}
-
-        signals.sort(key=lambda s: s["score"], reverse=True)
+        signals.sort(key=lambda s: s.get("ev", 0), reverse=True)  # rank by EV
         return signals
 
     def _swing_signals(self, market_data: dict,
                        regime: str, r_thr: dict) -> list:
         """
-        Mean-reversion swing signals for CALM/DEAD regimes.
-        Uses much looser thresholds; trades last up to 1 hour.
+        Swing mode is now handled by the unified _scan_signals scanner.
+        CALM/DEAD regimes automatically get tighter TP/SL via REGIME_CONTEXT
+        and a lower regime_q multiplier which reduces position sizing.
+        This stub exists for backward compatibility with the tick() caller.
         """
-        import numpy as np
-        now_ts = time.time()
-        signals = []
-
-        for sym in FAST_SCALP_SYMBOLS:
-            row = market_data.get(sym, {})
-
-            feed_ok, feed_reason = _validate_feed(sym, row, now_ts)
-            if not feed_ok:
-                result_tag = "FEED_ERROR"
-                scan_state = FastScalpBot._scan_log_state.get(f"sw_{sym}", {})
-                if result_tag != scan_state.get("tag") or (now_ts - scan_state.get("ts", 0.0)) >= 300:
-                    log.warning("SWING | %s | FEED_ERROR | %s", sym, feed_reason)
-                    FastScalpBot._scan_log_state[f"sw_{sym}"] = {"tag": result_tag, "ts": now_ts}
-                continue
-
-            candles = row.get("candles", [])
-            closes  = [c["close"] for c in candles]
-            vols    = [c["volume"] for c in candles]
-
-            # ATR
-            atr5  = _compute_atr(candles, FAST_SCALP_ATR_SHORT)
-            atr20 = _compute_atr(candles, FAST_SCALP_ATR_LONG)
-            atr_ratio = (atr5 / atr20) if atr20 > 0 else 0.0
-
-            # Volume with cache fallback
-            n_vol   = min(20, len(vols))
-            avg_vol = float(np.mean(vols[-n_vol:])) if n_vol > 0 else 0.0
-            cur_vol = vols[-1]
-            if cur_vol > 0:
-                FastScalpBot._last_good_vol[sym] = {"vol": cur_vol, "ts": now_ts}
-            else:
-                cached = FastScalpBot._last_good_vol.get(sym)
-                if cached and (now_ts - cached["ts"]) <= _MAX_CANDLE_AGE_SEC:
-                    cur_vol = cached["vol"]
-            if avg_vol <= 0 or cur_vol <= 0:
-                continue
-            vol_ratio = cur_vol / avg_vol
-            self._funnel["scans_total"] += 1
-
-            # RSI / zscore
-            n      = min(20, len(closes))
-            rsi    = _compute_rsi(closes)
-            mean_n = float(np.mean(closes[-n:]))
-            std_n  = float(np.std(closes[-n:])) or 1e-9
-            zscore = (closes[-1] - mean_n) / std_n
-
-            # Swing checks
-            atr_ok   = atr_ratio >= SWING_ATR_MIN
-            vol_ok   = vol_ratio >= SWING_VOL_MIN
-            is_long  = zscore < -SWING_ZSCORE_MIN and rsi <= SWING_RSI_LONG
-            is_short = zscore >  SWING_ZSCORE_MIN and rsi >= SWING_RSI_SHORT
-            dir_ok   = is_long or is_short
-            action   = "BUY" if is_long else ("SELL" if is_short else None)
-
-            score = (
-                (abs(zscore) - SWING_ZSCORE_MIN) * 12
-                + (abs(rsi - 50) / 50) * 20
-                + max(0.0, atr_ratio - 0.5) * 5
-            )
-            score = min(round(score, 1), 99.0)
-
-            if not atr_ok:
-                result = f"SKIP_ATR | atr_ratio={atr_ratio:.2f} < {SWING_ATR_MIN} [SWING]"
-                self._funnel["blocked_atr"] += 1
-            elif not vol_ok:
-                result = f"SKIP_VOL | vol_ratio={vol_ratio:.2f} < {SWING_VOL_MIN} [SWING]"
-                self._funnel["blocked_vol"] += 1
-            elif not dir_ok:
-                result = (f"SKIP_DIR | zscore={zscore:.2f} rsi={rsi:.1f}"
-                          f" (need |z|>{SWING_ZSCORE_MIN} rsi≤{SWING_RSI_LONG}"
-                          f" or ≥{SWING_RSI_SHORT} [SWING])")
-                self._funnel["rev_seen"] += 1
-                self._funnel["skips_reversal"] += 1
-            else:
-                self._funnel["rev_seen"] += 1
-                self._funnel["rev_pass_dir"] += 1
-                if score < SWING_MIN_SCORE:
-                    result = f"SKIP_SCORE | score={score:.1f} < {SWING_MIN_SCORE} [SWING]"
-                    self._funnel["skips_reversal"] += 1
-                else:
-                    # ── EV check ─────────────────────────────────────────────
-                    with self._lock:
-                        trade_hist = list(self._trades)
-                    if len(trade_hist) >= 10:
-                        fees     = FAST_SCALP_ENTRY_FEE_PCT + FAST_SCALP_EXIT_FEE_PCT
-                        wins_h   = [t for t in trade_hist if t["win"]]
-                        losses_h = [t for t in trade_hist if not t["win"]]
-                        p_win    = len(wins_h) / len(trade_hist)
-                        avg_win  = (sum(t["pnl_pct"] for t in wins_h)  / len(wins_h)  / 100) if wins_h  else SWING_TP_PCT
-                        avg_loss = (sum(abs(t["pnl_pct"]) for t in losses_h) / len(losses_h) / 100) if losses_h else SWING_SL_PCT
-                    else:
-                        fees     = FAST_SCALP_ENTRY_FEE_PCT   # bootstrap: exit fee already baked into TP target
-                        p_win    = 0.55
-                        avg_win  = SWING_TP_PCT
-                        avg_loss = SWING_SL_PCT
-                    p_loss = 1.0 - p_win
-                    ev     = (p_win * avg_win) - (p_loss * avg_loss) - fees
-                    self._last_ev = round(ev, 6)
-                    self._funnel["rev_pass_score"] += 1
-                    if ev <= 0:
-                        result = (f"SKIP_EV | ev={ev:.4f} p_win={p_win:.2f}"
-                                  f" avg_win={avg_win:.4f} avg_loss={avg_loss:.4f} [SWING]")
-                        self._funnel["skips_reversal"] += 1
-                    else:
-                        result = f"ENTER_SWING | score={score} ev={ev:+.4f}"
-                        self._funnel["rev_pass_ev"] += 1
-                        self._funnel["rev_entered"] += 1
-                        signals.append({
-                            "symbol":        sym,
-                            "score":         score,
-                            "action":        action,
-                            "rsi":           round(rsi, 1),
-                            "zscore":        round(zscore, 2),
-                            "vol_ratio":     round(vol_ratio, 2),
-                            "atr_ratio":     round(atr_ratio, 2),
-                            "mode":          "SWING",
-                            "ev":            round(ev, 6),
-                            "signal_family": "REVERSAL",
-                        })
-
-            result_tag = result.split(" | ")[0]
-            scan_state = FastScalpBot._scan_log_state.get(f"sw_{sym}", {})
-            if result_tag != scan_state.get("tag") or (now_ts - scan_state.get("ts", 0.0)) >= 300:
-                log.info(
-                    "SWING | %s | %s | atr_ratio=%.2f vol_ratio=%.2f rsi=%.1f zscore=%.2f",
-                    sym, result, atr_ratio, vol_ratio, rsi, zscore,
-                )
-                FastScalpBot._scan_log_state[f"sw_{sym}"] = {"tag": result_tag, "ts": now_ts}
-
-        signals.sort(key=lambda s: s["score"], reverse=True)
-        return signals
+        return self._scan_signals(market_data, regime, r_thr, min_score=0)
 
     # ── Tick ──────────────────────────────────────────────────────────────────
 
@@ -1530,23 +1505,22 @@ class FastScalpBot:
             self._daily_start_bal = self.balance
             self._daily_reset_ts  = now
 
-        # Pre-classify regime once per tick (shared with scanner)
+        # Pre-classify regime once per tick
         regime, r_thr, avg_atr = _classify_regime(market_data)
-        mode = "SWING" if regime in ("CALM", "DEAD") else "SCALP"
+        mode = "SCALP"  # unified EV scanner handles all regimes
 
-        # Track scan distribution (before gate checks so every tick counts)
+        # Track regime distribution (every tick, for stats)
         self._regime_scan_count[regime] = self._regime_scan_count.get(regime, 0) + 1
 
-        # Log mode on every scan tick (throttled to once per mode change or 60s)
         mode_state = FastScalpBot._scan_log_state.get("_mode", {})
         if mode != mode_state.get("tag") or (now - mode_state.get("ts", 0.0)) >= 60:
-            log.info("MODE | %s_MODE | regime=%s avg_atr=%.2f", mode, regime, avg_atr)
+            log.info("MODE | EV_SCANNER | regime=%s avg_atr=%.2f", regime, avg_atr)
             FastScalpBot._scan_log_state["_mode"] = {"tag": mode, "ts": now}
 
-        # Exits always run (TP / SL / time limit)
+        # Exits always run (TP / SL / time limit) — unaffected by gates
         self._check_exits(market_data)
 
-        # Daily loss cap gate — no new entries once daily drawdown ≥ cap
+        # ── Safety gates (capital integrity — NOT alpha gates) ─────────────
         daily_loss = self._daily_start_bal - self.balance
         if daily_loss >= self._daily_loss_cap:
             log.warning(
@@ -1555,32 +1529,25 @@ class FastScalpBot:
             )
             return
 
-        # Cooldown gate
         if now < self._cooldown_until:
             log.debug("[%s] cooldown — %.0f min remaining",
                       self.bot_name, (self._cooldown_until - now) / 60)
             return
 
-        # Hourly cap
         if self._trades_this_hour >= FAST_SCALP_MAX_TRADES_PER_HOUR:
             log.debug("[%s] max trades/hour (%d) reached", self.bot_name,
                       FAST_SCALP_MAX_TRADES_PER_HOUR)
             return
 
-        # One position at a time per bot
         if self.positions:
             return
 
-        # Route to SCALP or SWING scanner based on regime
-        if mode == "SWING":
-            signals   = self._swing_signals(market_data, regime, r_thr)
-            min_score = SWING_MIN_SCORE
-        else:
-            min_score = FAST_SCALP_MIN_SCORE_BY_REGIME.get(regime, FAST_SCALP_MIN_SCORE)
-            signals   = self._scan_signals(market_data, regime, r_thr, avg_atr, min_score)
+        # ── Scan for positive-EV opportunities ────────────────────────────
+        # No min_score gate. EV > 0 is the only entry criterion.
+        signals = self._scan_signals(market_data, regime, r_thr, avg_atr, min_score=0)
 
         for sig in signals:
-            if sig["score"] >= min_score:
+            if sig.get("ev", 0) > 0:
                 self._enter(sig["symbol"], sig, market_data, mode=mode, regime=regime)
                 break
 
@@ -1588,47 +1555,41 @@ class FastScalpBot:
 
     def _enter(self, sym: str, signal: dict, market_data: dict,
                mode: str = "SCALP", regime: str = "MODERATE") -> None:
-        """Simulate entering a position — buy at ask with slippage."""
+        """Simulate entering a position with EV-proportional sizing."""
         row = market_data.get(sym, {})
+        if row.get("source") == "synthetic":
+            return
         ask = row.get("ask") or row.get("price")
         if not ask:
             return
 
         entry_price = ask * FAST_SCALP_BUY_SLIP
+        ev          = signal.get("ev", 0.0)
 
-        # Score-based position sizing
-        sig_score = signal["score"]
-        if sig_score >= 80:
-            size_mult = 1.00
-        elif sig_score >= 65:
-            size_mult = 0.75
-        elif sig_score >= 55:
-            size_mult = 0.50
-        elif sig_score >= 48:
-            size_mult = 0.25
-        else:
-            log.info("ENTER_SKIP | %s | score=%.1f below 48 — skipped", sym, sig_score)
-            return
+        # EV-proportional sizing: smooth, no step thresholds.
+        # Full size (100% of capital_pct) when EV >= 1.5% round-trip.
+        # Minimum 10% probe size for any positive-EV opportunity.
+        EV_FULL = 0.015   # 1.5% → full allocation
+        ev_frac = float(min(ev / EV_FULL, 1.0)) if ev > 0 else 0.0
+        ev_frac = max(ev_frac, 0.10)  # floor: probe size
+
+        # Liquidity quality scales sizing between 60%–100% of ev_frac
+        liq = signal.get("liq_quality", 0.6)
+        size_mult = ev_frac * (0.6 + liq * 0.4)
+
+        # Regime size cap (CALM/DEAD → smaller max)
+        ctx = REGIME_CONTEXT.get(regime, REGIME_CONTEXT["MODERATE"])
+        size_mult = min(size_mult, ctx["size_cap"])
+
         position_size_pct = round(size_mult * 100)
-        trade_usd   = self.balance * FAST_SCALP_CAPITAL_PCT * size_mult
+        trade_usd         = self.balance * FAST_SCALP_CAPITAL_PCT * size_mult
 
-        if mode == "SWING":
-            # Swing: fixed TP/SL, longer hold window
-            pos_tp       = SWING_TP_PCT
-            pos_sl       = SWING_SL_PCT
-            max_hold_sec = SWING_MAX_HOLD_SEC
-        else:
-            # Scalp: adaptive TP/SL based on ATR expansion
-            atr_ratio = signal.get("atr_ratio", 1.0)
-            pos_tp, pos_sl = self.tp_pct, self.sl_pct
-            for atr_min, tier_tp, tier_sl in FAST_SCALP_ADAPTIVE_TP_SL:
-                if atr_ratio < atr_min:
-                    pos_tp, pos_sl = tier_tp, tier_sl
-                    break
-            max_hold_sec = FAST_SCALP_MAX_HOLD_SEC
+        # TP/SL already computed and regime/ATR adjusted in _scan_signals
+        pos_tp       = signal.get("pos_tp", self.tp_pct)
+        pos_sl       = signal.get("pos_sl", self.sl_pct)
+        max_hold_sec = FAST_SCALP_MAX_HOLD_SEC
 
-        atr_ratio = signal.get("atr_ratio", 1.0)
-
+        atr_ratio  = signal.get("atr_ratio", 1.0)
         sig_family = signal.get("signal_family", "REVERSAL")
         ev_val     = signal.get("ev", 0.0)
 
@@ -1641,7 +1602,7 @@ class FastScalpBot:
                 "entry_ts":          time.time(),
                 "trade_usd":         trade_usd,
                 "score":             signal["score"],
-                "min_price":         entry_price,    # track MAE
+                "min_price":         entry_price,
                 "tp_pct":            pos_tp,
                 "sl_pct":            pos_sl,
                 "max_hold_sec":      max_hold_sec,
@@ -1654,13 +1615,12 @@ class FastScalpBot:
 
         self._db_insert_open(sym, entry_price, signal["score"])
         log.info(
-            "SIM SCALP ENTER | %s | ask=%.4f | entry=%.4f | usd=$%.2f"
-            " | score=%.0f | size=%d%% | %s | TP=%.1f%% SL=%.2f%% atr_ratio=%.2f"
-            " | %s_MODE | regime=%s | family=%s",
+            "ENTER | %s | ask=%.4f entry=%.4f usd=$%.2f score=%.0f size=%d%%"
+            " | %s | TP=%.2f%% SL=%.2f%% atr=%.2f ev=%.4f | regime=%s family=%s",
             sym, ask, entry_price, trade_usd,
             signal["score"], position_size_pct, self.bot_name,
-            pos_tp * 100, pos_sl * 100, atr_ratio,
-            mode, regime, sig_family,
+            pos_tp * 100, pos_sl * 100, atr_ratio, ev_val,
+            regime, sig_family,
         )
 
     # ── Exit checks ───────────────────────────────────────────────────────────
@@ -1742,11 +1702,11 @@ class FastScalpBot:
         pnl_pct    = (exit_price - entry) / entry
         mae_pct    = (pos["min_price"] - entry) / entry   # negative = adverse
 
+        # Win = price moved in our favour (pnl_pct > 0), regardless of fees or exit reason
+        is_win = pnl_pct > 0
         self.balance += net_pnl
         self._pnl_by_family[trade_family]  = self._pnl_by_family.get(trade_family,  0.0) + net_pnl
         self._wins_by_family[trade_family] = self._wins_by_family.get(trade_family, 0)   + (1 if is_win else 0)
-        # Win = price moved in our favour (pnl_pct > 0), regardless of fees or exit reason
-        is_win = pnl_pct > 0
         # Consecutive-loss guardrail uses net (fee-adjusted) so a fee-eaten win still resets it
         net_positive = net_pnl > 0
 
@@ -1985,9 +1945,10 @@ class FastScalpRunner:
         self._ws_feed = None
         if use_live:
             try:
-                self._ws_feed = KrakenWSFeed(FAST_SCALP_SYMBOLS)
+                self._ws_feed = _get_ws_feed(FAST_SCALP_SYMBOLS, exchange=_ACTIVE_EXCHANGE)
                 self._ws_feed.start()
-                log.info("FastScalpRunner: WS feed started for %s", FAST_SCALP_SYMBOLS)
+                log.info("FastScalpRunner: WS feed (%s) started for %s",
+                         _ACTIVE_EXCHANGE, FAST_SCALP_SYMBOLS)
             except Exception as exc:
                 log.warning("FastScalpRunner: WS feed failed (%s) — REST only", exc)
 
@@ -2046,29 +2007,38 @@ class FastScalpRunner:
 
     def _fetch_market_data(self) -> dict:
         """
-        Fetch SOL/USD and XRP/USD with 15m candles from Kraken REST.
-        Tries USD pair first; if Kraken rejects the symbol falls back to USDT.
+        Fetch FAST_SCALP_SYMBOLS with 15m candles from the active exchange REST API.
+        For Kraken: tries USD pair first, falls back to USDT if rejected.
+        For Binance.US: uses USDT pairs directly (USD → USDT mapping applied).
         Overlays fresh bid/ask from WS feed when available.
         Falls back to realistic synthetic data on all errors.
         Also maintains a rolling price-tick history per symbol so _scan_signals
         can build ATR-substitute candles when OHLC is unavailable.
         """
-        # Kraken REST sometimes needs USDT pairs where USD is rejected
-        # Kraken REST fallbacks — try USDT pair if USD rejected, or alternate ticker.
-        # MATIC was rebranded to POL on Kraken; try both.
-        _PAIR_FALLBACK = {
-            "SOL/USD":   "SOL/USDT",
-            "XRP/USD":   "XRP/USDT",
-            "DOGE/USD":  "DOGE/USDT",
-            "MATIC/USD": "POL/USD",       # Kraken renamed MATIC → POL
-            "LTC/USD":   "LTC/USDT",
-            "UNI/USD":   "UNI/USDT",
-            "LINK/USD":  "LINK/USDT",
-            "ATOM/USD":  "ATOM/USDT",
-            "DOT/USD":   "DOT/USDT",
-            "AVAX/USD":  "AVAX/USDT",
-            "ADA/USD":   "ADA/USDT",
-        }
+        # Kraken REST sometimes needs USDT pairs where USD is rejected.
+        # For Binance.US, USD symbols map directly to USDT pairs (no fallback needed).
+        if _ACTIVE_EXCHANGE == "binance_us":
+            # Binance.US uses USDT pairs; convert /USD → /USDT as primary (no fallback)
+            _PAIR_FALLBACK = {
+                sym: sym.replace("/USD", "/USDT")
+                for sym in FAST_SCALP_SYMBOLS
+                if sym.endswith("/USD")
+            }
+        else:
+            # Kraken: USD first, USDT fallback; MATIC → POL rename
+            _PAIR_FALLBACK = {
+                "SOL/USD":   "SOL/USDT",
+                "XRP/USD":   "XRP/USDT",
+                "DOGE/USD":  "DOGE/USDT",
+                "MATIC/USD": "POL/USD",       # Kraken renamed MATIC → POL
+                "LTC/USD":   "LTC/USDT",
+                "UNI/USD":   "UNI/USDT",
+                "LINK/USD":  "LINK/USDT",
+                "ATOM/USD":  "ATOM/USDT",
+                "DOT/USD":   "DOT/USDT",
+                "AVAX/USD":  "AVAX/USDT",
+                "ADA/USD":   "ADA/USDT",
+            }
 
         data = {}
         if self.use_live:
@@ -2078,7 +2048,8 @@ class FastScalpRunner:
                 # thousands of seconds during Kraken REST slowdowns/outages,
                 # which was blocking _check_exits from running and causing
                 # trades to hold far beyond FAST_SCALP_MAX_HOLD_SEC.
-                client = ccxt.kraken({"timeout": 8000})
+                _ccxt_id = EXCHANGE_CCXT_ID.get(_ACTIVE_EXCHANGE, _ACTIVE_EXCHANGE)
+                client = getattr(ccxt, _ccxt_id)({"timeout": 8000})
                 try:
                     client.load_markets()
                 except Exception as lm_exc:
