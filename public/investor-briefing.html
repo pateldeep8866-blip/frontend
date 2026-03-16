@@ -865,7 +865,7 @@
     </div>
     <div class="roadmap-timeline">
       <div class="rt-item"><div class="rt-date">Now Live</div><div class="rt-feat">Equities picks</div></div>
-      <div class="rt-item"><div class="rt-date">Q2 2026</div><div class="rt-feat">Crypto signals</div></div>
+      <div class="rt-item"><div class="rt-date">Now Live</div><div class="rt-feat">Crypto signals (ARBI)</div></div>
       <div class="rt-item"><div class="rt-date">Q2 2026</div><div class="rt-feat">Commodities</div></div>
       <div class="rt-item"><div class="rt-date">Q3 2026</div><div class="rt-feat">FX coverage</div></div>
     </div>
@@ -875,9 +875,28 @@
 <!-- ═══════════════════ ARBI ═══════════════════ -->
 <section class="section" id="sec-arbi">
   <div class="section-hd">
-    <h2 class="section-title">Arbi Signals — Crypto Arbitrage</h2>
-    <span class="section-sub">Cross-exchange inefficiencies</span>
+    <h2 class="section-title">ARBI — Live Crypto Signal Engine</h2>
+    <span class="section-sub">Running 24/7 · Binance.US live data · Paper execution</span>
   </div>
+
+  <!-- ARBI ENGINE DESCRIPTION CARD -->
+  <div class="roadmap-card" style="margin-bottom:24px;">
+    <div class="roadmap-tag" style="background:rgba(61,138,92,.15);color:var(--green-bright);border-color:var(--green-mid);">
+      <span class="live-dot"></span>&nbsp; Live — Training Continuously
+    </div>
+    <div class="roadmap-title">What ARBI Is Building</div>
+    <div class="roadmap-body">
+      ARBI is Arthastra's autonomous crypto signal engine. It runs 24/7 against real Binance.US market data — live WebSocket prices across 8 symbols — executing every trade in paper mode. The result is a continuously growing knowledge base of real signal quality data: which strategies work in which regimes, how long positions should be held, and when not to trade. No money is at risk. The learning is genuine.
+    </div>
+    <div class="roadmap-timeline">
+      <div class="rt-item"><div class="rt-date">Live Now</div><div class="rt-feat">Binance.US WS feed</div></div>
+      <div class="rt-item"><div class="rt-date">Live Now</div><div class="rt-feat">4 strategy stack</div></div>
+      <div class="rt-item"><div class="rt-date">Live Now</div><div class="rt-feat">Regime detection</div></div>
+      <div class="rt-item"><div class="rt-date">Live Now</div><div class="rt-feat">Railway 24/7 deploy</div></div>
+      <div class="rt-item"><div class="rt-date">Q2 2026</div><div class="rt-feat">Live execution</div></div>
+    </div>
+  </div>
+
   <!-- ARBI METRICS GRID -->
   <div class="plat-grid" style="margin-bottom:24px;">
     <div class="p-stat">
@@ -924,6 +943,73 @@
       <tr class="no-data-row"><td colspan="5">Connecting to ARBI engine…</td></tr>
     </tbody>
   </table>
+
+  <!-- ARBI ENGINEERING CHANGELOG -->
+  <div class="section-hd" style="margin-top:48px;margin-bottom:24px;">
+    <h2 class="section-title" style="font-size:18px;">ARBI Engineering Log</h2>
+    <span class="section-sub">Data integrity fixes — documented</span>
+  </div>
+
+  <div class="roadmap-card" style="margin-bottom:16px;border-left:3px solid var(--green-mid);">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+      <div class="roadmap-tag" style="background:rgba(61,138,92,.15);color:var(--green-bright);">✓ Deployed 2026-03-16</div>
+      <div class="roadmap-title" style="margin:0;">Synthetic Price Guard — Entry &amp; Exit</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;">
+      <div style="background:rgba(196,80,80,.08);border:1px solid rgba(196,80,80,.2);border-radius:6px;padding:10px;">
+        <div style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.12em;color:#c45050;margin-bottom:4px;">PROBLEM</div>
+        <div style="font-size:12px;color:var(--text-muted);">BNB/USDT has no live feed on Binance.US. The engine was trading it using freshly re-seeded synthetic prices each tick — producing fabricated PnL like +21.24% / $4.19 / 0-minute holds. When live data failed for any symbol, open positions were also being exited using synthetic prices, producing fake returns of +15%, +24%, or -60%.</div>
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:#c45050;margin-top:6px;">Fabricated PnL corrupting session data</div>
+      </div>
+      <div style="background:rgba(61,138,92,.08);border:1px solid rgba(61,138,92,.2);border-radius:6px;padding:10px;">
+        <div style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.12em;color:var(--green-bright);margin-bottom:4px;">FIX</div>
+        <div style="font-size:12px;color:var(--text-muted);">Both entry and exit evaluation now check <code style="font-family:'DM Mono',monospace;font-size:11px;background:rgba(255,255,255,.05);padding:1px 4px;">source == "synthetic"</code> and skip entirely. Positions stay open until real WebSocket or live REST data returns. Synthetic fallback is now inert.</div>
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--green-bright);margin-top:6px;">Only live-priced trades enter the knowledge base</div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--text-muted);font-style:italic;">Impact: All PnL in the knowledge base now reflects real market conditions. BNB remains in the symbol list and will activate automatically when a live feed is available.</div>
+  </div>
+
+  <div class="roadmap-card" style="margin-bottom:16px;border-left:3px solid var(--green-mid);">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+      <div class="roadmap-tag" style="background:rgba(61,138,92,.15);color:var(--green-bright);">✓ Deployed 2026-03-16</div>
+      <div class="roadmap-title" style="margin:0;">Session Win Rate — Metric Isolation Fix</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;">
+      <div style="background:rgba(196,80,80,.08);border:1px solid rgba(196,80,80,.2);border-radius:6px;padding:10px;">
+        <div style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.12em;color:#c45050;margin-bottom:4px;">PROBLEM</div>
+        <div style="font-size:12px;color:var(--text-muted);">A live Binance.US session showed "Trades this session: 0" alongside "Win rate (this session): 41.4%" — a statistical impossibility. The session win rate was reading all-time historical data from the DB instead of in-memory session counters.</div>
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:#c45050;margin-top:6px;">Historical metrics were mislabeled as session metrics</div>
+      </div>
+      <div style="background:rgba(61,138,92,.08);border:1px solid rgba(61,138,92,.2);border-radius:6px;padding:10px;">
+        <div style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.12em;color:var(--green-bright);margin-bottom:4px;">FIX</div>
+        <div style="font-size:12px;color:var(--text-muted);">Added a dedicated <code style="font-family:'DM Mono',monospace;font-size:11px;background:rgba(255,255,255,.05);padding:1px 4px;">session_wins</code> in-memory counter, incremented only on real closed exits. Session win rate now derives exclusively from this counter, with an N/A guard when no trades have closed.</div>
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--green-bright);margin-top:6px;">Session and all-time metrics fully isolated</div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--text-muted);font-style:italic;">Impact: Session reports now show statistically valid numbers. Historical all-time metrics are still tracked separately in the knowledge DB.</div>
+  </div>
+
+  <div class="roadmap-card" style="margin-bottom:16px;border-left:3px solid var(--green-mid);">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+      <div class="roadmap-tag" style="background:rgba(61,138,92,.15);color:var(--green-bright);">✓ Deployed 2026-03-16</div>
+      <div class="roadmap-title" style="margin:0;">Shutdown Report — Open Position Accounting</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;">
+      <div style="background:rgba(196,80,80,.08);border:1px solid rgba(196,80,80,.2);border-radius:6px;padding:10px;">
+        <div style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.12em;color:#c45050;margin-bottom:4px;">PROBLEM</div>
+        <div style="font-size:12px;color:var(--text-muted);">Pressing Ctrl+C printed no session summary at all — the shutdown report was swallowed by a pipe race condition between Python and <code style="font-family:'DM Mono',monospace;font-size:11px;">tee</code>. Even when visible, all positions showed "Trades: 0" because <code style="font-family:'DM Mono',monospace;font-size:11px;">stop()</code> wrote directly to the DB, bypassing the trade counter.</div>
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:#c45050;margin-top:6px;">Session report was empty or invisible on shutdown</div>
+      </div>
+      <div style="background:rgba(61,138,92,.08);border:1px solid rgba(61,138,92,.2);border-radius:6px;padding:10px;">
+        <div style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.12em;color:var(--green-bright);margin-bottom:4px;">FIX</div>
+        <div style="font-size:12px;color:var(--text-muted);"><code style="font-family:'DM Mono',monospace;font-size:11px;background:rgba(255,255,255,.05);padding:1px 4px;">stop()</code> now routes all open positions through the standard <code style="font-family:'DM Mono',monospace;font-size:11px;background:rgba(255,255,255,.05);padding:1px 4px;">_paper_exit()</code> path at entry price (pnl=0, reason=session_end), ensuring they appear in the trade count. Stdout is explicitly flushed before the process exits.</div>
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--green-bright);margin-top:6px;">Full session report printed reliably on Ctrl+C</div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--text-muted);font-style:italic;">Impact: Every session now produces a complete summary: trades, win rate, balance, exit breakdown, and regime breakdown — even when interrupted mid-session.</div>
+  </div>
+
 </section>
 
 <!-- ═══════════════════ WAR ROOM ═══════════════════ -->
