@@ -2439,6 +2439,19 @@ def run_fast_scalp(num_users: int = 1, sweep: bool = False,
 ╚══════════════════════════════════════════════════╝
 """)
 
+    # ── Ops config dump — printed at startup, visible in Railway logs ────────
+    import os as _os
+    _on_railway = bool(_os.getenv("RAILWAY_ENVIRONMENT") or _os.getenv("RAILWAY_SERVICE_NAME"))
+    print(f"  Exchange        : {_ACTIVE_EXCHANGE.upper()}")
+    print(f"  Market data     : {'LIVE' if use_live else 'SYNTHETIC'}")
+    print(f"  Execution       : PAPER  (simulation only — no real orders placed)")
+    print(f"  Bots            : {len(configs)}  ({'parameter sweep' if sweep else 'standard TP/SL'})")
+    print(f"  Sizing          : {FAST_SCALP_CAPITAL_PCT*100:.0f}% capital/trade"
+          f"  |  daily loss cap {FAST_SCALP_DAILY_LOSS_CAP_PCT*100:.0f}%")
+    print(f"  Supabase writes : {'enabled' if _os.getenv('SUPABASE_URL') else 'DISABLED — set SUPABASE_URL'}")
+    print(f"  Railway env     : {'YES — ' + _os.getenv('RAILWAY_ENVIRONMENT', 'detected') if _on_railway else 'NOT DETECTED (local run)'}")
+    print()
+
     init_sim_db()
     bots   = [FastScalpBot(c["name"], c["tp"], c["sl"]) for c in configs]
     runner = FastScalpRunner(bots, use_live=use_live)
