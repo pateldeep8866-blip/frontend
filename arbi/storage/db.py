@@ -102,6 +102,21 @@ def init_db() -> None:
             details     TEXT,
             action_taken TEXT
         );
+
+        CREATE TABLE IF NOT EXISTS scalp_trades (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            ts          REAL    NOT NULL,
+            symbol      TEXT    NOT NULL,
+            exchange    TEXT    NOT NULL,
+            entry_price REAL    NOT NULL,
+            exit_price  REAL    NOT NULL,
+            quantity    REAL    NOT NULL,
+            hold_sec    REAL    NOT NULL,
+            gross_pnl   REAL    NOT NULL,
+            fee_cost    REAL    NOT NULL,
+            net_pnl     REAL    NOT NULL,
+            exit_reason TEXT    NOT NULL
+        );
     """)
 
     conn.commit()
@@ -224,6 +239,65 @@ def log_risk_event(event_type: str, details: str, action: str = "") -> None:
     """, (time.time(), event_type, details, action))
     conn.commit()
     conn.close()
+
+
+# ─── Scalp trade logging ──────────────────────────────────────────────────────
+
+def log_scalp_trade(symbol: str, exchange: str, entry_price: float, exit_price: float,
+                    quantity: float, hold_sec: float, fee_pct: float,
+                    exit_reason: str) -> None:
+    gross_pnl = (exit_price - entry_price) * quantity
+    fee_cost  = entry_price * quantity * fee_pct
+    net_pnl   = gross_pnl - fee_cost
+    conn = get_connection()
+    conn.execute("""
+        INSERT INTO scalp_trades
+            (ts, symbol, exchange, entry_price, exit_price, quantity,
+             hold_sec, gross_pnl, fee_cost, net_pnl, exit_reason)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?)
+    """, (time.time(), symbol, exchange, entry_price, exit_price, quantity,
+          hold_sec, round(gross_pnl, 6), round(fee_cost, 6),
+          round(net_pnl, 6), exit_reason))
+    conn.commit()
+    conn.close()
+    log.info(
+        "SCALP | %s/%s | hold=%.0fs | gross=$%.4f | fee=$%.4f | net=$%.4f | %s",
+        symbol, exchange, hold_sec, gross_pnl, fee_cost, net_pnl, exit_reason,
+    )
+
+
+# ─── Scalp daily summary ─────────────────────────────────────────────────────
+
+def scalp_daily_summary() -> dict:
+    """Return aggregated scalp stats for the last 24 hours."""
+    since = time.time() - 86_400
+    conn  = get_connection()
+    row   = conn.execute("""
+        SELECT
+            COUNT(*)                                  AS trades,
+            COALESCE(SUM(gross_pnl), 0)               AS gross_pnl,
+            COALESCE(SUM(fee_cost),  0)               AS total_fees,
+            COALESCE(SUM(net_pnl),   0)               AS net_pnl,
+            COALESCE(AVG(hold_sec),  0)               AS avg_hold_sec,
+            COUNT(CASE WHEN net_pnl > 0 THEN 1 END)   AS wins,
+            COUNT(CASE WHEN net_pnl <= 0 THEN 1 END)  AS losses
+        FROM scalp_trades
+        WHERE ts > ?
+    """, (since,)).fetchone()
+    conn.close()
+
+    trades   = row["trades"] or 0
+    win_rate = (row["wins"] / trades * 100) if trades > 0 else 0.0
+    return {
+        "trades":       trades,
+        "wins":         row["wins"] or 0,
+        "losses":       row["losses"] or 0,
+        "win_rate_pct": round(win_rate, 1),
+        "gross_pnl":    round(row["gross_pnl"] or 0, 4),
+        "total_fees":   round(row["total_fees"] or 0, 4),
+        "net_pnl":      round(row["net_pnl"] or 0, 4),
+        "avg_hold_sec": round(row["avg_hold_sec"] or 0, 1),
+    }
 
 
 # ─── Account snapshot ─────────────────────────────────────────────────────────

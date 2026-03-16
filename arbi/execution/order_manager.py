@@ -28,6 +28,7 @@ class OrderManager:
         """
         self.adapters: dict = adapters
         self._orders:  dict = {}   # order_id → order record (in-memory)
+        self._discovered_fills: list = []  # fills found via cancel-check or refresh
 
     # ─── Submit ───────────────────────────────────────────────────────────────
 
@@ -109,15 +110,31 @@ class OrderManager:
             return False
 
         result = adapter.cancel_order(order_id, order["symbol"])
-        if result:
-            order["status"]     = "CANCELED"
-            order["updated_ts"] = time.time()
-            upsert_order(order)
-            log_event("ORDER_CANCELED", "order_manager", {"order_id": order_id})
-            log.info("Order %s canceled", order_id)
-            return True
 
-        return False
+        # If cancel returned an error, the order may have already filled.
+        # Kraken returns "EOrder:Unknown order" for filled or already-gone orders.
+        if result and result.get("status") == "ERROR":
+            log.warning("Cancel of %s failed (%s) — checking actual fill status",
+                        order_id, result.get("error", ""))
+            fresh = adapter.fetch_order(order_id, order["symbol"])
+            if fresh and fresh.get("status") == "FILLED":
+                log.info("Order %s was FILLED on exchange — recording as fill (not cancel)",
+                         order_id)
+                order.update({k: v for k, v in fresh.items() if v is not None})
+                order["updated_ts"] = time.time()
+                upsert_order(order)
+                self._discovered_fills.append(dict(order))
+                log_event("ORDER_FILL_DISCOVERED", "order_manager", {"order_id": order_id})
+                return True
+            # Order not found and not filled — treat as gone from exchange
+            log.warning("Order %s not found on exchange — marking CANCELED", order_id)
+
+        order["status"]     = "CANCELED"
+        order["updated_ts"] = time.time()
+        upsert_order(order)
+        log_event("ORDER_CANCELED", "order_manager", {"order_id": order_id})
+        log.info("Order %s canceled", order_id)
+        return True
 
     # ─── Cancel all ───────────────────────────────────────────────────────────
 
@@ -132,26 +149,45 @@ class OrderManager:
 
     # ─── Refresh stale orders ─────────────────────────────────────────────────
 
-    def refresh_open_orders(self, max_age_sec: float = 30.0) -> None:
+    def refresh_open_orders(self, max_age_sec: float = 300.0) -> None:
         now = time.time()
         for oid, order in list(self._orders.items()):
             if order["status"] not in ("NEW", "ACKED", "PARTIALLY_FILLED"):
                 continue
 
             age = now - order.get("created_ts", now)
-            if age > max_age_sec:
-                log.warning("Order %s stale (%.0fs) — canceling", oid, age)
-                self.cancel(oid)
-                continue
 
-            # Sync with exchange
+            # First sync with exchange to catch any fills before deciding to cancel
             adapter = self.adapters.get(order["exchange"])
             if adapter:
                 fresh = adapter.fetch_order(oid, order["symbol"])
                 if fresh:
+                    prev_status = order.get("status")
                     order.update({k: v for k, v in fresh.items() if v is not None})
                     order["updated_ts"] = now
                     upsert_order(order)
+                    if fresh.get("status") == "FILLED" and prev_status != "FILLED":
+                        log.info("Order %s fill discovered during refresh", oid)
+                        self._discovered_fills.append(dict(order))
+                        log_event("ORDER_FILL_DISCOVERED", "order_manager", {"order_id": oid})
+                        continue  # Don't try to cancel a filled order
+
+            # Cancel if stale and still open after sync
+            if order["status"] in ("NEW", "ACKED", "PARTIALLY_FILLED") and age > max_age_sec:
+                log.warning("Order %s stale (%.0fs) — canceling", oid, age)
+                self.cancel(oid)
+
+    # ─── Discovered fill drain ────────────────────────────────────────────────
+
+    def pop_discovered_fills(self) -> list:
+        """
+        Returns fills that were discovered during cancel or refresh operations
+        (i.e., fills the bot didn't catch at submission time).
+        Clears the internal list after returning.
+        """
+        fills = self._discovered_fills[:]
+        self._discovered_fills.clear()
+        return fills
 
     # ─── Transition helper ────────────────────────────────────────────────────
 

@@ -14,15 +14,19 @@
 import time
 import numpy as np
 from utils.logger import get_logger
-from config import TRADE_RISK_PCT, MIN_EDGE_AFTER_FEES_PCT
+from config import (
+    TRADE_RISK_PCT, MIN_EDGE_AFTER_FEES_PCT,
+    MIN_POSITION_USD, KRAKEN_MIN_ORDER_SIZES,
+)
 
 log = get_logger("execution.quality")
 
 # How much of the available book depth we're willing to consume
 MAX_BOOK_CONSUMPTION_PCT = 0.15   # never take more than 15% of visible depth
 
-# Minimum book depth required (in quote currency)
-MIN_BOOK_DEPTH_USD = 5_000
+# Minimum book depth required (in quote currency).
+# Kept low so small accounts aren't blocked on liquid pairs.
+MIN_BOOK_DEPTH_USD = 50
 
 # Slippage model — impact grows non-linearly with order size
 SLIPPAGE_BASE_BPS    = 5     # 5 basis points for tiny orders
@@ -69,8 +73,8 @@ class ExecutionQuality:
         max_by_depth = book_usd * MAX_BOOK_CONSUMPTION_PCT
         final_usd    = min(adjusted_usd, max_by_depth)
 
-        if final_usd < 10:
-            return self._reject(f"position_too_small ${final_usd:.2f}")
+        if final_usd < MIN_POSITION_USD:
+            return self._reject(f"position_too_small ${final_usd:.2f} < ${MIN_POSITION_USD:.0f} floor")
 
         # ── Step 4: Estimate slippage ─────────────────────────────────────────
         consumption_pct    = final_usd / book_usd
@@ -92,6 +96,13 @@ class ExecutionQuality:
 
         if quantity <= 0:
             return self._reject("zero_quantity")
+
+        # ── Step 7: Validate against Kraken minimum order size ────────────────
+        min_qty = KRAKEN_MIN_ORDER_SIZES.get(symbol)
+        if min_qty is not None and quantity < min_qty:
+            return self._reject(
+                f"below_exchange_minimum qty={quantity:.6f} < min={min_qty} for {symbol}"
+            )
 
         log.info(
             "Quality check PASSED: %s %s %s | size=$%.0f | slip=%.3f%% | edge=%.4f%%",

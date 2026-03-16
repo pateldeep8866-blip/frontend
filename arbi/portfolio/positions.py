@@ -31,6 +31,7 @@ class PositionManager:
                 "avg_entry":      row["avg_entry"],
                 "realized_pnl":   row["realized_pnl"],
                 "unrealized_pnl": row["unrealized_pnl"],
+                "entry_ts":       None,   # Not persisted; unknown after restart
             }
         log.info("Loaded %d positions from DB", len(self._positions))
 
@@ -45,9 +46,13 @@ class PositionManager:
         prev_entry = pos["avg_entry"] or fill_price
 
         # Weighted average entry
-        new_qty         = prev_qty + quantity
+        new_qty          = prev_qty + quantity
         pos["avg_entry"] = ((prev_qty * prev_entry) + (quantity * fill_price)) / new_qty
         pos["quantity"]  = new_qty
+
+        # Track entry time for scalp mode (only on first fill into a flat position)
+        if prev_qty == 0:
+            pos["entry_ts"] = time.time()
 
         self._save(key, pos)
         log.info("BUY recorded: %s/%s qty=%.6f avg_entry=%.4f",
@@ -129,6 +134,7 @@ class PositionManager:
             "avg_entry":      None,
             "realized_pnl":   0.0,
             "unrealized_pnl": 0.0,
+            "entry_ts":       None,
         }
         self._positions[(symbol, exchange)] = pos
         return pos

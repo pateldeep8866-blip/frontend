@@ -14,15 +14,16 @@ log = get_logger("risk.manager")
 
 class RiskManager:
 
-    def __init__(self, starting_balance: float):
-        self.balance           = starting_balance
-        self.peak_balance      = starting_balance
-        self.daily_pnl         = 0.0
-        self.open_trades       = 0
+    def __init__(self, starting_balance: float, max_open_trades: int = MAX_OPEN_TRADES):
+        self.balance            = starting_balance
+        self.peak_balance       = starting_balance
+        self.daily_pnl          = 0.0
+        self.open_trades        = 0
+        self.max_open_trades    = max_open_trades
         self.consecutive_losses = 0
-        self.day_start         = time.time()
-        self.trading_halted    = False
-        self.halt_reason       = ""
+        self.day_start          = time.time()
+        self.trading_halted     = False
+        self.halt_reason        = ""
 
     # ─── Daily reset ──────────────────────────────────────────────────────────
 
@@ -55,8 +56,8 @@ class RiskManager:
             return False
 
         # Open trade cap
-        if self.open_trades >= MAX_OPEN_TRADES:
-            log.debug("Max open trades reached (%d)", MAX_OPEN_TRADES)
+        if self.open_trades >= self.max_open_trades:
+            log.info("BLOCKED: max open trades (%d/%d)", self.open_trades, self.max_open_trades)
             return False
 
         # Consecutive loss limit
@@ -66,7 +67,7 @@ class RiskManager:
 
         # Edge must cover fees
         if edge_pct < MIN_EDGE_AFTER_FEES_PCT:
-            log.debug("Edge %.4f%% too small (min %.4f%%)", edge_pct, MIN_EDGE_AFTER_FEES_PCT)
+            log.info("BLOCKED: edge %.4f%% < min %.4f%%", edge_pct, MIN_EDGE_AFTER_FEES_PCT)
             return False
 
         # Stale data check

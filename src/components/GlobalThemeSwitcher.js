@@ -8,6 +8,7 @@ const THEME_OPTIONS = [
   { key: "cherry", label: "Sakura" },
   { key: "azula", label: "Azula" },
   { key: "alerik", label: "Alerik" },
+  { key: "lylah", label: "Lylah" },
 ];
 
 export default function GlobalThemeSwitcher() {

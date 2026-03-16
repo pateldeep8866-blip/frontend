@@ -78,6 +78,19 @@ class KrakenAdapter(BaseAdapter):
             raw = self._client.create_order(symbol, order_type, side, quantity, price)
             return self._normalize_order(raw)
         except Exception as exc:
+            err = str(exc).lower()
+            # If a sell fails due to insufficient funds (no USD for fees),
+            # retry immediately as a market order — fee is taken from proceeds.
+            if side == "sell" and "insufficient funds" in err:
+                log.warning("SELL_FALLBACK_MARKET: %s %s — retrying as market order", symbol, side)
+                try:
+                    raw = self._client.create_order(symbol, "market", side, quantity, None)
+                    result = self._normalize_order(raw)
+                    result["fallback_market"] = True
+                    return result
+                except Exception as exc2:
+                    log.error("SELL_FALLBACK_MARKET failed: %s", exc2)
+                    return {"status": "REJECTED", "error": str(exc2)}
             log.error("place_order error: %s", exc)
             return {"status": "REJECTED", "error": str(exc)}
 

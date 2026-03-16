@@ -2,6 +2,6 @@
 builder = "NIXPACKS"
 
 [deploy]
-startCommand = "python -m simulation.engine --user arthastra_global --live"
+startCommand = "python -m simulation.engine --users 10 --scalp-fast --sweep --live"
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10

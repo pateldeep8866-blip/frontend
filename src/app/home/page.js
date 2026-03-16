@@ -576,6 +576,7 @@ const UI_TEXT = {
     sakura: "Sakura",
     azula: "Azula",
     alerik: "Alerik",
+    lylah: "Lylah",
     home: "Home",
     learn: "Learn",
     marketSchool: "Market School",
@@ -613,6 +614,7 @@ const UI_TEXT = {
     sakura: "Sakura",
     azula: "Azula",
     alerik: "Alerik",
+    lylah: "Lylah",
     home: "Inicio",
     learn: "Aprender",
     marketSchool: "Market School",
@@ -650,6 +652,7 @@ const UI_TEXT = {
     sakura: "Sakura",
     azula: "Azula",
     alerik: "Alerik",
+    lylah: "Lylah",
     home: "Accueil",
     learn: "Learn",
     marketSchool: "Market School",
@@ -687,6 +690,7 @@ const UI_TEXT = {
     sakura: "सकुरा",
     azula: "अज़ूला",
     alerik: "Alerik",
+    lylah: "Lylah",
     home: "होम",
     learn: "लर्न",
     marketSchool: "मार्केट स्कूल",
@@ -1386,7 +1390,7 @@ export default function Home() {
     } catch {}
     try {
       const t = localStorage.getItem("theme_mode");
-      if (t === "light" || t === "dark" || t === "cherry" || t === "azula" || t === "alerik") setTheme(t);
+      if (t === "light" || t === "dark" || t === "cherry" || t === "azula" || t === "alerik" || t === "lylah") setTheme(t);
     } catch {}
     try {
       const l = localStorage.getItem("site_language");
@@ -3871,7 +3875,8 @@ export default function Home() {
   const isCherry = theme === "cherry";
   const isAzula = theme === "azula";
   const isAlerik = theme === "alerik";
-  const isLight = theme === "light" || isCherry;
+  const isLylah = theme === "lylah";
+  const isLight = theme === "light" || isCherry || isLylah;
   const trendDelta =
     chartPoints.length > 1 ? Number(chartPoints[chartPoints.length - 1].close) - Number(chartPoints[0].close) : 0;
   const trendPct =
@@ -4416,7 +4421,7 @@ export default function Home() {
 
 
   return (
-    <div className={`min-h-screen relative overflow-hidden ${isCherry ? "cherry-mode bg-[#fffefc] text-[#3a2530]" : isAzula ? "azula-mode bg-[#020508] text-[#e8f4ff]" : isAlerik ? "alerik-mode bg-[#050505] text-[#f5f0e8]" : isLight ? "light-mode bg-[#fbfdff] text-slate-900" : "dark-mode bg-slate-950 text-white"}`}>
+    <div className={`min-h-screen relative overflow-hidden ${isCherry ? "cherry-mode bg-[#fffefc] text-[#3a2530]" : isAzula ? "azula-mode bg-[#020508] text-[#e8f4ff]" : isAlerik ? "alerik-mode bg-[#050505] text-[#f5f0e8]" : isLylah ? "lylah-mode bg-[#faf8ff] text-[#120228]" : isLight ? "light-mode bg-[#fbfdff] text-slate-900" : "dark-mode bg-slate-950 text-white"}`}>
       <div>
         <div className={`pointer-events-none absolute -top-24 -left-20 h-80 w-80 rounded-full blur-3xl ${isCherry ? "bg-rose-100/34" : isAzula ? "bg-[#00d4ff]/14" : isLight ? "bg-sky-200/35" : "bg-cyan-500/12"}`} />
         <div className={`pointer-events-none absolute top-1/3 -right-28 h-96 w-96 rounded-full blur-3xl ${isCherry ? "bg-rose-100/28" : isAzula ? "bg-[#4fc3f7]/12" : isLight ? "bg-blue-200/30" : "bg-blue-500/10"}`} />

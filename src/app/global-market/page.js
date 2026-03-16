@@ -27,7 +27,7 @@ export default function GlobalMarketPage() {
   useEffect(() => {
     try {
       const saved = localStorage.getItem("theme_mode");
-      if (["dark", "light", "cherry", "azula", "alerik"].includes(saved)) setTheme(saved);
+      if (["dark", "light", "cherry", "azula", "alerik", "lylah"].includes(saved)) setTheme(saved);
     } catch {}
   }, []);
 
@@ -59,15 +59,17 @@ export default function GlobalMarketPage() {
   const isCherry = theme === "cherry";
   const isAzula = theme === "azula";
   const isAlerik = theme === "alerik";
-  const isLight = theme === "light" || isCherry || isAzula;
+  const isLylah = theme === "lylah";
+  const isLight = theme === "light" || isCherry || isLylah;
 
   const pageClass = useMemo(() => {
     if (isCherry) return "cherry-mode bg-[#fffefc] text-[#3a2530]";
     if (isAzula) return "azula-mode bg-[#09090b] text-[#e7e1c5]";
     if (isAlerik) return "alerik-mode bg-[#050505] text-[#f5f0e8]";
+    if (isLylah) return "lylah-mode bg-[#faf8ff] text-[#120228]";
     if (isLight) return "bg-[#fbfdff] text-slate-900";
     return "bg-slate-950 text-white";
-  }, [isCherry, isAzula, isAlerik, isLight]);
+  }, [isCherry, isAzula, isAlerik, isLylah, isLight]);
 
   const shellClass = isAlerik
     ? "border-[#c9a84c]/35 bg-[#0b0b0b]/90 text-[#f5f0e8]"

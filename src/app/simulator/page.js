@@ -420,7 +420,8 @@ export default function SimulatorPage() {
   const isCherry = theme === "cherry";
   const isAzula = theme === "azula";
   const isAlerik = theme === "alerik";
-  const isLight = theme === "light" || isCherry || isAzula;
+  const isLylah = theme === "lylah";
+  const isLight = theme === "light" || isCherry || isLylah;
 
   const pageClass = isCherry
     ? "cherry-mode min-h-screen relative overflow-hidden bg-[#fffefc] text-[#3a2530]"
@@ -428,6 +429,8 @@ export default function SimulatorPage() {
       ? "azula-mode min-h-screen relative overflow-hidden bg-[#09090b] text-[#e7e1c5]"
       : isAlerik
         ? "alerik-mode min-h-screen relative overflow-hidden bg-[#050505] text-[#f5f0e8]"
+        : isLylah
+        ? "lylah-mode min-h-screen relative overflow-hidden bg-[#faf8ff] text-[#120228]"
         : isLight
         ? "light-mode min-h-screen relative overflow-hidden bg-[#fbfdff] text-slate-900"
         : "dark-mode min-h-screen relative overflow-hidden bg-slate-950 text-white";
@@ -519,7 +522,7 @@ export default function SimulatorPage() {
   useEffect(() => {
     try {
       const saved = localStorage.getItem("theme_mode");
-      if (saved === "dark" || saved === "light" || saved === "cherry" || saved === "azula" || saved === "alerik") setTheme(saved);
+      if (saved === "dark" || saved === "light" || saved === "cherry" || saved === "azula" || saved === "alerik" || saved === "lylah") setTheme(saved);
       const savedRisk = localStorage.getItem(SIM_RISK_LEVEL_KEY);
       if (savedRisk) setRiskLevel(String(savedRisk).toUpperCase());
       const savedCustom = localStorage.getItem(SIM_RISK_CUSTOM_KEY);
@@ -592,7 +595,7 @@ export default function SimulatorPage() {
 
   const setThemeMode = useCallback((mode) => {
     const next = String(mode || "").toLowerCase();
-    if (!["dark", "light", "cherry", "azula", "alerik"].includes(next)) return;
+    if (!["dark", "light", "cherry", "azula", "alerik", "lylah"].includes(next)) return;
     setTheme(next);
     try {
       localStorage.setItem("theme_mode", next);
@@ -2120,7 +2123,7 @@ export default function SimulatorPage() {
                   isAlerik ? "border-[#c9a84c]/30 bg-[#0b0b0b]/90 text-[#f5f0e8]" : isLight ? "border-slate-300 bg-white text-slate-700" : "border-white/15 bg-white/5 text-white/85"
                 }`}
               >
-                Theme: {theme === "cherry" ? "Sakura" : theme === "azula" ? "Azula" : theme === "alerik" ? "Alerik" : theme === "light" ? "Light" : "Dark"}
+                Theme: {theme === "cherry" ? "Sakura" : theme === "azula" ? "Azula" : theme === "alerik" ? "Alerik" : theme === "lylah" ? "Lylah" : theme === "light" ? "Light" : "Dark"}
                 <span className="text-[10px]">▼</span>
               </summary>
               <div

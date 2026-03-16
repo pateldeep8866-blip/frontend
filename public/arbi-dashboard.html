@@ -212,6 +212,12 @@ body::before{content:'';position:fixed;inset:0;
 
 .topbar-mid{display:flex;align-items:center;gap:16px;}
 .live-pill{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--green);background:rgba(0,223,160,.07);border:1px solid rgba(0,223,160,.18);padding:4px 12px;border-radius:100px;}
+.live-pill.mode-live{color:#fff;background:rgba(255,30,60,.18);border-color:rgba(255,30,60,.6);box-shadow:0 0 12px rgba(255,30,60,.35);animation:none;}
+.live-pill.mode-live .pulse{background:#ff1e3c;box-shadow:0 0 6px rgba(255,30,60,.8);}
+.live-pill.mode-offline{color:var(--dim);background:rgba(90,97,128,.1);border-color:rgba(90,97,128,.3);}
+.live-pill.mode-offline .pulse{background:var(--dim);}
+.live-pill.mode-sim{color:#ff9900;background:rgba(255,153,0,.12);border-color:rgba(255,153,0,.45);}
+.live-pill.mode-sim .pulse{background:#ff9900;box-shadow:0 0 6px rgba(255,153,0,.7);}
 .pulse{width:6px;height:6px;background:var(--green);border-radius:50%;animation:blink 1.4s infinite;}
 @keyframes blink{0%,100%{opacity:1;}50%{opacity:.25;}}
 
@@ -328,6 +334,12 @@ tr:last-child td{border-bottom:none;}
 .badge{font-size:9px;color:var(--muted);border:1px solid var(--border);padding:2px 6px;border-radius:4px;}
 .pos{color:var(--green);}.neg{color:var(--red);}
 
+.rlog{background:var(--s1);border:1px solid rgba(255,68,102,.2);border-radius:12px;padding:20px;animation:fadeUp .35s .45s ease both;}
+.rrow{display:flex;gap:10px;padding:7px 0;border-bottom:1px solid rgba(30,37,64,.4);font-size:10px;}
+.rrow:last-child{border-bottom:none;}
+.rtime{color:var(--dim);flex-shrink:0;width:60px;}
+.rreason{color:var(--red);flex:1;word-break:break-all;}
+
 /* Signal feed */
 .sfeed{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:20px;animation:fadeUp .35s .4s ease both;}
 .slist{display:flex;flex-direction:column;gap:7px;margin-top:4px;}
@@ -357,6 +369,15 @@ tr:last-child td{border-bottom:none;}
 ::-webkit-scrollbar{width:3px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:100px;}
+
+/* Sweep leaderboard */
+.sweep-table{width:100%;border-collapse:collapse;margin-top:4px;}
+.sweep-table th{font-size:8px;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;padding:4px 6px 4px 0;text-align:left;border-bottom:1px solid var(--border);}
+.sweep-table td{font-size:10px;padding:7px 6px 7px 0;border-bottom:1px solid rgba(30,37,64,.4);color:var(--dim);}
+.sweep-table tr:last-child td{border-bottom:none;}
+.sweep-rank-1 td{color:var(--gold);}
+.sweep-rank-2 td,.sweep-rank-3 td{color:var(--text);}
+.sweep-pnl.pos{color:var(--green);}.sweep-pnl.neg{color:var(--red);}
 </style>
 </head>
 <body>
@@ -475,7 +496,7 @@ tr:last-child td{border-bottom:none;}
   <div class="topbar">
     <div class="logo"><div class="logo-sq"></div>ARTHASTRA</div>
     <div class="topbar-mid">
-      <div class="live-pill"><div class="pulse"></div>BOT LIVE</div>
+      <div class="live-pill" id="modeBadge"><div class="pulse"></div><span id="modeLabel">BOT LIVE</span></div>
       <div class="ticker-strip" id="tickers"></div>
     </div>
     <div class="topbar-right">
@@ -549,8 +570,8 @@ tr:last-child td{border-bottom:none;}
       <div class="stats">
         <div class="scard"><div class="slbl">Balance</div><div class="sval gold" id="dbal">—</div><div class="schg up" id="dbalchg">▲ +0.00% all time</div></div>
         <div class="scard"><div class="slbl">Today P&L</div><div class="sval green" id="dpnl">—</div><div class="schg up">▲ 14 trades</div></div>
-        <div class="scard"><div class="slbl">Win Rate</div><div class="sval white" id="dwr">68.4%</div><div class="schg neu">↔ 30 day avg</div></div>
-        <div class="scard"><div class="slbl">Max Drawdown</div><div class="sval red">-1.7%</div><div class="schg up">▲ Within limit</div></div>
+        <div class="scard"><div class="slbl">Open Trades</div><div class="sval white" id="dwr">0</div><div class="schg neu">↔ Active positions</div></div>
+        <div class="scard"><div class="slbl">Max Drawdown</div><div class="sval red" id="ddd">—</div><div class="schg neu" id="dhalt">—</div></div>
       </div>
 
       <!-- Mid -->
@@ -592,13 +613,26 @@ tr:last-child td{border-bottom:none;}
       <!-- Bottom -->
       <div class="bottom">
         <div class="tlog">
-          <div class="box-hdr"><div><div class="box-title">Recent Trades</div><div class="box-sub">Paper log</div></div></div>
+          <div class="box-hdr"><div><div class="box-title">Recent Trades</div><div class="box-sub" id="tradeSub">Paper log</div></div></div>
           <table><thead><tr><th>Pair</th><th>Side</th><th>Strategy</th><th>P&L</th><th>Time</th></tr></thead>
           <tbody id="tradeBody"></tbody></table>
         </div>
-        <div class="sfeed">
-          <div class="box-hdr"><div><div class="box-title">Live Signals</div><div class="box-sub">Ranked by regime-adjusted score</div></div></div>
-          <div class="slist" id="sigList"></div>
+        <div class="rlog" id="rejPanel">
+          <div class="box-hdr">
+            <div>
+              <div class="box-title" id="rightPanelTitle">Order Rejections</div>
+              <div class="box-sub" id="rightPanelSub">Real Kraken rejection reasons</div>
+            </div>
+          </div>
+          <!-- Rejections (LIVE/OFFLINE) -->
+          <div id="rejList" style="margin-top:4px;font-size:11px;color:var(--dim);">No rejections yet.</div>
+          <!-- Sweep leaderboard (SIMULATION) -->
+          <div id="sweepPanel" style="display:none;">
+            <table class="sweep-table">
+              <thead><tr><th>Bot</th><th>TP</th><th>SL</th><th>Trades</th><th>Wins</th><th>Net USD</th></tr></thead>
+              <tbody id="sweepBody"></tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -771,10 +805,10 @@ function initDashboard() {
   renderTicker();
   renderStrategies();
   renderTrades();
-  renderSignals();
   drawEquity(7);
   startLiveDrift();
   startClock();
+  startBotPolling();
 }
 
 // Clock
@@ -911,6 +945,177 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',function
   this.classList.add('on');
   drawEquity({7:7,30:30,90:90}[this.textContent]||7);
 }));
+
+// ── LIVE BOT POLLING ─────────────────────────────────────────────────────────
+let _liveMode = false;
+let _botPolling = null;
+
+function startBotPolling() {
+  if (_botPolling) return;
+  _pollBot();
+  _botPolling = setInterval(_pollBot, 5000);
+}
+
+async function _pollBot() {
+  try {
+    const res = await fetch('/api/arbi/bot-status');
+    const data = await res.json();
+    _applyBotState(data);
+  } catch(e) {
+    console.warn('Bot poll failed:', e);
+  }
+}
+
+function _applyBotState(data) {
+  const badge = document.getElementById('modeBadge');
+  const label = document.getElementById('modeLabel');
+  if (!badge || !label) return;
+
+  const mode = (data.mode || 'OFFLINE').toUpperCase();
+
+  // Mode badge
+  badge.className = 'live-pill';
+  if (mode === 'LIVE') {
+    badge.classList.add('mode-live');
+    label.textContent = '⬤ LIVE — REAL MONEY';
+    _liveMode = true;
+  } else if (mode === 'SIMULATION') {
+    badge.classList.add('mode-sim');
+    label.textContent = '◈ SIM RUNNING';
+    _liveMode = false;
+  } else if (mode === 'PAPER') {
+    badge.classList.remove('mode-live', 'mode-offline', 'mode-sim');
+    label.textContent = 'PAPER TRADING';
+    _liveMode = false;
+  } else {
+    badge.classList.add('mode-offline');
+    label.textContent = 'BOT OFFLINE';
+    _liveMode = false;
+  }
+
+  // Right panel: sweep leaderboard (SIM) vs rejections (LIVE/OFFLINE)
+  const rejList    = document.getElementById('rejList');
+  const sweepPanel = document.getElementById('sweepPanel');
+  const rTitle     = document.getElementById('rightPanelTitle');
+  const rSub       = document.getElementById('rightPanelSub');
+  const rejPanel   = document.getElementById('rejPanel');
+  if (mode === 'SIMULATION') {
+    if (rejList)    rejList.style.display    = 'none';
+    if (sweepPanel) sweepPanel.style.display = 'block';
+    if (rTitle)     rTitle.textContent       = 'Sweep Leaderboard';
+    if (rSub)       rSub.textContent         = '10 bots · TP 0.5–1.0% · SL 0.20–0.40%';
+    if (rejPanel)   rejPanel.style.borderColor = 'rgba(255,153,0,.25)';
+    // Render sweep table
+    const rows = data.sweep_leaderboard || [];
+    const tbody = document.getElementById('sweepBody');
+    if (tbody) {
+      tbody.innerHTML = rows.length === 0
+        ? '<tr><td colspan="6" style="color:var(--dim);padding:12px 0;">No closed trades yet...</td></tr>'
+        : rows.map((r, i) => {
+            const wr  = r.trades > 0 ? ((r.wins / r.trades) * 100).toFixed(0) : 0;
+            const pos = r.net_pnl >= 0;
+            const cls = i === 0 ? 'sweep-rank-1' : i < 3 ? 'sweep-rank-2' : '';
+            return `<tr class="${cls}">
+              <td>${r.bot_name}</td>
+              <td>${(r.tp_pct * 100).toFixed(1)}%</td>
+              <td>${(r.sl_pct * 100).toFixed(2)}%</td>
+              <td>${r.trades}</td>
+              <td>${wr}%</td>
+              <td class="sweep-pnl ${pos ? 'pos' : 'neg'}">${pos ? '+' : ''}$${Math.abs(r.net_pnl).toFixed(2)}</td>
+            </tr>`;
+          }).join('');
+    }
+    // Community stats from real sim data
+    if (data.community_trades != null) {
+      const ct = document.getElementById('ct');
+      const cw = document.getElementById('cw');
+      if (ct) ct.textContent = Number(data.community_trades).toLocaleString();
+      if (cw) cw.textContent = data.community_win_rate + '%';
+    }
+  } else {
+    if (rejList)    rejList.style.display    = '';
+    if (sweepPanel) sweepPanel.style.display = 'none';
+    if (rTitle)     rTitle.textContent       = 'Order Rejections';
+    if (rSub)       rSub.textContent         = 'Real Kraken rejection reasons';
+    if (rejPanel)   rejPanel.style.borderColor = '';
+  }
+
+  // Sub label
+  const tradeSub = document.getElementById('tradeSub');
+  if (tradeSub) {
+    if (mode === 'LIVE') tradeSub.textContent = 'Live Kraken fills';
+    else if (mode === 'SIMULATION') tradeSub.textContent = 'Paper sweep · 10 bots';
+    else tradeSub.textContent = 'Paper log';
+  }
+
+  // Balance
+  if (data.balance != null) {
+    const balEl = document.getElementById('dbal');
+    if (balEl) {
+      bal = data.balance;
+      balEl.textContent = '$' + bal.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    }
+  }
+
+  // Daily PnL
+  if (data.daily_pnl != null) {
+    const pnlEl = document.getElementById('dpnl');
+    if (pnlEl) {
+      const p = data.daily_pnl;
+      pnlEl.textContent = (p >= 0 ? '+$' : '-$') + Math.abs(p).toFixed(4);
+      pnlEl.className = 'sval ' + (p >= 0 ? 'green' : 'red');
+    }
+  }
+
+  // Open trades
+  if (data.open_trades != null) {
+    const wrEl = document.getElementById('dwr');
+    if (wrEl) wrEl.textContent = data.open_trades;
+  }
+
+  // Drawdown
+  if (data.drawdown_pct != null) {
+    const ddEl = document.getElementById('ddd');
+    if (ddEl) ddEl.textContent = '-' + Math.abs(data.drawdown_pct).toFixed(2) + '%';
+  }
+  if (data.halt_reason != null) {
+    const hEl = document.getElementById('dhalt');
+    if (hEl) {
+      hEl.textContent = data.halted ? ('⚠ ' + (data.halt_reason || 'Halted')) : '▲ Within limit';
+      hEl.className = 'schg ' + (data.halted ? 'dn' : 'up');
+    }
+  }
+
+  // Recent trades
+  const trades = data.recent_trades || [];
+  const tbody = document.getElementById('tradeBody');
+  if (tbody && trades.length > 0) {
+    tbody.innerHTML = trades.map(t => {
+      const pnlPos = t.pnl >= 0;
+      return `<tr>
+        <td class="sym">${t.pair}</td>
+        <td><span class="pill ${pnlPos ? 'buy' : 'sell'}">${pnlPos ? 'WIN' : 'LOSS'}</span></td>
+        <td><span class="badge">${t.reason || 'scalp'}</span></td>
+        <td class="${pnlPos ? 'pos' : 'neg'}">${pnlPos ? '+' : ''}$${t.pnl.toFixed(4)}</td>
+        <td>${t.time}</td>
+      </tr>`;
+    }).join('');
+  } else if (tbody && mode !== 'OFFLINE') {
+    tbody.innerHTML = '<tr><td colspan="5" style="color:var(--dim);padding:16px 0;">Waiting for first trade...</td></tr>';
+  }
+
+  // Rejections
+  const rejections = data.rejections || [];
+  if (rejList) {
+    if (rejections.length === 0) {
+      rejList.innerHTML = '<div style="color:var(--dim);">No rejections yet.</div>';
+    } else {
+      rejList.innerHTML = rejections.map(r =>
+        `<div class="rrow"><span class="rtime">${r.time}</span><span class="rreason">${r.reason}</span></div>`
+      ).join('');
+    }
+  }
+}
 
 // Live balance drift
 let bal, dpnl, wr;

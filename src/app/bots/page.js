@@ -11,7 +11,7 @@ export default function BotsPage() {
   useEffect(() => {
     try {
       const saved = localStorage.getItem("theme_mode");
-      if (saved === "dark" || saved === "light" || saved === "cherry" || saved === "azula" || saved === "alerik") {
+      if (saved === "dark" || saved === "light" || saved === "cherry" || saved === "azula" || saved === "alerik" || saved === "lylah") {
         setTheme(saved);
       }
     } catch {}
@@ -20,16 +20,19 @@ export default function BotsPage() {
   const isCherry = theme === "cherry";
   const isAzula = theme === "azula";
   const isAlerik = theme === "alerik";
-  const isLight = theme === "light" || isCherry || isAzula;
+  const isLylah = theme === "lylah";
+  const isLight = theme === "light" || isCherry || isLylah;
   const pageClass = isCherry
     ? "cherry-mode bg-[#fffefc] text-[#3a2530]"
     : isAzula
       ? "azula-mode bg-[#020508] text-[#e8f4ff]"
       : isAlerik
         ? "alerik-mode bg-[#050505] text-[#f5f0e8]"
-        : isLight
-          ? "bg-slate-50 text-slate-900"
-          : "bg-[#05070d] text-white";
+        : isLylah
+          ? "lylah-mode bg-[#faf8ff] text-[#120228]"
+          : isLight
+            ? "bg-slate-50 text-slate-900"
+            : "bg-[#05070d] text-white";
   const panelClass = isAlerik
     ? "border-[#c9a84c]/26 bg-[#101010]/92 text-[#f5f0e8]"
     : isLight
@@ -37,7 +40,7 @@ export default function BotsPage() {
       : "border-white/12 bg-white/[0.03] hover:border-cyan-300/40";
   const setThemeMode = (mode) => {
     const next = String(mode || "").toLowerCase();
-    if (!["dark", "light", "cherry", "azula", "alerik"].includes(next)) return;
+    if (!["dark", "light", "cherry", "azula", "alerik", "lylah"].includes(next)) return;
     setTheme(next);
     try {
       localStorage.setItem("theme_mode", next);

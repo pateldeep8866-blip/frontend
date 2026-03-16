@@ -185,7 +185,8 @@ function Card({ title, right, children, theme = "dark" }) {
   const isCherry = theme === "cherry";
   const isAzula = theme === "azula";
   const isAlerik = theme === "alerik";
-  const isLight = theme === "light" || isCherry || isAzula;
+  const isLylah = theme === "lylah";
+  const isLight = theme === "light" || isCherry || isLylah;
   return (
     <div
       className={`rounded-2xl backdrop-blur-md p-5 md:p-6 ${
@@ -241,7 +242,7 @@ export default function PortfolioPage() {
   useEffect(() => {
     try {
       const t = localStorage.getItem("theme_mode");
-      if (t === "light" || t === "dark" || t === "cherry" || t === "azula" || t === "alerik") setTheme(t);
+      if (t === "light" || t === "dark" || t === "cherry" || t === "azula" || t === "alerik" || t === "lylah") setTheme(t);
     } catch {}
     try {
       const lang = localStorage.getItem("site_language");
@@ -688,7 +689,8 @@ export default function PortfolioPage() {
   const isCherry = theme === "cherry";
   const isAzula = theme === "azula";
   const isAlerik = theme === "alerik";
-  const isLight = theme === "light" || isCherry || isAzula;
+  const isLylah = theme === "lylah";
+  const isLight = theme === "light" || isCherry || isLylah;
   const t = (key) => PORTFOLIO_TEXT[language]?.[key] || PORTFOLIO_TEXT.en[key] || key;
   const summary = useMemo(() => {
     const count = portfolioHoldings.length;
@@ -760,7 +762,7 @@ export default function PortfolioPage() {
   };
 
   return (
-    <div className={`min-h-screen relative overflow-hidden ${isCherry ? "cherry-mode bg-[#fffefc] text-[#3a2530]" : isAzula ? "azula-mode bg-[#09090b] text-[#e7e1c5]" : isLight ? "light-mode bg-[#fbfdff] text-slate-900" : "dark-mode bg-slate-950 text-white"}`}>
+    <div className={`min-h-screen relative overflow-hidden ${isCherry ? "cherry-mode bg-[#fffefc] text-[#3a2530]" : isAzula ? "azula-mode bg-[#09090b] text-[#e7e1c5]" : isLylah ? "lylah-mode bg-[#faf8ff] text-[#120228]" : isLight ? "light-mode bg-[#fbfdff] text-slate-900" : "dark-mode bg-slate-950 text-white"}`}>
       {isCherry && <SakuraThemeBackground />}
       <div className={`pointer-events-none absolute -top-24 -left-20 h-80 w-80 rounded-full blur-3xl ${isCherry ? "bg-rose-100/34" : isAzula ? "bg-[#c9b071]/14" : isLight ? "bg-sky-200/35" : "bg-cyan-500/12"}`} />
       <div className={`pointer-events-none absolute top-1/3 -right-28 h-96 w-96 rounded-full blur-3xl ${isCherry ? "bg-rose-100/28" : isAzula ? "bg-[#a17f42]/12" : isLight ? "bg-blue-200/30" : "bg-blue-500/10"}`} />

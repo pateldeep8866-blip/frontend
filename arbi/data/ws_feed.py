@@ -16,21 +16,42 @@ except ImportError:
     WS_AVAILABLE = False
     log.warning("websocket-client not installed. Run: pip install websocket-client")
 
-# Internal USDT symbol → Kraken WS pair name
+# Internal symbol → Kraken WS pair name (supports both /USDT and /USD internal symbols)
 _KRAKEN_WS_MAP = {
-    "BTC/USDT":  "XBT/USD",
-    "ETH/USDT":  "ETH/USD",
-    "SOL/USDT":  "SOL/USD",
-    "XRP/USDT":  "XRP/USD",
-    "ADA/USDT":  "ADA/USD",
-    "DOGE/USDT": "DOGE/USD",
-    "AVAX/USDT": "AVAX/USD",
-    "DOT/USDT":  "DOT/USD",
+    # USDT variants
+    "BTC/USDT":   "XBT/USD",
+    "ETH/USDT":   "ETH/USD",
+    "SOL/USDT":   "SOL/USD",
+    "XRP/USDT":   "XRP/USD",
+    "ADA/USDT":   "ADA/USD",
+    "DOGE/USDT":  "DOGE/USD",
+    "AVAX/USDT":  "AVAX/USD",
+    "DOT/USDT":   "DOT/USD",
+    "LINK/USDT":  "LINK/USD",
+    "ATOM/USDT":  "ATOM/USD",
+    "LTC/USDT":   "LTC/USD",
+    "UNI/USDT":   "UNI/USD",
+    "MATIC/USDT": "POL/USD",   # Kraken renamed MATIC → POL
+    # USD variants
+    "BTC/USD":    "XBT/USD",
+    "ETH/USD":    "ETH/USD",
+    "SOL/USD":    "SOL/USD",
+    "XRP/USD":    "XRP/USD",
+    "ADA/USD":    "ADA/USD",
+    "DOGE/USD":   "DOGE/USD",
+    "AVAX/USD":   "AVAX/USD",
+    "DOT/USD":    "DOT/USD",
+    "LINK/USD":   "LINK/USD",
+    "ATOM/USD":   "ATOM/USD",
+    "LTC/USD":    "LTC/USD",
+    "UNI/USD":    "UNI/USD",
+    "MATIC/USD":  "POL/USD",   # Kraken renamed MATIC → POL
     # BNB not on Kraken — omitted intentionally
 }
+# Build reverse map; USD entries come last in _KRAKEN_WS_MAP so they win for the reverse lookup
 _KRAKEN_WS_REVERSE = {v: k for k, v in _KRAKEN_WS_MAP.items()}
 
-STALE_SEC = 10
+STALE_SEC = 30
 
 
 class KrakenWSFeed:

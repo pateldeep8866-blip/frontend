@@ -1006,3 +1006,560 @@ textarea:disabled {
     height: 5px;
   }
 }
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LYLAH — exact CSS variable system from reference design
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Inject the reference palette as CSS vars scoped to lylah-mode */
+.lylah-mode {
+  --pp0: #f7f4ff;
+  --pp1: #ede6ff;
+  --pp2: #d9ccff;
+  --pp3: #b89fff;
+  --pp4: #9575f5;
+  --pp5: #7a52e8;
+  --pp6: #5b36c8;
+  --pk1: #ffe4f0;
+  --pk2: #ffb8d9;
+  --pk3: #f472b6;
+  --pk4: #db2777;
+  --gn1: #d8faf0;
+  --gn2: #a7f3d0;
+  --gn3: #34d399;
+  --gn4: #059669;
+  --bl1: #dff2ff;
+  --bl2: #bae6fd;
+  --bl3: #38bdf8;
+  --bl4: #0284c7;
+  --ink: #1e1433;
+  --ink2: #4a3880;
+  --ink3: #8b79b8;
+  --surface: #fdfcff;
+
+  /* page canvas — exact reference mesh background */
+  background-color: var(--pp0);
+  background-image:
+    radial-gradient(ellipse 600px 500px at 0%   0%,   rgba(185,158,255,0.28) 0%, transparent 70%),
+    radial-gradient(ellipse 500px 400px at 100% 20%,  rgba(244,114,182,0.14) 0%, transparent 65%),
+    radial-gradient(ellipse 450px 400px at 15%  80%,  rgba(167,243,208,0.16) 0%, transparent 65%),
+    radial-gradient(ellipse 500px 350px at 90%  85%,  rgba(186,230,253,0.18) 0%, transparent 65%),
+    radial-gradient(ellipse 300px 300px at 50%  45%,  rgba(217,204,255,0.12) 0%, transparent 60%);
+  color: var(--ink);
+  font-family: 'Outfit', sans-serif;
+  isolation: isolate;
+}
+
+/* grain texture */
+.lylah-mode::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='250' height='250'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='250' height='250' filter='url(%23n)' opacity='0.032'/%3E%3C/svg%3E");
+  background-size: 180px;
+  z-index: 0;
+}
+
+/* ── .topnav equivalent — white frosted glass ── */
+.lylah-mode header,
+.lylah-mode nav,
+.lylah-mode [class*="sticky top"],
+.lylah-mode [class*="fixed top"] {
+  background: rgba(255,255,255,0.6) !important;
+  backdrop-filter: blur(24px) saturate(1.8) !important;
+  border-bottom-color: rgba(184,159,255,0.2) !important;
+  color: var(--ink) !important;
+}
+.lylah-mode header *,
+.lylah-mode nav * {
+  color: var(--ink) !important;
+  -webkit-text-fill-color: var(--ink) !important;
+}
+
+/* ── .tabs equivalent — scrollable tab bar ── */
+.lylah-mode [role="tablist"],
+.lylah-mode [class*="overflow-x-auto"][class*="flex"] {
+  background: rgba(255,255,255,0.5) !important;
+  backdrop-filter: blur(16px) !important;
+  border-bottom-color: rgba(184,159,255,0.15) !important;
+}
+
+/* ── global text resets ── */
+.lylah-mode { color: var(--ink); }
+
+.lylah-mode [class*="text-white"]:not([class*="text-white/"]) {
+  color: var(--ink) !important;
+  -webkit-text-fill-color: var(--ink) !important;
+}
+.lylah-mode [class*="text-white/"] {
+  color: var(--ink2) !important;
+  -webkit-text-fill-color: var(--ink2) !important;
+}
+/* slate → ink3 (muted) */
+.lylah-mode [class*="text-slate-1"],
+.lylah-mode [class*="text-slate-2"],
+.lylah-mode [class*="text-slate-3"],
+.lylah-mode [class*="text-slate-4"],
+.lylah-mode [class*="text-slate-5"] {
+  color: var(--ink3) !important;
+  -webkit-text-fill-color: var(--ink3) !important;
+}
+.lylah-mode [class*="text-slate-6"],
+.lylah-mode [class*="text-slate-7"],
+.lylah-mode [class*="text-slate-8"],
+.lylah-mode [class*="text-slate-9"] {
+  color: var(--ink2) !important;
+  -webkit-text-fill-color: var(--ink2) !important;
+}
+/* cyan/sky → bl3 sky blue */
+.lylah-mode [class*="text-cyan-"],
+.lylah-mode [class*="text-sky-"] {
+  color: var(--bl3) !important;
+  -webkit-text-fill-color: var(--bl3) !important;
+}
+/* blue → bl4 deep blue */
+.lylah-mode [class*="text-blue-"] {
+  color: var(--bl4) !important;
+  -webkit-text-fill-color: var(--bl4) !important;
+}
+/* green / emerald → gn4 */
+.lylah-mode [class*="text-green-"],
+.lylah-mode [class*="text-emerald-"],
+.lylah-mode [class*="text-teal-"] {
+  color: var(--gn4) !important;
+  -webkit-text-fill-color: var(--gn4) !important;
+}
+/* red / rose → pk4 pastel crimson */
+.lylah-mode [class*="text-red-"],
+.lylah-mode [class*="text-rose-"] {
+  color: var(--pk4) !important;
+  -webkit-text-fill-color: var(--pk4) !important;
+}
+/* yellow / amber */
+.lylah-mode [class*="text-yellow-"],
+.lylah-mode [class*="text-amber-"] {
+  color: #b45309 !important;
+  -webkit-text-fill-color: #b45309 !important;
+}
+/* purple / violet / indigo → pp5 */
+.lylah-mode [class*="text-purple-"],
+.lylah-mode [class*="text-violet-"],
+.lylah-mode [class*="text-indigo-"] {
+  color: var(--pp5) !important;
+  -webkit-text-fill-color: var(--pp5) !important;
+}
+
+/* ── backgrounds ── */
+/* dark panels → white surface (like .welcome, .sig, .stat) */
+.lylah-mode [class*="bg-slate-950"],
+.lylah-mode [class*="bg-slate-900"],
+.lylah-mode [class*="bg-[#0"] {
+  background-color: white !important;
+  color: var(--ink) !important;
+}
+.lylah-mode [class*="bg-slate-800"],
+.lylah-mode [class*="bg-slate-700"] {
+  background-color: var(--pp1) !important;
+  color: var(--ink) !important;
+}
+.lylah-mode [class*="bg-white/"] {
+  background-color: rgba(255,255,255,0.55) !important;
+}
+.lylah-mode [class*="bg-white"] {
+  background-color: rgba(255,255,255,0.92) !important;
+}
+/* cyan/sky → bl1 */
+.lylah-mode [class*="bg-cyan-"],
+.lylah-mode [class*="bg-sky-"] {
+  background-color: var(--bl1) !important;
+  color: var(--bl4) !important;
+}
+/* blue filled → pp gradient */
+.lylah-mode [class*="bg-blue-6"],
+.lylah-mode [class*="bg-blue-5"] {
+  background: linear-gradient(135deg, var(--pp4), var(--pp5)) !important;
+  color: white !important;
+}
+/* green tint → gn1 */
+.lylah-mode [class*="bg-green-"],
+.lylah-mode [class*="bg-emerald-"] {
+  background-color: var(--gn1) !important;
+  color: var(--gn4) !important;
+}
+/* red/rose tint → pk1 */
+.lylah-mode [class*="bg-red-"],
+.lylah-mode [class*="bg-rose-"] {
+  background-color: var(--pk1) !important;
+  color: var(--pk4) !important;
+}
+/* yellow/amber */
+.lylah-mode [class*="bg-yellow-"],
+.lylah-mode [class*="bg-amber-"] {
+  background-color: #fff7e6 !important;
+  color: #b45309 !important;
+}
+/* purple tint → pp1 */
+.lylah-mode [class*="bg-purple-"],
+.lylah-mode [class*="bg-violet-"],
+.lylah-mode [class*="bg-indigo-"] {
+  background-color: var(--pp1) !important;
+  color: var(--pp5) !important;
+}
+
+/* ── borders ── */
+.lylah-mode [class*="border-white/"],
+.lylah-mode [class*="border-slate-"] {
+  border-color: rgba(184,159,255,0.3) !important;
+}
+.lylah-mode [class*="border-cyan-"],
+.lylah-mode [class*="border-sky-"] {
+  border-color: var(--bl2) !important;
+}
+.lylah-mode [class*="border-blue-"] {
+  border-color: rgba(2,132,199,0.35) !important;
+}
+.lylah-mode [class*="border-green-"],
+.lylah-mode [class*="border-emerald-"] {
+  border-color: var(--gn2) !important;
+}
+.lylah-mode [class*="border-red-"],
+.lylah-mode [class*="border-rose-"] {
+  border-color: var(--pk2) !important;
+}
+
+/* ── dividers ── */
+.lylah-mode hr,
+.lylah-mode [class*="divide-white"],
+.lylah-mode [class*="divide-slate-"] {
+  border-color: rgba(184,159,255,0.2) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   APP-CARD  →  reference's .sig / .stat / .welcome style
+   white · pp2-border · pp shadow · colored top accent bar
+   ══════════════════════════════════════════════════════════════════════════ */
+.lylah-mode .app-card {
+  background: white !important;
+  border-color: rgba(184,159,255,0.3) !important;
+  box-shadow:
+    0 2px 20px rgba(149,117,245,0.07),
+    inset 0 1px 0 rgba(255,255,255,0.9) !important;
+  color: var(--ink) !important;
+  backdrop-filter: blur(12px) !important;
+  position: relative;
+  overflow: hidden;
+}
+/* colored top accent bar — pp / gn / pk / bl cycling (ref .stat::before) */
+.lylah-mode .app-card::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: linear-gradient(90deg, var(--pp3), var(--pp4));
+}
+.lylah-mode .app-card:nth-child(4n+2)::before {
+  background: linear-gradient(90deg, var(--gn2), var(--gn3));
+}
+.lylah-mode .app-card:nth-child(4n+3)::before {
+  background: linear-gradient(90deg, var(--pk2), var(--pk3));
+}
+.lylah-mode .app-card:nth-child(4n+4)::before {
+  background: linear-gradient(90deg, var(--bl2), var(--bl3));
+}
+.lylah-mode .app-card:hover {
+  transform: translateY(-3px) !important;
+  box-shadow:
+    0 8px 24px rgba(149,117,245,0.12),
+    inset 0 1px 0 rgba(255,255,255,0.9) !important;
+  border-left-color: var(--pp3) !important;
+  border-color: rgba(184,159,255,0.5) !important;
+}
+.lylah-mode .app-card-title {
+  color: var(--ink) !important;
+  -webkit-text-fill-color: var(--ink) !important;
+}
+/* all card text → ink */
+.lylah-mode .app-card,
+.lylah-mode .app-card * {
+  color: var(--ink) !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: var(--ink) !important;
+}
+/* colour exceptions inside cards */
+.lylah-mode .app-card [class*="text-green-"],
+.lylah-mode .app-card [class*="text-emerald-"] {
+  color: var(--gn4) !important;
+  -webkit-text-fill-color: var(--gn4) !important;
+}
+.lylah-mode .app-card [class*="text-red-"],
+.lylah-mode .app-card [class*="text-rose-"] {
+  color: var(--pk4) !important;
+  -webkit-text-fill-color: var(--pk4) !important;
+}
+.lylah-mode .app-card [class*="text-cyan-"],
+.lylah-mode .app-card [class*="text-sky-"] {
+  color: var(--bl3) !important;
+  -webkit-text-fill-color: var(--bl3) !important;
+}
+.lylah-mode .app-card [class*="text-blue-"] {
+  color: var(--bl4) !important;
+  -webkit-text-fill-color: var(--bl4) !important;
+}
+.lylah-mode .app-card [class*="text-slate-"] {
+  color: var(--ink3) !important;
+  -webkit-text-fill-color: var(--ink3) !important;
+}
+.lylah-mode .app-card [class*="text-yellow-"],
+.lylah-mode .app-card [class*="text-amber-"] {
+  color: #b45309 !important;
+  -webkit-text-fill-color: #b45309 !important;
+}
+.lylah-mode .app-card [class*="bg-white/"],
+.lylah-mode .app-card [class*="bg-slate-"],
+.lylah-mode .app-card [class*="bg-[#0"] {
+  background-color: var(--pp1) !important;
+}
+.lylah-mode .app-card [class*="border-white/"],
+.lylah-mode .app-card [class*="border-slate-"] {
+  border-color: var(--pp2) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   HERO BANNER CARDS  →  reference's .hero style
+   linear-gradient(150deg, #f0eaff 0%, #e8dfff 30%, #fce4f4 65%, #e0f2fe 100%)
+   ══════════════════════════════════════════════════════════════════════════ */
+.lylah-mode [class*="from-blue-"][class*="rounded"],
+.lylah-mode [class*="from-cyan-"][class*="rounded"],
+.lylah-mode [class*="from-slate-9"][class*="rounded"],
+.lylah-mode [class*="from-indigo-"][class*="rounded"] {
+  background: linear-gradient(150deg, #f0eaff 0%, #e8dfff 30%, #fce4f4 65%, #e0f2fe 100%) !important;
+  border-color: rgba(184,159,255,0.35) !important;
+  box-shadow: 0 8px 40px rgba(149,117,245,0.12), inset 0 1px 0 rgba(255,255,255,0.8) !important;
+  color: var(--ink) !important;
+}
+.lylah-mode [class*="from-blue-"][class*="rounded"] *,
+.lylah-mode [class*="from-cyan-"][class*="rounded"] *,
+.lylah-mode [class*="from-slate-9"][class*="rounded"] *,
+.lylah-mode [class*="from-indigo-"][class*="rounded"] * {
+  color: var(--ink) !important;
+  -webkit-text-fill-color: var(--ink) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   PLATFORM / CTA DARK CARD  →  reference's .platform style
+   linear-gradient(145deg, pp5 → #6d3fcf → #3b2480) with white text
+   ══════════════════════════════════════════════════════════════════════════ */
+.lylah-mode [class*="from-blue-700"],
+.lylah-mode [class*="from-blue-800"],
+.lylah-mode [class*="from-violet-"] {
+  background: linear-gradient(145deg, var(--pp5) 0%, #6d3fcf 40%, #3b2480 100%) !important;
+  box-shadow: 0 10px 36px rgba(122,82,232,0.25) !important;
+  border-color: rgba(255,255,255,0.12) !important;
+  color: white !important;
+}
+.lylah-mode [class*="from-blue-700"] *,
+.lylah-mode [class*="from-blue-800"] *,
+.lylah-mode [class*="from-violet-"] * {
+  color: white !important;
+  -webkit-text-fill-color: white !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   BUTTONS
+   ══════════════════════════════════════════════════════════════════════════ */
+/* .btn-main equivalent — pp4→pp5 gradient */
+.lylah-mode button[class*="bg-blue-6"],
+.lylah-mode button[class*="bg-blue-5"],
+.lylah-mode a[class*="bg-blue-6"],
+.lylah-mode a[class*="bg-blue-5"] {
+  background: linear-gradient(135deg, var(--pp4), var(--pp5)) !important;
+  color: white !important;
+  -webkit-text-fill-color: white !important;
+  box-shadow: 0 4px 18px rgba(149,117,245,0.38) !important;
+  border-color: transparent !important;
+}
+.lylah-mode button[class*="bg-blue-6"]:hover,
+.lylah-mode button[class*="bg-blue-5"]:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 8px 26px rgba(149,117,245,0.48) !important;
+}
+/* .btn-ghost equivalent — white frosted */
+.lylah-mode button[class*="border-white/"],
+.lylah-mode button[class*="border-slate-"],
+.lylah-mode button[class*="border-cyan-"],
+.lylah-mode button[class*="border-blue-"] {
+  background: rgba(255,255,255,0.7) !important;
+  border-color: rgba(184,159,255,0.5) !important;
+  color: var(--pp5) !important;
+  -webkit-text-fill-color: var(--pp5) !important;
+  backdrop-filter: blur(8px) !important;
+}
+.lylah-mode button[class*="border-white/"]:hover,
+.lylah-mode button[class*="border-slate-"]:hover {
+  background: rgba(255,255,255,0.95) !important;
+  border-color: var(--pp3) !important;
+}
+/* sky/cyan buttons → bl3→bl4 */
+.lylah-mode button[class*="bg-cyan-"],
+.lylah-mode button[class*="bg-sky-"],
+.lylah-mode button[class*="bg-teal-"] {
+  background: linear-gradient(135deg, var(--bl3), var(--bl4)) !important;
+  color: white !important;
+  -webkit-text-fill-color: white !important;
+  box-shadow: 0 4px 14px rgba(56,189,248,0.35) !important;
+}
+/* danger → pk3→pk4 */
+.lylah-mode button[class*="bg-red-"],
+.lylah-mode button[class*="bg-rose-"] {
+  background: linear-gradient(135deg, var(--pk3), var(--pk4)) !important;
+  color: white !important;
+  -webkit-text-fill-color: white !important;
+}
+/* active tab/toggle — pp4→pp5 */
+.lylah-mode button[class*="bg-slate-"][class*="text-white"],
+.lylah-mode button[class*="bg-blue-"][class*="text-white"] {
+  background: linear-gradient(135deg, var(--pp4), var(--pp5)) !important;
+  color: white !important;
+  -webkit-text-fill-color: white !important;
+  box-shadow: 0 3px 14px rgba(149,117,245,0.35) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   TAB / TOGGLE STRIPS
+   ══════════════════════════════════════════════════════════════════════════ */
+.lylah-mode [class*="rounded-xl"][class*="overflow-hidden"],
+.lylah-mode [class*="rounded-lg"][class*="overflow-hidden"],
+.lylah-mode [class*="rounded-2xl"][class*="overflow-hidden"] {
+  background: rgba(255,255,255,0.65) !important;
+  border-color: rgba(184,159,255,0.28) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   SECTION HEADER LABELS  →  .sec-t style (ink3 uppercase tracking)
+   ══════════════════════════════════════════════════════════════════════════ */
+.lylah-mode [class*="tracking-wide"][class*="text-xs"],
+.lylah-mode [class*="tracking-wider"][class*="text-xs"],
+.lylah-mode [class*="tracking-widest"] {
+  color: var(--pp4) !important;
+  -webkit-text-fill-color: var(--pp4) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   BADGES / CHIPS / PILLS  →  reference .badge.buy/.sell/.hold/.watch
+   ══════════════════════════════════════════════════════════════════════════ */
+/* buy / positive → gn1 bg, gn4 text, gn2 border */
+.lylah-mode [class*="bg-green-5"][class*="text-green-"],
+.lylah-mode [class*="bg-emerald"][class*="text-emerald-"] {
+  background-color: var(--gn1) !important;
+  color: var(--gn4) !important;
+  -webkit-text-fill-color: var(--gn4) !important;
+  border-color: var(--gn2) !important;
+}
+/* sell / negative → pk1 bg, pk4 text, pk2 border */
+.lylah-mode [class*="bg-red-"][class*="text-red-"],
+.lylah-mode [class*="bg-rose-"][class*="text-rose-"] {
+  background-color: var(--pk1) !important;
+  color: var(--pk4) !important;
+  -webkit-text-fill-color: var(--pk4) !important;
+  border-color: var(--pk2) !important;
+}
+/* hold / neutral → pp1 bg, pp5 text, pp2 border */
+.lylah-mode [class*="bg-purple-"][class*="text-purple-"],
+.lylah-mode [class*="bg-violet-"][class*="text-violet-"] {
+  background-color: var(--pp1) !important;
+  color: var(--pp5) !important;
+  -webkit-text-fill-color: var(--pp5) !important;
+  border-color: var(--pp2) !important;
+}
+/* watch / info → bl1 bg, bl4 text, bl2 border */
+.lylah-mode [class*="bg-blue-"][class*="text-blue-"],
+.lylah-mode [class*="bg-cyan-"][class*="text-cyan-"],
+.lylah-mode [class*="bg-sky-"][class*="text-sky-"] {
+  background-color: var(--bl1) !important;
+  color: var(--bl4) !important;
+  -webkit-text-fill-color: var(--bl4) !important;
+  border-color: var(--bl2) !important;
+}
+/* yellow/amber */
+.lylah-mode [class*="bg-yellow-"][class*="text-yellow-"],
+.lylah-mode [class*="bg-amber-"][class*="text-amber-"] {
+  background-color: #fff7e6 !important;
+  color: #b45309 !important;
+  -webkit-text-fill-color: #b45309 !important;
+  border-color: #fcd34d !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   PROGRESS / FILL BARS
+   ══════════════════════════════════════════════════════════════════════════ */
+.lylah-mode [class*="bg-blue-4"],
+.lylah-mode [class*="bg-blue-3"] { background-color: var(--bl4) !important; }
+.lylah-mode [class*="bg-cyan-4"],
+.lylah-mode [class*="bg-cyan-3"],
+.lylah-mode [class*="bg-sky-3"],
+.lylah-mode [class*="bg-sky-4"]  { background-color: var(--bl3) !important; }
+.lylah-mode [class*="bg-green-4"],
+.lylah-mode [class*="bg-green-3"],
+.lylah-mode [class*="bg-emerald-4"] { background-color: var(--gn3) !important; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   TABLE
+   ══════════════════════════════════════════════════════════════════════════ */
+.lylah-mode tr:nth-child(even) { background-color: rgba(237,230,255,0.25) !important; }
+.lylah-mode tr:hover           { background-color: rgba(149,117,245,0.06) !important; }
+.lylah-mode th {
+  color: var(--pp4) !important;
+  -webkit-text-fill-color: var(--pp4) !important;
+  border-bottom-color: var(--pp2) !important;
+}
+.lylah-mode td { border-color: rgba(184,159,255,0.15) !important; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   INPUTS / SELECTS / TEXTAREAS
+   ══════════════════════════════════════════════════════════════════════════ */
+.lylah-mode input,
+.lylah-mode select,
+.lylah-mode textarea {
+  background: rgba(255,255,255,0.88) !important;
+  border-color: rgba(184,159,255,0.45) !important;
+  color: var(--ink) !important;
+  -webkit-text-fill-color: var(--ink) !important;
+}
+.lylah-mode input:focus,
+.lylah-mode select:focus,
+.lylah-mode textarea:focus {
+  border-color: var(--pp4) !important;
+  box-shadow: 0 0 0 3px rgba(149,117,245,0.12) !important;
+}
+.lylah-mode input::placeholder,
+.lylah-mode textarea::placeholder {
+  color: var(--ink3) !important;
+  -webkit-text-fill-color: var(--ink3) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LINKS
+   ══════════════════════════════════════════════════════════════════════════ */
+.lylah-mode a:not([class]) {
+  color: var(--pp5) !important;
+  text-decoration-color: var(--pp3);
+}
+.lylah-mode a:not([class]):hover { color: var(--pp4) !important; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   DIVIDERS
+   ══════════════════════════════════════════════════════════════════════════ */
+.lylah-mode [class*="border-b"]:not(button):not(nav),
+.lylah-mode [class*="border-t"]:not(button):not(nav) {
+  border-color: rgba(184,159,255,0.2) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   SCROLLBAR
+   ══════════════════════════════════════════════════════════════════════════ */
+.lylah-mode ::-webkit-scrollbar-track  { background: var(--pp1); }
+.lylah-mode ::-webkit-scrollbar-thumb  { background: rgba(149,117,245,0.4); border-radius: 4px; }
+.lylah-mode ::-webkit-scrollbar-thumb:hover { background: rgba(149,117,245,0.65); }

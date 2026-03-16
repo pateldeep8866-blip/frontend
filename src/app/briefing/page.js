@@ -136,7 +136,7 @@ export default function BriefingPage() {
   useEffect(() => {
     try {
       const saved = localStorage.getItem("theme_mode");
-      if (["dark", "light", "cherry", "azula", "alerik"].includes(saved)) setTheme(saved);
+      if (["dark", "light", "cherry", "azula", "alerik", "lylah"].includes(saved)) setTheme(saved);
     } catch {}
   }, []);
 
@@ -163,7 +163,14 @@ export default function BriefingPage() {
   }, [cadence]);
 
   const isCherry = theme === "cherry";
-  const isLight = theme === "light" || isCherry || theme === "azula";
+  const isAzula = theme === "azula";
+  const isLylah = theme === "lylah";
+  const isLight = theme === "light" || isCherry || isAzula || isLylah;
+  const pageClass = isLylah ? "lylah-mode bg-[#faf8ff] text-[#120228]" : isLight ? "bg-[#f7f4ef] text-[#1f1b16]" : "bg-[#050a1a] text-[#f3f8ff]";
+  const shellClass = isLight ? "border-[#d9d0c3] bg-[#fffdf8]" : "border-[#1c355f] bg-[linear-gradient(180deg,#07152f_0%,#050f23_100%)]";
+  const strokeClass = isLight ? "border-[#d9d0c3]" : "border-[#17345f]";
+  const mutedClass = isLight ? "text-[#6b655d]" : "text-[#98a6bf]";
+  const accentClass = isLight ? "text-[#7f2d0f]" : "text-[#8ee7ff]";
 
   const np = isLight
     ? {

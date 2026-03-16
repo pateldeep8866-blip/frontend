@@ -89,7 +89,7 @@ const BROKER_GLOSSARY_ENTRIES = [
   },
 ];
 
-const THEME_OPTIONS = ["dark", "light", "cherry", "azula", "alerik"];
+const THEME_OPTIONS = ["dark", "light", "cherry", "azula", "alerik", "lylah"];
 const DIFFICULTY_FILTERS = ["All", "Beginner", "Intermediate", "Advanced"];
 
 function toTitleDate(value) {
@@ -380,7 +380,8 @@ export default function MarketSchoolPage() {
   const isCherry = theme === "cherry";
   const isAzula = theme === "azula";
   const isAlerik = theme === "alerik";
-  const isLight = theme === "light" || isCherry || isAzula;
+  const isLylah = theme === "lylah";
+  const isLight = theme === "light" || isCherry || isLylah;
 
   const pageClass = isCherry
     ? "cherry-mode min-h-screen relative overflow-hidden bg-[#fffefc] text-[#3a2530]"
@@ -388,6 +389,8 @@ export default function MarketSchoolPage() {
       ? "azula-mode min-h-screen relative overflow-hidden bg-[#09090b] text-[#e7e1c5]"
       : isAlerik
         ? "alerik-mode min-h-screen relative overflow-hidden bg-[#050505] text-[#f5f0e8]"
+        : isLylah
+        ? "lylah-mode min-h-screen relative overflow-hidden bg-[#faf8ff] text-[#120228]"
         : isLight
         ? "min-h-screen relative overflow-hidden bg-gradient-to-br from-white via-blue-50 to-cyan-50 text-slate-900"
         : "min-h-screen relative overflow-hidden bg-slate-950 text-white";
