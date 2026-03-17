@@ -4679,6 +4679,39 @@ export default function Home() {
               <summary className={`list-none inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer [&::-webkit-details-marker]:hidden ${
                 isCherry
                   ? "border-rose-200/65 bg-white/96 text-rose-900"
+                  : isAlerik
+                    ? "border-[#d4af37]/35 bg-[#000]/80 text-[#d4bc84]"
+                    : isAzula
+                      ? "border-[#00b4ff]/25 bg-[#020f23]/80 text-[#a8d4f0]"
+                      : isLight
+                        ? "border-slate-300 bg-white/90 text-slate-800"
+                        : "border-white/15 bg-slate-900/60 text-white/85"
+              }`}>
+                🌐 {LANGUAGE_OPTIONS.find(o => o.code === language)?.label || "Language"}
+                <span className="text-[10px]">▼</span>
+              </summary>
+              <div className={`absolute right-0 top-full mt-2 w-44 rounded-xl border p-2 shadow-2xl flex flex-col gap-1 z-50 ${
+                isLight ? "border-slate-300 bg-white/95" : isAlerik ? "border-[#d4af37]/30 bg-[#000]/95" : "border-white/15 bg-slate-900/95"
+              }`}>
+                {LANGUAGE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.code}
+                    onClick={() => { setLanguage(opt.code); try { localStorage.setItem("site_language", opt.code); } catch {} document.querySelector("details[open]")?.removeAttribute("open"); }}
+                    className={`w-full rounded-lg px-3 py-2 text-left text-xs font-semibold transition-colors ${
+                      language === opt.code
+                        ? isAlerik ? "bg-[#d4af37]/20 text-[#d4af37]" : isAzula ? "bg-[#00d4ff]/20 text-[#4fc3f7]" : "bg-blue-600 text-white"
+                        : isLight ? "text-slate-700 hover:bg-slate-100" : isAlerik ? "text-[#d4bc84] hover:bg-[#d4af37]/10" : "text-white/85 hover:bg-white/10"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </details>
+            <details className="relative">
+              <summary className={`list-none inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer [&::-webkit-details-marker]:hidden ${
+                isCherry
+                  ? "border-rose-200/65 bg-white/96 text-rose-900"
                   : isLight
                     ? "border-slate-300 bg-white/90 text-slate-800"
                     : "border-white/15 bg-slate-900/60 text-white/85"
