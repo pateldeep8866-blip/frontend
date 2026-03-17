@@ -3958,12 +3958,12 @@ export default function Home() {
   const isGeoPoliticsMode = assetMode === "geopolitics";
   const isHomeMode = assetMode === "home";
   const isNarrativeMode = isNewsMode || isGlobalMarketMode || isGeoPoliticsMode || isHomeMode;
-  const hCtaClass = isAzula ? "bg-[#cfb06a] text-[#101012] hover:bg-[#dec284]" : isCherry ? "bg-rose-600 text-white hover:bg-rose-700" : isLight ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-cyan-500 text-slate-950 hover:bg-cyan-400";
-  const hCard = isLight ? "border-slate-300 bg-white/90 shadow-sm" : isAzula ? "border-[#b99654]/40 bg-[#0f1013]/85" : "border-white/12 bg-slate-900/55";
-  const hSoft = isLight ? "border-slate-300 bg-white/85" : isAzula ? "border-[#b99654]/25 bg-[#16171b]/70" : "border-white/10 bg-white/5";
-  const hMuted = isLight ? "text-slate-600" : isAzula ? "text-[#d9ccaa]/80" : "text-white/75";
-  const hAccent = isCherry ? "text-rose-700" : isAzula ? "text-[#d6be86]" : isLight ? "text-slate-500" : "text-cyan-200/80";
-  const hHonest = isCherry ? "border-rose-300 bg-rose-50 text-rose-800" : isAzula ? "border-[#c8a865]/30 bg-[#c8a865]/10 text-[#e8d7ac]" : isLight ? "border-amber-300 bg-amber-50 text-amber-800" : "border-cyan-400/25 bg-cyan-500/10 text-cyan-200";
+  const hCtaClass = isAzula ? "bg-[#00d4ff] text-[#020508] hover:bg-[#37ddff]" : isCherry ? "bg-rose-600 text-white hover:bg-rose-700" : isLight ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-cyan-500 text-slate-950 hover:bg-cyan-400";
+  const hCard = isLight ? "border-slate-300 bg-white/90 shadow-sm" : isAzula ? "border-[#00b4ff]/25 bg-[#020f23]/85" : "border-white/12 bg-slate-900/55";
+  const hSoft = isLight ? "border-slate-300 bg-white/85" : isAzula ? "border-[#00b4ff]/20 bg-[#020c1b]/70" : "border-white/10 bg-white/5";
+  const hMuted = isLight ? "text-slate-600" : isAzula ? "text-[#a8d4f0]/80" : "text-white/75";
+  const hAccent = isCherry ? "text-rose-700" : isAzula ? "text-[#4fc3f7]" : isLight ? "text-slate-500" : "text-cyan-200/80";
+  const hHonest = isCherry ? "border-rose-300 bg-rose-50 text-rose-800" : isAzula ? "border-[#00d4ff]/25 bg-[#00d4ff]/10 text-[#b8e8ff]" : isLight ? "border-amber-300 bg-amber-50 text-amber-800" : "border-cyan-400/25 bg-cyan-500/10 text-cyan-200";
   const isMetalsMode = assetMode === "metals";
   const overviewLoop = overview.length ? [...overview, ...overview] : [];
   const supabaseConfigured = Boolean(getSupabaseClient());
@@ -6547,7 +6547,7 @@ export default function Home() {
                   <div>
                     <p className={`text-[11px] uppercase tracking-[0.22em] font-semibold ${hAccent}`}>Home · Research First</p>
                     <h2 className={`mt-2 text-5xl md:text-7xl font-semibold leading-[0.95] ${isLight ? "text-slate-900" : "text-white"}`} style={{fontFamily: '"Cormorant Garamond", "Georgia", serif'}}>Learn Before You Earn</h2>
-                    <p className={`mt-3 text-xl md:text-2xl font-medium ${isLight ? "text-slate-700" : isAzula ? "text-[#eadfbf]" : "text-white/90"}`}>It&apos;s time everyday investors can earn too.</p>
+                    <p className={`mt-3 text-xl md:text-2xl font-medium ${isLight ? "text-slate-700" : isAzula ? "text-[#c8e8ff]" : "text-white/90"}`}>It&apos;s time everyday investors can earn too.</p>
                     <div className={`mt-5 max-w-4xl text-sm md:text-base leading-7 space-y-4 ${hMuted}`}>
                       <p>Making one good trade should not require hours of searching through financial reports, charts, APIs, videos, and news only to end with an educated guess.</p>
                       <p>Investors spend more time collecting information than actually understanding it. Arthastra brings fundamentals, technical analysis, market sentiment, and news together into one research-driven platform.</p>
@@ -6560,7 +6560,7 @@ export default function Home() {
                     <p className={`mt-4 text-xs ${isLight ? "text-slate-500" : "text-white/60"}`}>Paper trading simulator for educational purposes only. No real money required. Not financial advice.</p>
                   </div>
                   <div className={`rounded-2xl border p-4 md:p-5 ${hSoft}`}>
-                    <h3 className={`text-sm font-semibold uppercase tracking-wide ${isLight ? "text-slate-700" : isAzula ? "text-[#d6be86]" : "text-cyan-100/90"}`}>Market Overview</h3>
+                    <h3 className={`text-sm font-semibold uppercase tracking-wide ${isLight ? "text-slate-700" : isAzula ? "text-[#4fc3f7]" : "text-cyan-100/90"}`}>Market Overview</h3>
                     <div className="mt-3 space-y-2">
                       {[{label:"Coverage",value:"47 Instruments"},{label:"Simulator Capital",value:"$100,000"},{label:"Core Positioning",value:"Research-First"},{label:"Operating Mode",value:"Educational"}].map((item) => (
                         <div key={item.label} className={`rounded-lg border px-3 py-2.5 flex items-center justify-between ${hSoft}`}>
@@ -6599,7 +6599,7 @@ export default function Home() {
               <div className={`rounded-2xl border backdrop-blur-md p-6 md:p-8 shadow-[0_14px_40px_-22px_rgba(15,23,42,0.9)] home-reveal ${hCard}`}>
                 <div className="flex items-start gap-4">
                   <div className="flex-shrink-0 mt-1">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg font-bold ${isLight ? "bg-slate-900 text-white" : isAzula ? "bg-[#d6be86] text-[#1a1a2e]" : "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"}`}>Y</div>
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg font-bold ${isLight ? "bg-slate-900 text-white" : isAzula ? "bg-[#00d4ff]/20 text-[#4fc3f7] border border-[#00d4ff]/30" : "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"}`}>Y</div>
                   </div>
                   <div>
                     <p className={`text-[11px] uppercase tracking-[0.22em] font-semibold ${hAccent}`}>Platform Intelligence Layer</p>
@@ -6632,7 +6632,7 @@ export default function Home() {
                 <p className={`text-[11px] uppercase tracking-[0.24em] ${hAccent}`}>Why We Built This</p>
                 <h2 style={{fontFamily: '"Cormorant Garamond", "Georgia", serif'}} className={`mt-2 text-4xl md:text-6xl leading-[0.98] ${isLight ? "text-slate-900" : "text-white"}`}>
                   Investing without understanding is just{" "}
-                  <em className={`${isAzula ? "text-[#d6be86]" : isLight ? "text-amber-700" : "text-yellow-300"} italic`}>gambling with extra steps.</em>
+                  <em className={`${isAzula ? "text-[#4fc3f7]" : isLight ? "text-amber-700" : "text-yellow-300"} italic`}>gambling with extra steps.</em>
                 </h2>
                 <div className={`mt-4 text-sm md:text-base leading-7 space-y-3 ${hMuted}`}>
                   <p>Making one good trade used to require hours of research. Financial statements. Charts. News. Market sentiment. All spread across different places.</p>
@@ -6662,13 +6662,13 @@ export default function Home() {
                 <p className={`text-[11px] uppercase tracking-[0.24em] ${hAccent}`}>How It Works</p>
                 <h2 style={{fontFamily: '"Cormorant Garamond", "Georgia", serif'}} className={`mt-2 text-4xl md:text-6xl leading-[0.98] mb-6 ${isLight ? "text-slate-900" : "text-white"}`}>
                   Four steps from{" "}
-                  <em className={`${isAzula ? "text-[#d6be86]" : isLight ? "text-amber-700" : "text-yellow-300"} italic`}>curious</em>{" "}
+                  <em className={`${isAzula ? "text-[#4fc3f7]" : isLight ? "text-amber-700" : "text-yellow-300"} italic`}>curious</em>{" "}
                   to confident.
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                   {[{title:"Learn the Basics",text:"Start in Market School. Know what you are trading before you trade it."},{title:"Explore the Research",text:"Click the tabs. Read the executive briefs. Understand the market context."},{title:"Make Your Own Trades",text:"Use simulated capital. Research first. Then decide."},{title:"Build Real Instinct",text:"Weeks of practice build pattern recognition. Experience becomes confidence."},{title:"Ask ASTRA",text:"Use ASTRA to analyze trades and understand signals."}].map((step, idx) => (
                     <div key={step.title} className={`rounded-xl border p-4 text-center ${hSoft}`}>
-                      <div className={`mx-auto mb-3 h-10 w-10 rounded-full border flex items-center justify-center text-[11px] tracking-[0.08em] ${isLight ? "border-slate-400 text-slate-600" : isAzula ? "border-[#b99654]/60 text-[#d6be86]" : "border-white/30 text-white/70"}`}>{String(idx + 1).padStart(2, "0")}</div>
+                      <div className={`mx-auto mb-3 h-10 w-10 rounded-full border flex items-center justify-center text-[11px] tracking-[0.08em] ${isLight ? "border-slate-400 text-slate-600" : isAzula ? "border-[#00d4ff]/60 text-[#4fc3f7]" : "border-white/30 text-white/70"}`}>{String(idx + 1).padStart(2, "0")}</div>
                       <div className={`mt-1 text-base font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{step.title}</div>
                       <p className={`mt-2 text-sm leading-6 ${hMuted}`}>{step.text}</p>
                     </div>
@@ -6681,7 +6681,7 @@ export default function Home() {
                 <p className={`text-[11px] uppercase tracking-[0.24em] ${hAccent}`}>Features Inside</p>
                 <h2 style={{fontFamily: '"Cormorant Garamond", "Georgia", serif'}} className={`mt-2 text-4xl md:text-6xl leading-[0.98] mb-3 ${isLight ? "text-slate-900" : "text-white"}`}>
                   Built with tools that{" "}
-                  <em className={`${isAzula ? "text-[#d6be86]" : isLight ? "text-amber-700" : "text-yellow-300"} italic`}>explain themselves.</em>
+                  <em className={`${isAzula ? "text-[#4fc3f7]" : isLight ? "text-amber-700" : "text-yellow-300"} italic`}>explain themselves.</em>
                 </h2>
                 <p className={`text-sm md:text-base max-w-3xl mb-6 ${hMuted}`}>Every feature was designed around one question: will this help someone understand investing better?</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -6701,7 +6701,7 @@ export default function Home() {
                 <p className={`text-[11px] uppercase tracking-[0.24em] ${hAccent}`}>Who Built This</p>
                 <h2 style={{fontFamily: '"Cormorant Garamond", "Georgia", serif'}} className={`mt-2 text-4xl md:text-6xl leading-[0.98] ${isLight ? "text-slate-900" : "text-white"}`}>
                   Two builders who got{" "}
-                  <em className={`${isAzula ? "text-[#d6be86]" : isLight ? "text-amber-700" : "text-yellow-300"} italic`}>tired of the gap.</em>
+                  <em className={`${isAzula ? "text-[#4fc3f7]" : isLight ? "text-amber-700" : "text-yellow-300"} italic`}>tired of the gap.</em>
                 </h2>
                 <p className={`mt-2 text-sm ${hMuted}`}>We built the platform we wished existed when we started researching trades ourselves.</p>
                 <div className={`mt-4 rounded-xl border p-3 ${hSoft}`}>
