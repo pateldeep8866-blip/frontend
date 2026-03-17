@@ -133,11 +133,11 @@ body {
 
 
 .alerik-mode {
-  background-color: #050505;
+  background-color: #000000;
   background-image:
-    radial-gradient(circle at 16% 12%, rgba(201, 168, 76, 0.14), transparent 34%),
-    radial-gradient(circle at 82% 74%, rgba(201, 168, 76, 0.08), transparent 38%),
-    linear-gradient(180deg, #040404 0%, #090909 42%, #050505 100%);
+    radial-gradient(circle at 16% 12%, rgba(212, 175, 55, 0.22), transparent 34%),
+    radial-gradient(circle at 82% 74%, rgba(212, 175, 55, 0.14), transparent 38%),
+    linear-gradient(180deg, #000000 0%, #060606 42%, #020202 100%);
   isolation: isolate;
 }
 
@@ -157,23 +157,28 @@ body {
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(circle at 50% 12%, rgba(232, 201, 106, 0.08), transparent 34%),
-    linear-gradient(180deg, transparent 0%, rgba(201, 168, 76, 0.03) 100%);
+    radial-gradient(circle at 50% 12%, rgba(212, 175, 55, 0.16), transparent 34%),
+    linear-gradient(180deg, transparent 0%, rgba(212, 175, 55, 0.06) 100%);
   z-index: 0;
 }
 
 .alerik-mode .app-card {
-  background: linear-gradient(180deg, rgba(18, 18, 18, 0.96), rgba(9, 9, 9, 0.94)) !important;
-  border-color: rgba(201, 168, 76, 0.26) !important;
+  background: linear-gradient(180deg, rgba(10, 10, 10, 0.97), rgba(4, 4, 4, 0.96)) !important;
+  border-color: rgba(212, 175, 55, 0.40) !important;
   box-shadow:
-    0 18px 40px -26px rgba(0, 0, 0, 0.9),
-    0 0 0 1px rgba(201, 168, 76, 0.1) inset,
-    0 1px 0 rgba(255, 255, 255, 0.03) inset;
+    0 18px 40px -26px rgba(0, 0, 0, 0.95),
+    0 0 0 1px rgba(212, 175, 55, 0.18) inset,
+    0 0 20px -8px rgba(212, 175, 55, 0.08),
+    0 1px 0 rgba(255, 255, 255, 0.02) inset;
   color: #f5f0e8 !important;
 }
 
 .alerik-mode .app-card:hover {
-  border-color: rgba(232, 201, 106, 0.42) !important;
+  border-color: rgba(212, 175, 55, 0.62) !important;
+  box-shadow:
+    0 18px 40px -26px rgba(0, 0, 0, 0.95),
+    0 0 0 1px rgba(212, 175, 55, 0.25) inset,
+    0 0 28px -8px rgba(212, 175, 55, 0.14);
 }
 
 .alerik-mode .app-card-title {
@@ -206,7 +211,7 @@ body {
 }
 
 .alerik-mode .app-card [class*="border-white/"] {
-  border-color: rgba(201, 168, 76, 0.22) !important;
+  border-color: rgba(212, 175, 55, 0.32) !important;
 }
 
 .azula-mode .app-card {
