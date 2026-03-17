@@ -604,6 +604,7 @@ const UI_TEXT = {
     globalMarket: "Global Market",
     warRoom: "War Room",
     briefing: "Briefing",
+    goalPlanner: "Goal Planner",
   },
   es: {
     theme: "Tema",
@@ -642,6 +643,7 @@ const UI_TEXT = {
     globalMarket: "Mercado Global",
     warRoom: "War Room",
     briefing: "Briefing",
+    goalPlanner: "Planificador",
   },
   fr: {
     theme: "Theme",
@@ -680,6 +682,7 @@ const UI_TEXT = {
     globalMarket: "Marche Global",
     warRoom: "War Room",
     briefing: "Briefing",
+    goalPlanner: "Planificateur",
   },
   hi: {
     theme: "थीम",
@@ -718,6 +721,7 @@ const UI_TEXT = {
     globalMarket: "ग्लोबल मार्केट",
     warRoom: "वार रूम",
     briefing: "ब्रीफिंग",
+    goalPlanner: "गोल प्लानर",
   },
 };
 
@@ -1414,6 +1418,10 @@ export default function Home() {
       const contextCompany = companyFromQuery || String(warRoomContext?.ticker || "").toUpperCase().trim();
       if (contextCompany && /^[A-Z0-9.\-]{1,12}$/.test(contextCompany)) {
         setTicker(contextCompany);
+        // Auto-search when arriving via deep-link (e.g. from Goal Planner "Research" button)
+        if (companyFromQuery) {
+          setTimeout(() => searchStock(contextCompany), 300);
+        }
       }
       const contextConflict = conflictFromQuery || String(warRoomContext?.conflictName || "").trim();
       if (contextConflict && (modeFromQuery === "geopolitics" || modeFromWarRoom === "geopolitics")) {
@@ -4959,6 +4967,14 @@ export default function Home() {
                   }`}
                 >
                   {t("briefing")}
+                </Link>
+                <Link
+                  href="/goal-planner"
+                  className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold ${
+                    isLight ? "text-slate-700 hover:bg-slate-100" : "text-white/80 hover:bg-white/10"
+                  }`}
+                >
+                  {t("goalPlanner")}
                 </Link>
               </>
             )}
