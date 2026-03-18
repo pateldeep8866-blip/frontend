@@ -1320,6 +1320,17 @@ export default function Home() {
   const [portfolioSuggestions, setPortfolioSuggestions] = useState([]);
   const [portfolioSuggestionLoading, setPortfolioSuggestionLoading] = useState(false);
   const [portfolioSuggestionOpen, setPortfolioSuggestionOpen] = useState(false);
+  // ── Account Page ──────────────────────────────────────────────────────────
+  const [accountPageOpen, setAccountPageOpen] = useState(false);
+  const [accountTab, setAccountTab] = useState("overview");
+  const [watchlistItems, setWatchlistItems] = useState([]);
+  const [watchlistSymbolInput, setWatchlistSymbolInput] = useState("");
+  const [watchlistAlertInput, setWatchlistAlertInput] = useState("");
+  const [savedSearches, setSavedSearches] = useState([]);
+  const [astraPicks, setAstraPicks] = useState([]);
+  const [astroPickSymbolInput, setAstroPickSymbolInput] = useState("");
+  const [astroPickReasonInput, setAstroPickReasonInput] = useState("");
+  const [astroPickTagInput, setAstroPickTagInput] = useState("high conviction");
   const headlineTranslationCacheRef = useRef(new Map());
   const headlineTranslationRequestRef = useRef(0);
   const [headlineTranslationVersion, setHeadlineTranslationVersion] = useState(0);
@@ -1896,6 +1907,34 @@ export default function Home() {
       localStorage.setItem(key, JSON.stringify(portfolioHoldings.slice(0, 50)));
     } catch {}
   }, [authUser?.id, portfolioHoldings]);
+
+  // ── Account page — load from localStorage ─────────────────────────────────
+  useEffect(() => {
+    if (!authUser?.id) return;
+    try {
+      const w = localStorage.getItem(`watchlist_${authUser.id}`);
+      if (w) setWatchlistItems(JSON.parse(w));
+      const s = localStorage.getItem(`saved_searches_${authUser.id}`);
+      if (s) setSavedSearches(JSON.parse(s));
+      const a = localStorage.getItem(`astra_picks_${authUser.id}`);
+      if (a) setAstraPicks(JSON.parse(a));
+    } catch {}
+  }, [authUser?.id]);
+
+  useEffect(() => {
+    if (!authUser?.id) return;
+    try { localStorage.setItem(`watchlist_${authUser.id}`, JSON.stringify(watchlistItems)); } catch {}
+  }, [authUser?.id, watchlistItems]);
+
+  useEffect(() => {
+    if (!authUser?.id) return;
+    try { localStorage.setItem(`saved_searches_${authUser.id}`, JSON.stringify(savedSearches)); } catch {}
+  }, [authUser?.id, savedSearches]);
+
+  useEffect(() => {
+    if (!authUser?.id) return;
+    try { localStorage.setItem(`astra_picks_${authUser.id}`, JSON.stringify(astraPicks)); } catch {}
+  }, [authUser?.id, astraPicks]);
 
   useEffect(() => {
     initialQuizPromptedRef.current = false;
@@ -4462,9 +4501,13 @@ export default function Home() {
                       <div className={`px-3 py-1.5 text-xs font-semibold truncate max-w-[180px] ${isLight ? "text-slate-500" : "text-white/50"}`}>{displayName}</div>
                       <div className={`my-1 h-px ${isLight ? "bg-slate-200" : "bg-white/10"}`} />
                       <button
+                        onClick={() => { setAccountPageOpen(true); setAccountTab("overview"); setUserMenuOpen(false); }}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-sm font-semibold ${isAlerik ? "text-[#d4af37] hover:bg-[#d4af37]/10" : isAzula ? "text-[#4fc3f7] hover:bg-[#00d4ff]/10" : isLight ? "text-blue-700 hover:bg-blue-50" : "text-cyan-300 hover:bg-white/10"}`}
+                      >My Account</button>
+                      <button
                         onClick={() => { setProfilePanelOpen(true); setUserMenuOpen(false); setProfileError(""); setProfileNotice(""); }}
                         className={`w-full text-left px-3 py-2 rounded-lg text-sm ${isLight ? "hover:bg-slate-100 text-slate-700" : "hover:bg-white/10 text-white/90"}`}
-                      >Profile</button>
+                      >Edit profile</button>
                       <button
                         onClick={() => { setQuizPanelOpen(true); setQuizFollowupMode(false); setQuizDismissed(false); setUserMenuOpen(false); }}
                         className={`w-full text-left px-3 py-2 rounded-lg text-sm ${isLight ? "hover:bg-slate-100 text-slate-700" : "hover:bg-white/10 text-white/90"}`}
@@ -5077,6 +5120,390 @@ export default function Home() {
             </Card>
           </div>
         )}
+
+        {/* ══════════════════ ACCOUNT PAGE OVERLAY ══════════════════ */}
+        {authUser && accountPageOpen && (() => {
+          const acTabCls = (t) => `px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+            accountTab === t
+              ? isAlerik ? "bg-[#d4af37]/20 text-[#d4af37] border border-[#d4af37]/40"
+                : isAzula ? "bg-[#00d4ff]/15 text-[#4fc3f7] border border-[#00b4ff]/30"
+                : isLight ? "bg-blue-100 text-blue-700 border border-blue-300"
+                : "bg-cyan-500/15 text-cyan-300 border border-cyan-400/30"
+              : isLight ? "text-slate-600 hover:bg-slate-100 border border-transparent"
+                : "text-white/60 hover:bg-white/8 border border-transparent"
+          }`;
+          const rowCls = `border-b ${isLight ? "border-slate-100" : isAlerik ? "border-[#d4af37]/10" : "border-white/8"} last:border-b-0`;
+          const thCls = `px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide ${isLight ? "text-slate-500" : "text-white/40"}`;
+          const tdCls = `px-3 py-2.5 text-sm`;
+          const cardCls = `rounded-2xl border p-4 ${hCard}`;
+          const totalValue = portfolioRows.reduce((s, r) => s + (r.marketValue || 0), 0);
+          const totalCost = portfolioRows.reduce((s, r) => s + (r.costBasis || 0), 0);
+          const totalPnL = totalValue - totalCost;
+          const maskEmail = (e) => { const [u, d] = String(e || "").split("@"); return u.length <= 2 ? e : `${u[0]}${"*".repeat(Math.min(u.length - 2, 4))}${u.slice(-1)}@${d}`; };
+          return (
+            <div className={`fixed inset-0 z-[180] overflow-auto ${isCherry ? "cherry-mode bg-[#fffefc] text-[#3a2530]" : isAzula ? "azula-mode bg-[#020508] text-[#e8f4ff]" : isAlerik ? "alerik-mode bg-[#050505] text-[#f5f0e8]" : isLylah ? "lylah-mode bg-[#faf8ff] text-[#120228]" : isLight ? "light-mode bg-[#fbfdff] text-slate-900" : "dark-mode bg-slate-950 text-white"}`}>
+              {/* ── Header ── */}
+              <div className={`sticky top-0 z-20 border-b backdrop-blur-md px-6 py-4 flex items-center justify-between ${
+                isLight ? "border-slate-200 bg-white/90" : isAlerik ? "border-[#d4af37]/20 bg-[#000]/90" : isAzula ? "border-[#00b4ff]/20 bg-[#020508]/90" : "border-white/10 bg-slate-950/90"
+              }`}>
+                <div>
+                  <div className={`text-[11px] font-semibold uppercase tracking-widest ${isAlerik ? "text-[#d4af37]" : isAzula ? "text-[#4fc3f7]" : "text-white/40"}`}>My Account</div>
+                  <div className="text-base font-semibold mt-0.5">{displayName || authUser.email}</div>
+                </div>
+                <button onClick={() => setAccountPageOpen(false)} className={`h-9 w-9 rounded-full flex items-center justify-center text-lg font-light transition-colors ${isLight ? "bg-slate-100 hover:bg-slate-200 text-slate-600" : "bg-white/10 hover:bg-white/15 text-white/80"}`}>✕</button>
+              </div>
+
+              <div className="max-w-5xl mx-auto px-4 md:px-8 py-6">
+                {/* ── Tab bar ── */}
+                <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-none">
+                  {[["overview","Overview"],["portfolio","Portfolio"],["market-watch","Market Watch"],["astra-picks","Astra Picks"],["saved-searches","Saved Searches"]].map(([id,label]) => (
+                    <button key={id} onClick={() => setAccountTab(id)} className={acTabCls(id)}>{label}</button>
+                  ))}
+                </div>
+
+                {/* ══ OVERVIEW ══ */}
+                {accountTab === "overview" && (
+                  <div className="space-y-4">
+                    {/* Account value */}
+                    <div className={`${cardCls} flex flex-col md:flex-row md:items-center gap-4`}>
+                      <div className="flex-1">
+                        <div className={`text-xs font-semibold uppercase tracking-widest mb-1 ${hAccent}`}>Total Portfolio Value</div>
+                        <div className="text-4xl font-bold">{totalValue > 0 ? `$${totalValue.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}` : "—"}</div>
+                        {totalValue > 0 && (
+                          <div className={`mt-1 text-sm font-semibold ${totalPnL >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                            {totalPnL >= 0 ? "+" : ""}${totalPnL.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})} all-time
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex gap-3">
+                        <div className={`rounded-xl border px-4 py-3 text-center min-w-[80px] ${hSoft}`}>
+                          <div className={`text-xs ${hMuted}`}>Holdings</div>
+                          <div className="text-xl font-bold mt-0.5">{portfolioHoldings.length}</div>
+                        </div>
+                        <div className={`rounded-xl border px-4 py-3 text-center min-w-[80px] ${hSoft}`}>
+                          <div className={`text-xs ${hMuted}`}>Watchlist</div>
+                          <div className="text-xl font-bold mt-0.5">{watchlistItems.length}</div>
+                        </div>
+                        <div className={`rounded-xl border px-4 py-3 text-center min-w-[80px] ${hSoft}`}>
+                          <div className={`text-xs ${hMuted}`}>Saved</div>
+                          <div className="text-xl font-bold mt-0.5">{savedSearches.length}</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Personal info */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className={cardCls}>
+                        <div className={`text-xs font-semibold uppercase tracking-widest mb-3 ${hAccent}`}>Personal Info</div>
+                        <div className="space-y-2">
+                          {[["Name", displayName || "—"],["Email", maskEmail(authUser.email)],["Member since", authUser.created_at ? new Date(authUser.created_at).toLocaleDateString("en-US",{month:"long",year:"numeric"}) : "—"]].map(([label,val]) => (
+                            <div key={label} className="flex justify-between items-center">
+                              <span className={`text-xs ${hMuted}`}>{label}</span>
+                              <span className="text-sm font-medium">{val}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className={cardCls}>
+                        <div className={`text-xs font-semibold uppercase tracking-widest mb-3 ${hAccent}`}>Investor Profile</div>
+                        {quizCompleted ? (
+                          <div className="space-y-2">
+                            {[
+                              ["Goal", quizAnswers.goal],
+                              ["Horizon", quizAnswers.horizon],
+                              ["Risk tolerance", quizAnswers.riskTolerance],
+                              ["Experience", quizAnswers.experience],
+                              ["Asset classes", Array.isArray(quizAnswers.assetClasses) ? quizAnswers.assetClasses.join(", ") : "—"],
+                            ].map(([label,val]) => val ? (
+                              <div key={label} className="flex justify-between items-start gap-2">
+                                <span className={`text-xs ${hMuted} shrink-0`}>{label}</span>
+                                <span className="text-xs text-right capitalize">{val}</span>
+                              </div>
+                            ) : null)}
+                          </div>
+                        ) : (
+                          <div className="text-sm text-white/50">
+                            <span>Complete the personalization quiz to see your investor profile.</span>
+                            <button onClick={() => { setAccountPageOpen(false); setQuizPanelOpen(true); setQuizDismissed(false); }} className={`mt-2 block text-xs font-semibold ${hAccent} underline`}>Take quiz →</button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Interests */}
+                    {quizCompleted && Array.isArray(quizAnswers.sectorPreferences) && quizAnswers.sectorPreferences.length > 0 && (
+                      <div className={cardCls}>
+                        <div className={`text-xs font-semibold uppercase tracking-widest mb-3 ${hAccent}`}>Sector Interests</div>
+                        <div className="flex flex-wrap gap-2">
+                          {quizAnswers.sectorPreferences.map((s) => (
+                            <span key={s} className={`px-3 py-1 rounded-full text-xs font-semibold border ${hSoft}`}>{s}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ══ PORTFOLIO ══ */}
+                {accountTab === "portfolio" && (
+                  <div className="space-y-4">
+                    {portfolioHoldings.length === 0 ? (
+                      <div className={`${cardCls} text-center py-12`}>
+                        <div className="text-4xl mb-3">📈</div>
+                        <div className="font-semibold">No holdings yet</div>
+                        <div className={`text-sm mt-1 ${hMuted}`}>Add stocks and crypto in the Portfolio section of the research page.</div>
+                      </div>
+                    ) : (
+                      <div className={`${cardCls} overflow-x-auto p-0`}>
+                        <table className="w-full">
+                          <thead>
+                            <tr className={`border-b ${isLight ? "border-slate-200" : "border-white/10"}`}>
+                              <th className={thCls}>Symbol</th>
+                              <th className={`${thCls} text-right`}>Qty</th>
+                              <th className={`${thCls} text-right`}>Avg cost</th>
+                              <th className={`${thCls} text-right`}>Price</th>
+                              <th className={`${thCls} text-right`}>Market value</th>
+                              <th className={`${thCls} text-right`}>P&amp;L</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {portfolioHoldings.map((h) => {
+                              const row = portfolioRows.find((r) => r.id === h.id || r.symbol === (h.symbol || "").toUpperCase());
+                              const pnl = row?.unrealizedPnL;
+                              const pct = row?.unrealizedPct;
+                              return (
+                                <tr key={h.id} className={rowCls}>
+                                  <td className={`${tdCls} font-bold`}>{(h.symbol || "").toUpperCase()}</td>
+                                  <td className={`${tdCls} text-right`}>{h.quantity}</td>
+                                  <td className={`${tdCls} text-right`}>{h.buyPrice ? `$${Number(h.buyPrice).toFixed(2)}` : "—"}</td>
+                                  <td className={`${tdCls} text-right`}>{row?.price ? `$${Number(row.price).toFixed(2)}` : "—"}</td>
+                                  <td className={`${tdCls} text-right`}>{row?.marketValue ? `$${Number(row.marketValue).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}` : "—"}</td>
+                                  <td className={`${tdCls} text-right font-semibold ${pnl == null ? "" : pnl >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                                    {pnl == null ? "—" : `${pnl >= 0 ? "+" : ""}$${Math.abs(pnl).toFixed(2)}${pct != null ? ` (${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%)` : ""}`}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                          {totalValue > 0 && (
+                            <tfoot>
+                              <tr className={`border-t ${isLight ? "border-slate-200" : "border-white/15"} font-semibold`}>
+                                <td className={tdCls} colSpan={4}>Total</td>
+                                <td className={`${tdCls} text-right`}>${totalValue.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+                                <td className={`${tdCls} text-right ${totalPnL >= 0 ? "text-emerald-400" : "text-red-400"}`}>{totalPnL >= 0 ? "+" : ""}${totalPnL.toFixed(2)}</td>
+                              </tr>
+                            </tfoot>
+                          )}
+                        </table>
+                      </div>
+                    )}
+                    {portfolioHoldings.length > 0 && portfolioRows.length === 0 && (
+                      <button onClick={() => { setAccountPageOpen(false); }} className={`text-xs ${hAccent} underline`}>
+                        ← Go to research page and run Portfolio Analysis to load live prices
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* ══ MARKET WATCH ══ */}
+                {accountTab === "market-watch" && (
+                  <div className="space-y-4">
+                    {/* Add to watchlist form */}
+                    <div className={cardCls}>
+                      <div className={`text-xs font-semibold uppercase tracking-widest mb-3 ${hAccent}`}>Add to Watchlist</div>
+                      <div className="flex flex-wrap gap-2">
+                        <input
+                          value={watchlistSymbolInput}
+                          onChange={(e) => setWatchlistSymbolInput(e.target.value.toUpperCase())}
+                          placeholder="Symbol (e.g. AAPL)"
+                          className={`flex-1 min-w-[140px] px-3 py-2 rounded-xl text-sm border outline-none ${isLight ? "bg-white border-slate-300 text-slate-900" : "bg-white/8 border-white/15 text-white"} focus:border-blue-500`}
+                        />
+                        <input
+                          value={watchlistAlertInput}
+                          onChange={(e) => setWatchlistAlertInput(e.target.value)}
+                          placeholder="Alert price (optional)"
+                          type="number"
+                          className={`w-40 px-3 py-2 rounded-xl text-sm border outline-none ${isLight ? "bg-white border-slate-300 text-slate-900" : "bg-white/8 border-white/15 text-white"} focus:border-blue-500`}
+                        />
+                        <button
+                          onClick={() => {
+                            const sym = watchlistSymbolInput.trim().toUpperCase();
+                            if (!sym) return;
+                            setWatchlistItems((prev) => {
+                              if (prev.find((w) => w.symbol === sym)) return prev;
+                              return [...prev, { symbol: sym, alertPrice: watchlistAlertInput ? Number(watchlistAlertInput) : null, addedAt: new Date().toISOString() }];
+                            });
+                            setWatchlistSymbolInput("");
+                            setWatchlistAlertInput("");
+                          }}
+                          className={`px-4 py-2 rounded-xl text-sm font-semibold ${hCtaClass}`}
+                        >Add</button>
+                      </div>
+                    </div>
+
+                    {watchlistItems.length === 0 ? (
+                      <div className={`${cardCls} text-center py-12`}>
+                        <div className="text-4xl mb-3">👁</div>
+                        <div className="font-semibold">Nothing on your watchlist yet</div>
+                        <div className={`text-sm mt-1 ${hMuted}`}>Add a symbol above, or tap 🔖 while researching.</div>
+                      </div>
+                    ) : (
+                      <div className={`${cardCls} overflow-x-auto p-0`}>
+                        <table className="w-full">
+                          <thead>
+                            <tr className={`border-b ${isLight ? "border-slate-200" : "border-white/10"}`}>
+                              <th className={thCls}>Symbol</th>
+                              <th className={`${thCls} text-right`}>Price alert</th>
+                              <th className={`${thCls} text-right`}>Added</th>
+                              <th className={thCls}></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {watchlistItems.map((w, i) => (
+                              <tr key={i} className={rowCls}>
+                                <td className={`${tdCls} font-bold`}>{w.symbol}</td>
+                                <td className={`${tdCls} text-right`}>{w.alertPrice ? `$${w.alertPrice}` : <span className={hMuted}>—</span>}</td>
+                                <td className={`${tdCls} text-right ${hMuted} text-xs`}>{w.addedAt ? new Date(w.addedAt).toLocaleDateString() : "—"}</td>
+                                <td className={`${tdCls} text-right`}>
+                                  <button onClick={() => { setAccountPageOpen(false); setTicker(w.symbol); searchStock(w.symbol); }} className={`mr-2 text-xs ${hAccent} underline`}>Research</button>
+                                  <button onClick={() => setWatchlistItems((p) => p.filter((_, j) => j !== i))} className="text-xs text-red-400 hover:text-red-300">Remove</button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ══ ASTRA PICKS ══ */}
+                {accountTab === "astra-picks" && (
+                  <div className="space-y-4">
+                    {/* Add pick form */}
+                    <div className={cardCls}>
+                      <div className={`text-xs font-semibold uppercase tracking-widest mb-3 ${hAccent}`}>Save an Astra Pick</div>
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap gap-2">
+                          <input
+                            value={astroPickSymbolInput}
+                            onChange={(e) => setAstroPickSymbolInput(e.target.value.toUpperCase())}
+                            placeholder="Symbol (e.g. NVDA)"
+                            className={`flex-1 min-w-[120px] px-3 py-2 rounded-xl text-sm border outline-none ${isLight ? "bg-white border-slate-300 text-slate-900" : "bg-white/8 border-white/15 text-white"} focus:border-blue-500`}
+                          />
+                          <select
+                            value={astroPickTagInput}
+                            onChange={(e) => setAstroPickTagInput(e.target.value)}
+                            className={`px-3 py-2 rounded-xl text-sm border outline-none ${isLight ? "bg-white border-slate-300 text-slate-900" : "bg-white/8 border-white/15 text-white"}`}
+                          >
+                            <option value="high conviction">High conviction</option>
+                            <option value="momentum">Momentum</option>
+                            <option value="safe pick">Safe pick</option>
+                            <option value="speculative">Speculative</option>
+                            <option value="watchlist setup">Watchlist setup</option>
+                          </select>
+                        </div>
+                        <input
+                          value={astroPickReasonInput}
+                          onChange={(e) => setAstroPickReasonInput(e.target.value)}
+                          placeholder="Why Astra recommended it (optional)"
+                          className={`w-full px-3 py-2 rounded-xl text-sm border outline-none ${isLight ? "bg-white border-slate-300 text-slate-900" : "bg-white/8 border-white/15 text-white"} focus:border-blue-500`}
+                        />
+                        <button
+                          onClick={() => {
+                            const sym = astroPickSymbolInput.trim().toUpperCase();
+                            if (!sym) return;
+                            setAstraPicks((prev) => [{ symbol: sym, reason: astroPickReasonInput.trim(), tag: astroPickTagInput, pickedAt: new Date().toISOString() }, ...prev].slice(0, 50));
+                            setAstroPickSymbolInput(""); setAstroPickReasonInput("");
+                          }}
+                          className={`px-4 py-2 rounded-xl text-sm font-semibold ${hCtaClass}`}
+                        >Save Pick</button>
+                      </div>
+                    </div>
+
+                    {astraPicks.length === 0 ? (
+                      <div className={`${cardCls} text-center py-12`}>
+                        <div className="text-4xl mb-3">⭐</div>
+                        <div className="font-semibold">No picks saved yet</div>
+                        <div className={`text-sm mt-1 ${hMuted}`}>After running an Astra analysis, save the pick here with your thesis.</div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {astraPicks.map((p, i) => {
+                          const tagColor = p.tag === "high conviction" ? "text-emerald-400 border-emerald-400/30 bg-emerald-500/10" : p.tag === "momentum" ? "text-blue-400 border-blue-400/30 bg-blue-500/10" : p.tag === "safe pick" ? "text-amber-400 border-amber-400/30 bg-amber-500/10" : "text-white/50 border-white/20 bg-white/5";
+                          return (
+                            <div key={i} className={`${cardCls} flex items-start justify-between gap-4`}>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-lg font-bold">{p.symbol}</span>
+                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border capitalize ${tagColor}`}>{p.tag}</span>
+                                </div>
+                                {p.reason && <p className={`mt-1 text-sm ${hMuted}`}>{p.reason}</p>}
+                                <div className={`mt-1 text-xs ${hMuted}`}>{p.pickedAt ? new Date(p.pickedAt).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}) : ""}</div>
+                              </div>
+                              <div className="flex gap-2 shrink-0">
+                                <button onClick={() => { setAccountPageOpen(false); setTicker(p.symbol); searchStock(p.symbol); }} className={`text-xs font-semibold ${hAccent} underline`}>Research</button>
+                                <button onClick={() => setAstraPicks((prev) => prev.filter((_, j) => j !== i))} className="text-xs text-red-400 hover:text-red-300">✕</button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ══ SAVED SEARCHES ══ */}
+                {accountTab === "saved-searches" && (
+                  <div className="space-y-4">
+                    {savedSearches.length === 0 ? (
+                      <div className={`${cardCls} text-center py-12`}>
+                        <div className="text-4xl mb-3">🔖</div>
+                        <div className="font-semibold">No saved searches yet</div>
+                        <div className={`text-sm mt-1 ${hMuted}`}>Tap 🔖 next to the Search button while researching any symbol to save it here.</div>
+                      </div>
+                    ) : (
+                      <div className={`${cardCls} overflow-x-auto p-0`}>
+                        <table className="w-full">
+                          <thead>
+                            <tr className={`border-b ${isLight ? "border-slate-200" : "border-white/10"}`}>
+                              <th className={thCls}>Query</th>
+                              <th className={thCls}>Mode</th>
+                              <th className={`${thCls} text-right`}>Saved</th>
+                              <th className={thCls}></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {savedSearches.map((s, i) => (
+                              <tr key={i} className={rowCls}>
+                                <td className={`${tdCls} font-bold`}>{s.query}</td>
+                                <td className={`${tdCls} capitalize text-sm ${hMuted}`}>{s.assetMode || "stock"}</td>
+                                <td className={`${tdCls} text-right text-xs ${hMuted}`}>{s.savedAt ? new Date(s.savedAt).toLocaleDateString() : "—"}</td>
+                                <td className={`${tdCls} text-right`}>
+                                  <button
+                                    onClick={() => {
+                                      setAccountPageOpen(false);
+                                      if (s.assetMode && s.assetMode !== assetMode) setAssetMode(s.assetMode);
+                                      setTicker(s.query);
+                                      setTimeout(() => searchStock(s.query), 100);
+                                    }}
+                                    className={`mr-2 text-xs font-semibold ${hAccent} underline`}
+                                  >Re-run</button>
+                                  <button onClick={() => setSavedSearches((p) => p.filter((_, j) => j !== i))} className="text-xs text-red-400 hover:text-red-300">✕</button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+        {/* ══════════════════ END ACCOUNT PAGE ══════════════════ */}
 
         {authUser && !quizDismissed && (!quizCompleted || quizFollowupDue) && (
           <div className="mb-6">
@@ -6535,6 +6962,26 @@ export default function Home() {
               >
                 {loading ? "Loading..." : "Search"}
               </button>
+              {authUser && ticker.trim() && (
+                <button
+                  title="Save this search"
+                  onClick={() => {
+                    const q = ticker.trim().toUpperCase();
+                    if (!q) return;
+                    setSavedSearches((prev) => {
+                      const filtered = prev.filter((s) => !(s.query === q && s.assetMode === assetMode));
+                      return [{ query: q, assetMode, savedAt: new Date().toISOString() }, ...filtered].slice(0, 50);
+                    });
+                  }}
+                  className={`px-3 py-3 rounded-xl border text-sm transition-colors ${
+                    isAlerik ? "border-[#d4af37]/35 text-[#d4af37] hover:bg-[#d4af37]/10" :
+                    isAzula ? "border-[#00b4ff]/30 text-[#4fc3f7] hover:bg-[#00d4ff]/10" :
+                    "border-white/15 text-white/70 hover:bg-white/10"
+                  }`}
+                >
+                  🔖
+                </button>
+              )}
             </div>
 
             {errorMsg && (
