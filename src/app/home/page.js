@@ -5192,12 +5192,12 @@ export default function Home() {
               }`}>
                 <div className="flex items-center gap-4">
                   {/* Avatar */}
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center text-base font-bold flex-shrink-0 select-none ${isAlerik ? "bg-[#d4af37]/20 border-2 border-[#d4af37]/60 text-[#d4af37]" : isAzula ? "bg-[#00d4ff]/20 border-2 border-[#00b4ff]/50 text-[#4fc3f7]" : isLight ? "bg-blue-100 border-2 border-blue-300 text-blue-700" : "bg-[#1fd1aa]/15 border-2 border-[#1fd1aa]/40 text-[#1fd1aa]"}`}>
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center text-base font-bold flex-shrink-0 select-none ${isAlerik ? "bg-[#d4af37]/20 border-2 border-[#d4af37]/60 text-[#d4af37]" : isAzula ? "bg-[#00d4ff]/20 border-2 border-[#00b4ff]/60 text-[#4fc3f7]" : isLight ? "bg-blue-100 border-2 border-blue-400 text-blue-700" : isCherry ? "bg-rose-500/20 border-2 border-rose-500/60 text-rose-600" : isLylah ? "bg-violet-500/20 border-2 border-violet-500/60 text-violet-600" : "bg-[#1fd1aa]/20 border-2 border-[#1fd1aa]/60 text-[#1fd1aa]"}`}>
                     {avatarInitials(displayName || authUser.email)}
                   </div>
                   <div>
                     <p className={`text-[11px] font-semibold uppercase tracking-widest mb-0.5 ${isAlerik ? "text-[#d4af37]" : isAzula ? "text-[#4fc3f7]" : isLight ? "text-blue-600" : "text-white/40"}`}>My Account</p>
-                    <p className="text-xl font-bold leading-none mb-1.5">{displayName || authUser.email}</p>
+                    <p className="text-2xl font-bold leading-none mb-1.5">{displayName || authUser.email}</p>
                     <div className={`flex items-center gap-2 flex-wrap text-sm ${hMuted}`}>
                       <span>{maskEmail(authUser.email)}</span>
                       {memberSince && <><span className="opacity-40">·</span><span>Member since {memberSince}</span></>}
@@ -5302,8 +5302,8 @@ export default function Home() {
                         {quizCompleted ? (
                           <>
                             {[
-                              ["Goal", quizAnswers.goal],
-                              ["Horizon", quizAnswers.horizon],
+                              ["Goal", quizAnswers.goal ? quizAnswers.goal.replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase()) : ""],
+                              ["Horizon", quizAnswers.horizon ? quizAnswers.horizon.replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase()) : ""],
                               ["Risk", quizAnswers.riskTolerance, { Conservative:"teal", Moderate:"amber", Aggressive:"red" }[quizAnswers.riskTolerance]],
                               ["Experience", quizAnswers.experience],
                             ].map(([label,val,badgeVariant]) => val ? (
@@ -5623,15 +5623,15 @@ export default function Home() {
                         <AcLabel>Your Answers</AcLabel>
                         <div>
                           {[
-                            ["Goal", quizAnswers.goal],
-                            ["Time horizon", quizAnswers.horizon],
+                            ["Goal", quizAnswers.goal ? quizAnswers.goal.replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase()) : ""],
+                            ["Time horizon", quizAnswers.horizon ? quizAnswers.horizon.replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase()) : ""],
                             ["Risk tolerance", quizAnswers.riskTolerance],
                             ["Drawdown action", quizAnswers.drawdownAction],
                             ["Income stability", quizAnswers.incomeStability],
                             ["Experience", quizAnswers.experience],
                             ["Analysis style", quizAnswers.analysisStyle],
                             ["Review frequency", quizAnswers.reviewFrequency],
-                            ["Asset classes", Array.isArray(quizAnswers.assetClasses) ? quizAnswers.assetClasses.join(", ") : ""],
+                            ["Asset classes", Array.isArray(quizAnswers.assetClasses) ? quizAnswers.assetClasses.map(a=>a.replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase())).join(", ") : ""],
                             ["Region focus", quizAnswers.regionFocus],
                             ["Sector preferences", Array.isArray(quizAnswers.sectorPreferences) ? quizAnswers.sectorPreferences.join(", ") : ""],
                             ["Exclusions", quizAnswers.exclusions],
