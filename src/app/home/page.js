@@ -5192,7 +5192,7 @@ export default function Home() {
               }`}>
                 <div className="flex items-center gap-4">
                   {/* Avatar */}
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center text-base font-bold flex-shrink-0 select-none ${isAlerik ? "bg-[#d4af37]/15 border border-[#d4af37]/35 text-[#d4af37]" : isAzula ? "bg-[#00d4ff]/12 border border-[#00b4ff]/30 text-[#4fc3f7]" : isLight ? "bg-blue-100 border border-blue-200 text-blue-700" : "bg-white/10 border border-white/20 text-white"}`}>
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center text-base font-bold flex-shrink-0 select-none ${isAlerik ? "bg-[#d4af37]/20 border-2 border-[#d4af37]/60 text-[#d4af37]" : isAzula ? "bg-[#00d4ff]/20 border-2 border-[#00b4ff]/50 text-[#4fc3f7]" : isLight ? "bg-blue-100 border-2 border-blue-300 text-blue-700" : "bg-[#1fd1aa]/15 border-2 border-[#1fd1aa]/40 text-[#1fd1aa]"}`}>
                     {avatarInitials(displayName || authUser.email)}
                   </div>
                   <div>
