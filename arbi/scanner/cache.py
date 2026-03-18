@@ -6,7 +6,7 @@ from typing import Optional
 
 import ccxt
 
-from config import ORDERBOOK_DEPTH, MARKET_DATA_FRESHNESS_SEC
+from config import ORDERBOOK_DEPTH, MARKET_DATA_FRESHNESS_SEC, EXCHANGE_CCXT_ID
 from scanner.normalizer import normalize_symbol
 from utils.logger import get_logger
 
@@ -17,10 +17,12 @@ def build_exchange_clients(exchange_names: list) -> dict:
     clients = {}
     for name in exchange_names:
         try:
-            cls = getattr(ccxt, name)
+            ccxt_id = EXCHANGE_CCXT_ID.get(name, name)   # e.g. "binance_us" → "binanceus"
+            cls = getattr(ccxt, ccxt_id)
             clients[name] = cls()
         except Exception as exc:
-            log.warning("Could not init %s: %s", name, exc)
+            log.warning("Could not init %s (ccxt id: %s): %s", name,
+                        EXCHANGE_CCXT_ID.get(name, name), exc)
     return clients
 
 

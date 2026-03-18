@@ -32,6 +32,7 @@ from config import (
     MICRO_ROUND_TRIP_FEE,
     FAST_SCALP_TP_PCT, FAST_SCALP_SL_PCT, FAST_SCALP_MAX_HOLD_SEC,
     FAST_SCALP_SCAN_INTERVAL_SEC, FAST_SCALP_PAIRS,
+    EXCHANGE, ACTIVE_MAKER_FEE, ACTIVE_TAKER_FEE, PAPER_TRADING,
 )
 
 log = get_logger("main")
@@ -108,12 +109,12 @@ class WSManager:
 
     def _start(self):
         try:
-            from data.ws_feed import KrakenWSFeed
-            self.feed = KrakenWSFeed(self.symbols, self.on_price)
+            from data.ws_feed import get_ws_feed
+            self.feed = get_ws_feed(self.symbols, self.on_price)
             self.feed.start()
             self.failures = 0
             self.using_ws = True
-            log.info("WebSocket feed active")
+            log.info("WebSocket feed active (%s)", EXCHANGE)
         except Exception as exc:
             self.failures += 1
             log.warning("WS start failed (%d): %s", self.failures, exc)
@@ -530,13 +531,13 @@ class ARBIBot:
 
     def _reconcile_startup(self) -> None:
         """
-        On startup, compare Kraken account balances against locally-tracked positions.
+        On startup, compare exchange account balances against locally-tracked positions.
         If the exchange holds an asset with no matching open position, record it.
         This recovers from missed fills (e.g., order filled while bot was restarting,
         or fill incorrectly marked as CANCELED during a stale-order cleanup).
         """
         try:
-            adapter = self.adapters.get("kraken")
+            adapter = self.adapters.get(EXCHANGE)
             if not adapter or self.config.get("dry_run"):
                 return
 
@@ -546,26 +547,26 @@ class ARBIBot:
 
             QUOTE_CURRENCIES = {"USD", "USDT", "EUR", "GBP", "CAD", "CHF"}
 
-            # Build a map of what Kraken actually holds right now
-            kraken_qty: dict = {}
+            # Build a map of what the exchange actually holds right now
+            exchange_qty: dict = {}
             for currency, bal in balance.items():
                 if currency in QUOTE_CURRENCIES:
                     continue
-                kraken_qty[currency] = (bal.get("free") or 0) + (bal.get("used") or 0)
+                exchange_qty[currency] = (bal.get("free") or 0) + (bal.get("used") or 0)
 
             # ── Pass 1: close ghost positions (DB says open, exchange shows zero) ──
             ghost_closed = 0
             for pos in self.positions.open_positions():
-                if pos.get("exchange") != "kraken":
+                if pos.get("exchange") != EXCHANGE:
                     continue
-                symbol   = pos["symbol"]
-                currency = symbol.split("/")[0] if "/" in symbol else symbol
-                exchange_qty = kraken_qty.get(currency, 0)
-                if exchange_qty < 0.0001 and pos["quantity"] > 0:
+                symbol       = pos["symbol"]
+                currency     = symbol.split("/")[0] if "/" in symbol else symbol
+                exchange_qty_val = exchange_qty.get(currency, 0)
+                if exchange_qty_val < 0.0001 and pos["quantity"] > 0:
                     log.warning(
                         "RECONCILE_CLOSED: %s position removed — zero balance on exchange "
                         "(DB had qty=%.6f, exchange shows %.6f)",
-                        symbol, pos["quantity"], exchange_qty,
+                        symbol, pos["quantity"], exchange_qty_val,
                     )
                     pos["quantity"]       = 0.0
                     pos["unrealized_pnl"] = 0.0
@@ -583,12 +584,12 @@ class ARBIBot:
 
             # ── Pass 2: restore untracked positions (exchange holds asset, DB is empty) ──
             recovered = 0
-            for currency, qty in kraken_qty.items():
+            for currency, qty in exchange_qty.items():
                 if qty < 0.0001:
                     continue
 
                 symbol   = f"{currency}/USD"
-                existing = self.positions.get(symbol, "kraken")
+                existing = self.positions.get(symbol, EXCHANGE)
                 if existing and existing.get("quantity", 0) >= qty * 0.9:
                     # Already tracked — but entry_ts is never persisted to DB,
                     # so it's always None after a restart. Set it now so the
@@ -596,7 +597,7 @@ class ARBIBot:
                     if existing.get("entry_ts") is None:
                         existing["entry_ts"] = time.time()
                         log.info("STARTUP RECONCILE: Set entry_ts for existing %s/%s position",
-                                 symbol, "kraken")
+                                 symbol, EXCHANGE)
                     continue
 
                 # Fetch current price for approximate entry
@@ -607,7 +608,7 @@ class ARBIBot:
                     price = 0
 
                 if price > 0:
-                    self.positions.record_buy(symbol, "kraken", qty, price)
+                    self.positions.record_buy(symbol, EXCHANGE, qty, price)
                     # record_buy sets entry_ts only when prev_qty==0.
                     # Force it explicitly to cover any edge cases.
                     pos_obj = self.positions.get(symbol, "kraken")
@@ -671,13 +672,12 @@ def parse_args():
 def reset_state() -> None:
     """
     Clear ghost positions from DB, remove incomplete scalp_trade records,
-    verify Kraken balance matches local state, then exit.
+    verify exchange balance matches local state, then exit.
     Run with: python main.py --reset-state
     """
     from storage.db import init_db, get_connection
-    from adapters.kraken_adapter import KrakenAdapter
 
-    print("\n=== ARBI State Reset ===\n")
+    print(f"\n=== ARBI State Reset ({EXCHANGE}) ===\n")
     init_db()
     conn = get_connection()
 
@@ -710,12 +710,12 @@ def reset_state() -> None:
 
     conn.close()
 
-    # 3. Verify Kraken balance
-    print("\nFetching Kraken balance to verify state...")
+    # 3. Verify exchange balance
+    print(f"\nFetching {EXCHANGE} balance to verify state...")
     try:
-        adapter = KrakenAdapter()
+        adapter = _build_adapter()
         balance = adapter.fetch_balance()
-        QUOTE_CURRENCIES = {"USD", "USDT", "EUR", "GBP", "CAD", "CHF"}
+        QUOTE_CURRENCIES = {"USD", "USDT", "BUSD", "EUR", "GBP", "CAD", "CHF"}
 
         usd  = (balance.get("USD",  {}).get("total") or 0)
         usdt = (balance.get("USDT", {}).get("total") or 0)
@@ -737,10 +737,19 @@ def reset_state() -> None:
         else:
             print("  No open non-USD holdings — clean slate confirmed.")
     except Exception as exc:
-        print(f"  Could not fetch Kraken balance: {exc}")
+        print(f"  Could not fetch {EXCHANGE} balance: {exc}")
 
-    print("\nDone. Restart the bot with:  python main.py --live --capital <amount>\n")
+    print(f"\nDone. Restart the bot with:  python main.py --live --capital <amount>\n")
     sys.exit(0)
+
+
+def _build_adapter():
+    """Return the correct execution adapter for the configured EXCHANGE."""
+    if EXCHANGE == "binance_us":
+        from adapters.binance_us_adapter import BinanceUSAdapter
+        return BinanceUSAdapter()
+    from adapters.kraken_adapter import KrakenAdapter
+    return KrakenAdapter()
 
 
 def main():
@@ -760,23 +769,28 @@ def main():
             log.info("Aborted.")
             sys.exit(0)
 
+    # ── Startup banner ────────────────────────────────────────────────────────
+    exchange_display = "Binance.US" if EXCHANGE == "binance_us" else EXCHANGE.capitalize()
+    log.info(
+        "ACTIVE EXCHANGE | %s | maker=%.4f taker=%.6f | paper_mode=%s",
+        exchange_display, ACTIVE_MAKER_FEE, ACTIVE_TAKER_FEE, PAPER_TRADING,
+    )
+
     # ── Auto-configure ────────────────────────────────────────────────────────
     config = auto_configure(args.capital, dry_run, fast_scalp=args.scalp_fast)
 
     # ── Build adapters ────────────────────────────────────────────────────────
-    from adapters.kraken_adapter import KrakenAdapter
-    adapters = {"kraken": KrakenAdapter()}
+    primary_adapter = _build_adapter()
+    adapters = {EXCHANGE: primary_adapter}
 
     _cb_key = os.getenv("COINBASE_API_KEY", "")
-    if _cb_key:
+    if _cb_key and EXCHANGE != "coinbase":
         from adapters.coinbase_adapter import CoinbaseAdapter
         adapters["coinbase"] = CoinbaseAdapter()
-    else:
-        log.info("COINBASE_API_KEY not set — Coinbase disabled (Kraken-only mode)")
 
     # ── Pre-flight validation ─────────────────────────────────────────────────
     log.info("Running pre-flight checks...")
-    ok, message = preflight_check(adapters["kraken"], args.capital, dry_run)
+    ok, message = preflight_check(primary_adapter, args.capital, dry_run)
     if not ok:
         print(f"\n⚠️  {message}\n")
         sys.exit(1)

@@ -16,7 +16,7 @@ import numpy as np
 from utils.logger import get_logger
 from config import (
     TRADE_RISK_PCT, MIN_EDGE_AFTER_FEES_PCT,
-    MIN_POSITION_USD, KRAKEN_MIN_ORDER_SIZES,
+    MIN_POSITION_USD, EXCHANGE_MIN_ORDER_SIZES,
 )
 
 log = get_logger("execution.quality")
@@ -97,8 +97,9 @@ class ExecutionQuality:
         if quantity <= 0:
             return self._reject("zero_quantity")
 
-        # ── Step 7: Validate against Kraken minimum order size ────────────────
-        min_qty = KRAKEN_MIN_ORDER_SIZES.get(symbol)
+        # ── Step 7: Validate against exchange minimum order size ─────────────
+        exchange_sizes = EXCHANGE_MIN_ORDER_SIZES.get(exchange, {})
+        min_qty = exchange_sizes.get(symbol)
         if min_qty is not None and quantity < min_qty:
             return self._reject(
                 f"below_exchange_minimum qty={quantity:.6f} < min={min_qty} for {symbol}"

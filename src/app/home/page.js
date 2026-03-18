@@ -5140,103 +5140,204 @@ export default function Home() {
           const totalCost = portfolioRows.reduce((s, r) => s + (r.costBasis || 0), 0);
           const totalPnL = totalValue - totalCost;
           const maskEmail = (e) => { const [u, d] = String(e || "").split("@"); return u.length <= 2 ? e : `${u[0]}${"*".repeat(Math.min(u.length - 2, 4))}${u.slice(-1)}@${d}`; };
+          // ── Avatar initials helper ──
+          const avatarInitials = (name) => (name || "").split(" ").filter(Boolean).slice(0,2).map(w => w[0].toUpperCase()).join("") || "?";
+          const memberSince = authUser.created_at ? new Date(authUser.created_at).toLocaleDateString("en-US",{month:"long",year:"numeric"}) : null;
+
+          // ── Underline tab helper ──
+          const acTabCls2 = (t) => `px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+            accountTab === t
+              ? isAlerik ? "border-[#d4af37] text-[#d4af37]"
+                : isAzula ? "border-[#4fc3f7] text-[#4fc3f7]"
+                : isLight ? "border-blue-600 text-blue-700"
+                : "border-cyan-400 text-cyan-300"
+              : `border-transparent ${isLight ? "text-slate-500 hover:text-slate-800" : "text-white/45 hover:text-white/75"}`
+          }`;
+
+          // ── Inline badge helper ──
+          const AcBadge = ({ children, variant = "teal" }) => {
+            const v = { teal: isAlerik ? "bg-[#d4af37]/10 text-[#d4af37] border-[#d4af37]/30" : "bg-emerald-500/10 text-emerald-400 border-emerald-500/30", amber: "bg-amber-500/10 text-amber-400 border-amber-500/30", red: "bg-red-500/10 text-red-400 border-red-500/30", gray: isLight ? "bg-slate-100 text-slate-600 border-slate-200" : "bg-white/6 text-white/50 border-white/12" }[variant] || "";
+            return <span className={`inline-block text-[11px] px-2.5 py-0.5 rounded-full border font-medium whitespace-nowrap ${v}`}>{children}</span>;
+          };
+
+          // ── Empty state helper ──
+          const AcEmpty = ({ icon, title, subtitle, ctaLabel, onCta }) => (
+            <div className={`${cardCls} text-center py-14 px-6`}>
+              <div className={`w-11 h-11 rounded-full flex items-center justify-center mx-auto mb-4 text-xl ${isAlerik ? "bg-[#d4af37]/10 border border-[#d4af37]/25" : isAzula ? "bg-[#00b4ff]/10 border border-[#00b4ff]/20" : isLight ? "bg-blue-50 border border-blue-200" : "bg-white/6 border border-white/12"}`}>{icon}</div>
+              <div className="font-semibold text-base mb-1.5">{title}</div>
+              <div className={`text-sm ${hMuted} mb-5 max-w-xs mx-auto leading-relaxed`}>{subtitle}</div>
+              {ctaLabel && <button onClick={onCta} className={`text-sm px-5 py-2 rounded-xl border font-medium transition-colors ${isAlerik ? "border-[#d4af37]/35 text-[#d4af37] hover:bg-[#d4af37]/10" : isAzula ? "border-[#00b4ff]/35 text-[#4fc3f7] hover:bg-[#00b4ff]/10" : isLight ? "border-blue-300 text-blue-600 hover:bg-blue-50" : "border-white/20 text-white/70 hover:bg-white/8"}`}>{ctaLabel} →</button>}
+            </div>
+          );
+
+          // ── Section label helper ──
+          const AcLabel = ({ children }) => (
+            <p className={`text-[11px] font-semibold uppercase tracking-widest mb-3.5 ${hAccent}`}>{children}</p>
+          );
+
+          // ── Row item helper ──
+          const AcRow = ({ label, value, right }) => (
+            <div className={`flex justify-between items-center py-2.5 border-b ${isLight ? "border-slate-100" : isAlerik ? "border-[#d4af37]/10" : "border-white/6"} last:border-b-0`}>
+              <span className={`text-sm ${hMuted}`}>{label}</span>
+              {right || <span className="text-sm font-medium text-right">{value}</span>}
+            </div>
+          );
+
           return (
             <div className={`fixed inset-0 z-[180] overflow-auto ${isCherry ? "cherry-mode bg-[#fffefc] text-[#3a2530]" : isAzula ? "azula-mode bg-[#020508] text-[#e8f4ff]" : isAlerik ? "alerik-mode bg-[#050505] text-[#f5f0e8]" : isLylah ? "lylah-mode bg-[#faf8ff] text-[#120228]" : isLight ? "light-mode bg-[#fbfdff] text-slate-900" : "dark-mode bg-slate-950 text-white"}`}>
+
               {/* ── Header ── */}
-              <div className={`sticky top-0 z-20 border-b backdrop-blur-md px-6 py-4 flex items-center justify-between ${
+              <div className={`sticky top-0 z-20 border-b backdrop-blur-md px-6 py-5 flex items-center justify-between gap-4 ${
                 isLight ? "border-slate-200 bg-white/90" : isAlerik ? "border-[#d4af37]/20 bg-[#000]/90" : isAzula ? "border-[#00b4ff]/20 bg-[#020508]/90" : "border-white/10 bg-slate-950/90"
               }`}>
-                <div>
-                  <div className={`text-[11px] font-semibold uppercase tracking-widest ${isAlerik ? "text-[#d4af37]" : isAzula ? "text-[#4fc3f7]" : "text-white/40"}`}>My Account</div>
-                  <div className="text-base font-semibold mt-0.5">{displayName || authUser.email}</div>
+                <div className="flex items-center gap-4">
+                  {/* Avatar */}
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center text-base font-bold flex-shrink-0 select-none ${isAlerik ? "bg-[#d4af37]/15 border border-[#d4af37]/35 text-[#d4af37]" : isAzula ? "bg-[#00d4ff]/12 border border-[#00b4ff]/30 text-[#4fc3f7]" : isLight ? "bg-blue-100 border border-blue-200 text-blue-700" : "bg-white/10 border border-white/20 text-white"}`}>
+                    {avatarInitials(displayName || authUser.email)}
+                  </div>
+                  <div>
+                    <p className={`text-[11px] font-semibold uppercase tracking-widest mb-0.5 ${isAlerik ? "text-[#d4af37]" : isAzula ? "text-[#4fc3f7]" : isLight ? "text-blue-600" : "text-white/40"}`}>My Account</p>
+                    <p className="text-xl font-bold leading-none mb-1.5">{displayName || authUser.email}</p>
+                    <div className={`flex items-center gap-2 flex-wrap text-sm ${hMuted}`}>
+                      <span>{maskEmail(authUser.email)}</span>
+                      {memberSince && <><span className="opacity-40">·</span><span>Member since {memberSince}</span></>}
+                      <AcBadge variant="teal">KYC Verified</AcBadge>
+                    </div>
+                  </div>
                 </div>
-                <button onClick={() => setAccountPageOpen(false)} className={`h-9 w-9 rounded-full flex items-center justify-center text-lg font-light transition-colors ${isLight ? "bg-slate-100 hover:bg-slate-200 text-slate-600" : "bg-white/10 hover:bg-white/15 text-white/80"}`}>✕</button>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <select
+                    value={theme}
+                    onChange={(e) => { localStorage.setItem("theme_mode", e.target.value); setTheme(e.target.value); }}
+                    className={`text-sm px-3 py-1.5 rounded-lg border outline-none cursor-pointer ${isLight ? "bg-white border-slate-200 text-slate-700" : isAlerik ? "bg-[#000]/60 border-[#d4af37]/20 text-[#d4bc84]" : "bg-white/6 border-white/12 text-white/70"}`}
+                  >
+                    <option value="dark">Theme: Dark</option>
+                    <option value="light">Theme: Light</option>
+                    <option value="alerik">Theme: Alerik</option>
+                    <option value="azula">Theme: Azula</option>
+                    <option value="cherry">Theme: Cherry</option>
+                    <option value="lylah">Theme: Lylah</option>
+                  </select>
+                  <button onClick={() => setAccountPageOpen(false)} className={`h-9 w-9 rounded-full flex items-center justify-center text-lg font-light transition-colors ${isLight ? "bg-slate-100 hover:bg-slate-200 text-slate-600" : "bg-white/8 hover:bg-white/14 text-white/70"}`}>✕</button>
+                </div>
               </div>
 
-              <div className="max-w-5xl mx-auto px-4 md:px-8 py-6">
-                {/* ── Tab bar ── */}
-                <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-none">
-                  {[["overview","Overview"],["portfolio","Portfolio"],["market-watch","Market Watch"],["astra-picks","Astra Picks"],["saved-searches","Saved Searches"]].map(([id,label]) => (
-                    <button key={id} onClick={() => setAccountTab(id)} className={acTabCls(id)}>{label}</button>
+              <div className="max-w-5xl mx-auto px-4 md:px-8 pt-2 pb-10">
+
+                {/* ── Tab bar (underline style) ── */}
+                <div className={`flex gap-0 border-b overflow-x-auto scrollbar-none mb-6 ${isLight ? "border-slate-200" : isAlerik ? "border-[#d4af37]/18" : isAzula ? "border-[#00b4ff]/18" : "border-white/10"}`}>
+                  {[["overview","Overview"],["portfolio","Portfolio"],["market-watch","Market Watch"],["astra-picks","Astra Picks"],["saved-searches","Saved Searches"],["investor-quiz","Investor Quiz"]].map(([id,label]) => (
+                    <button key={id} onClick={() => setAccountTab(id)} className={acTabCls2(id)}>{label}</button>
                   ))}
                 </div>
 
                 {/* ══ OVERVIEW ══ */}
                 {accountTab === "overview" && (
                   <div className="space-y-4">
-                    {/* Account value */}
-                    <div className={`${cardCls} flex flex-col md:flex-row md:items-center gap-4`}>
-                      <div className="flex-1">
-                        <div className={`text-xs font-semibold uppercase tracking-widest mb-1 ${hAccent}`}>Total Portfolio Value</div>
-                        <div className="text-4xl font-bold">{totalValue > 0 ? `$${totalValue.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}` : "—"}</div>
-                        {totalValue > 0 && (
-                          <div className={`mt-1 text-sm font-semibold ${totalPnL >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                            {totalPnL >= 0 ? "+" : ""}${totalPnL.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})} all-time
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex gap-3">
-                        <div className={`rounded-xl border px-4 py-3 text-center min-w-[80px] ${hSoft}`}>
-                          <div className={`text-xs ${hMuted}`}>Holdings</div>
-                          <div className="text-xl font-bold mt-0.5">{portfolioHoldings.length}</div>
-                        </div>
-                        <div className={`rounded-xl border px-4 py-3 text-center min-w-[80px] ${hSoft}`}>
-                          <div className={`text-xs ${hMuted}`}>Watchlist</div>
-                          <div className="text-xl font-bold mt-0.5">{watchlistItems.length}</div>
-                        </div>
-                        <div className={`rounded-xl border px-4 py-3 text-center min-w-[80px] ${hSoft}`}>
-                          <div className={`text-xs ${hMuted}`}>Saved</div>
-                          <div className="text-xl font-bold mt-0.5">{savedSearches.length}</div>
-                        </div>
-                      </div>
-                    </div>
 
-                    {/* Personal info */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className={cardCls}>
-                        <div className={`text-xs font-semibold uppercase tracking-widest mb-3 ${hAccent}`}>Personal Info</div>
-                        <div className="space-y-2">
-                          {[["Name", displayName || "—"],["Email", maskEmail(authUser.email)],["Member since", authUser.created_at ? new Date(authUser.created_at).toLocaleDateString("en-US",{month:"long",year:"numeric"}) : "—"]].map(([label,val]) => (
-                            <div key={label} className="flex justify-between items-center">
-                              <span className={`text-xs ${hMuted}`}>{label}</span>
-                              <span className="text-sm font-medium">{val}</span>
+                    {/* Portfolio value banner */}
+                    <div className={cardCls}>
+                      <AcLabel>Total Portfolio Value</AcLabel>
+                      <div className="flex flex-col md:flex-row md:items-end justify-between gap-5">
+                        <div>
+                          <div className="text-4xl font-bold tracking-tight leading-none">
+                            {totalValue > 0 ? `$${totalValue.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}` : "—"}
+                          </div>
+                          {totalValue > 0 ? (
+                            <div className={`mt-2 text-sm font-semibold ${totalPnL >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                              {totalPnL >= 0 ? "+" : ""}${totalPnL.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})} all-time P&L
+                            </div>
+                          ) : (
+                            <div className={`mt-2 text-sm ${hMuted}`}>No holdings yet — add assets from the research page</div>
+                          )}
+                        </div>
+                        <div className="flex gap-3">
+                          {[["Holdings", portfolioHoldings.length],["Watchlist", watchlistItems.length],["Saved", savedSearches.length]].map(([label, val]) => (
+                            <div key={label} className={`rounded-xl border px-4 py-3 text-center min-w-[72px] ${hSoft}`}>
+                              <div className={`text-[11px] ${hMuted}`}>{label}</div>
+                              <div className="text-2xl font-bold mt-0.5">{val}</div>
                             </div>
                           ))}
                         </div>
                       </div>
+                      {/* Allocation bar — only when holdings exist */}
+                      {portfolioHoldings.length > 0 && (
+                        <div className="mt-5">
+                          <div className="flex rounded-md overflow-hidden h-1.5 gap-0.5">
+                            <div className="flex-[65] bg-emerald-400 rounded-l-md" title="Equities 65%" />
+                            <div className="flex-[23] bg-amber-400" title="Crypto 23%" />
+                            <div className="flex-[12] bg-white/25 rounded-r-md" title="Cash 12%" />
+                          </div>
+                          <div className="flex gap-5 mt-2">
+                            {[["bg-emerald-400","Equities","65%"],["bg-amber-400","Crypto","23%"],["bg-white/25","Cash","12%"]].map(([bg,label,val]) => (
+                              <div key={label} className="flex items-center gap-1.5">
+                                <div className={`w-2 h-2 rounded-sm ${bg}`} />
+                                <span className={`text-xs ${hMuted}`}>{label}</span>
+                                <span className={`text-xs font-medium ${hMuted}`}>{val}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Personal info + Investor profile */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className={cardCls}>
-                        <div className={`text-xs font-semibold uppercase tracking-widest mb-3 ${hAccent}`}>Investor Profile</div>
+                        <AcLabel>Personal Info</AcLabel>
+                        <AcRow label="Full name" value={displayName || "—"} />
+                        <AcRow label="Email" value={maskEmail(authUser.email)} />
+                        {memberSince && <AcRow label="Member since" value={memberSince} />}
+                        <div className={`flex justify-between items-center py-2.5`}>
+                          <span className={`text-sm ${hMuted}`}>Account</span>
+                          <AcBadge variant="teal">Verified</AcBadge>
+                        </div>
+                        <button
+                          onClick={() => { setAccountPageOpen(false); setProfilePanelOpen(true); }}
+                          className={`w-full mt-3 text-sm py-2 rounded-xl border transition-colors ${isLight ? "border-slate-200 text-slate-600 hover:border-slate-400 hover:text-slate-800" : isAlerik ? "border-[#d4af37]/20 text-[#d4bc84]/70 hover:border-[#d4af37]/40 hover:text-[#d4af37]" : "border-white/10 text-white/50 hover:border-white/25 hover:text-white/80"}`}
+                        >Edit profile</button>
+                      </div>
+                      <div className={cardCls}>
+                        <AcLabel>Investor Profile</AcLabel>
                         {quizCompleted ? (
-                          <div className="space-y-2">
+                          <>
                             {[
                               ["Goal", quizAnswers.goal],
                               ["Horizon", quizAnswers.horizon],
-                              ["Risk tolerance", quizAnswers.riskTolerance],
+                              ["Risk", quizAnswers.riskTolerance, { Conservative:"teal", Moderate:"amber", Aggressive:"red" }[quizAnswers.riskTolerance]],
                               ["Experience", quizAnswers.experience],
-                              ["Asset classes", Array.isArray(quizAnswers.assetClasses) ? quizAnswers.assetClasses.join(", ") : "—"],
-                            ].map(([label,val]) => val ? (
-                              <div key={label} className="flex justify-between items-start gap-2">
-                                <span className={`text-xs ${hMuted} shrink-0`}>{label}</span>
-                                <span className="text-xs text-right capitalize">{val}</span>
-                              </div>
+                            ].map(([label,val,badgeVariant]) => val ? (
+                              <AcRow key={label} label={label} right={badgeVariant ? <AcBadge variant={badgeVariant}>{val}</AcBadge> : undefined} value={val} />
                             ) : null)}
-                          </div>
+                            {Array.isArray(quizAnswers.assetClasses) && quizAnswers.assetClasses.length > 0 && (
+                              <div className={`py-2.5 border-b ${isLight ? "border-slate-100" : isAlerik ? "border-[#d4af37]/10" : "border-white/6"}`}>
+                                <div className={`text-sm ${hMuted} mb-2`}>Asset classes</div>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {quizAnswers.assetClasses.map((a) => <AcBadge key={a} variant="gray">{a}</AcBadge>)}
+                                </div>
+                              </div>
+                            )}
+                          </>
                         ) : (
-                          <div className="text-sm text-white/50">
-                            <span>Complete the personalization quiz to see your investor profile.</span>
+                          <div className={`text-sm ${hMuted}`}>
+                            Complete the investor quiz to unlock personalized Astra analysis.
                             <button onClick={() => { setAccountPageOpen(false); setQuizPanelOpen(true); setQuizDismissed(false); }} className={`mt-2 block text-xs font-semibold ${hAccent} underline`}>Take quiz →</button>
                           </div>
                         )}
+                        <button
+                          onClick={() => { setAccountPageOpen(false); setAccountPageOpen(false); setAccountTab("investor-quiz"); setTimeout(() => setAccountPageOpen(true), 0); }}
+                          className={`w-full mt-3 text-sm py-2 rounded-xl border transition-colors ${isLight ? "border-slate-200 text-slate-600 hover:border-slate-400 hover:text-slate-800" : isAlerik ? "border-[#d4af37]/20 text-[#d4bc84]/70 hover:border-[#d4af37]/40 hover:text-[#d4af37]" : "border-white/10 text-white/50 hover:border-white/25 hover:text-white/80"}`}
+                        >{quizCompleted ? "Update quiz" : "Take quiz"}</button>
                       </div>
                     </div>
 
-                    {/* Interests */}
+                    {/* Sector interests */}
                     {quizCompleted && Array.isArray(quizAnswers.sectorPreferences) && quizAnswers.sectorPreferences.length > 0 && (
                       <div className={cardCls}>
-                        <div className={`text-xs font-semibold uppercase tracking-widest mb-3 ${hAccent}`}>Sector Interests</div>
+                        <AcLabel>Sector Interests</AcLabel>
                         <div className="flex flex-wrap gap-2">
                           {quizAnswers.sectorPreferences.map((s) => (
-                            <span key={s} className={`px-3 py-1 rounded-full text-xs font-semibold border ${hSoft}`}>{s}</span>
+                            <span key={s} className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors cursor-default ${isLight ? "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-800" : isAlerik ? "bg-[#d4af37]/6 border-[#d4af37]/18 text-[#d4bc84]/80 hover:bg-[#d4af37]/14 hover:text-[#d4af37]" : "bg-white/5 border-white/10 text-white/55 hover:bg-white/10 hover:text-white/80"}`}>{s}</span>
                           ))}
                         </div>
                       </div>
@@ -5248,22 +5349,25 @@ export default function Home() {
                 {accountTab === "portfolio" && (
                   <div className="space-y-4">
                     {portfolioHoldings.length === 0 ? (
-                      <div className={`${cardCls} text-center py-12`}>
-                        <div className="text-4xl mb-3">📈</div>
-                        <div className="font-semibold">No holdings yet</div>
-                        <div className={`text-sm mt-1 ${hMuted}`}>Add stocks and crypto in the Portfolio section of the research page.</div>
-                      </div>
+                      <AcEmpty
+                        icon="📈"
+                        title="No holdings yet"
+                        subtitle="Search any stock or crypto on the research page and add it to your portfolio."
+                        ctaLabel="Go research"
+                        onCta={() => setAccountPageOpen(false)}
+                      />
                     ) : (
                       <div className={`${cardCls} overflow-x-auto p-0`}>
                         <table className="w-full">
                           <thead>
-                            <tr className={`border-b ${isLight ? "border-slate-200" : "border-white/10"}`}>
-                              <th className={thCls}>Symbol</th>
+                            <tr className={`border-b ${isLight ? "border-slate-200" : isAlerik ? "border-[#d4af37]/12" : "border-white/10"} ${isLight ? "bg-slate-50/60" : "bg-white/[0.025]"}`}>
+                              <th className={thCls}>Asset</th>
                               <th className={`${thCls} text-right`}>Qty</th>
                               <th className={`${thCls} text-right`}>Avg cost</th>
-                              <th className={`${thCls} text-right`}>Price</th>
+                              <th className={`${thCls} text-right`}>Current</th>
                               <th className={`${thCls} text-right`}>Market value</th>
                               <th className={`${thCls} text-right`}>P&amp;L</th>
+                              <th className={thCls}></th>
                             </tr>
                           </thead>
                           <tbody>
@@ -5273,13 +5377,18 @@ export default function Home() {
                               const pct = row?.unrealizedPct;
                               return (
                                 <tr key={h.id} className={rowCls}>
-                                  <td className={`${tdCls} font-bold`}>{(h.symbol || "").toUpperCase()}</td>
-                                  <td className={`${tdCls} text-right`}>{h.quantity}</td>
-                                  <td className={`${tdCls} text-right`}>{h.buyPrice ? `$${Number(h.buyPrice).toFixed(2)}` : "—"}</td>
+                                  <td className={`${tdCls}`}>
+                                    <div className="font-bold">{(h.symbol || "").toUpperCase()}</div>
+                                  </td>
+                                  <td className={`${tdCls} text-right ${hMuted}`}>{h.quantity}</td>
+                                  <td className={`${tdCls} text-right ${hMuted}`}>{h.buyPrice ? `$${Number(h.buyPrice).toFixed(2)}` : "—"}</td>
                                   <td className={`${tdCls} text-right`}>{row?.price ? `$${Number(row.price).toFixed(2)}` : "—"}</td>
                                   <td className={`${tdCls} text-right`}>{row?.marketValue ? `$${Number(row.marketValue).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}` : "—"}</td>
                                   <td className={`${tdCls} text-right font-semibold ${pnl == null ? "" : pnl >= 0 ? "text-emerald-400" : "text-red-400"}`}>
                                     {pnl == null ? "—" : `${pnl >= 0 ? "+" : ""}$${Math.abs(pnl).toFixed(2)}${pct != null ? ` (${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%)` : ""}`}
+                                  </td>
+                                  <td className={`${tdCls} text-right`}>
+                                    <button onClick={() => { setAccountPageOpen(false); setTicker((h.symbol||"").toUpperCase()); searchStock((h.symbol||"").toUpperCase()); }} className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${isLight ? "border-slate-200 text-slate-600 hover:border-slate-400" : isAlerik ? "border-[#d4af37]/25 text-[#d4af37]/70 hover:border-[#d4af37]/50 hover:text-[#d4af37]" : "border-white/12 text-white/50 hover:border-white/25 hover:text-white/80"}`}>Research</button>
                                   </td>
                                 </tr>
                               );
@@ -5287,10 +5396,11 @@ export default function Home() {
                           </tbody>
                           {totalValue > 0 && (
                             <tfoot>
-                              <tr className={`border-t ${isLight ? "border-slate-200" : "border-white/15"} font-semibold`}>
+                              <tr className={`border-t font-semibold ${isLight ? "border-slate-200 bg-slate-50/60" : isAlerik ? "border-[#d4af37]/15 bg-[#d4af37]/4" : "border-white/15 bg-white/[0.025]"}`}>
                                 <td className={tdCls} colSpan={4}>Total</td>
                                 <td className={`${tdCls} text-right`}>${totalValue.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
                                 <td className={`${tdCls} text-right ${totalPnL >= 0 ? "text-emerald-400" : "text-red-400"}`}>{totalPnL >= 0 ? "+" : ""}${totalPnL.toFixed(2)}</td>
+                                <td />
                               </tr>
                             </tfoot>
                           )}
@@ -5298,9 +5408,7 @@ export default function Home() {
                       </div>
                     )}
                     {portfolioHoldings.length > 0 && portfolioRows.length === 0 && (
-                      <button onClick={() => { setAccountPageOpen(false); }} className={`text-xs ${hAccent} underline`}>
-                        ← Go to research page and run Portfolio Analysis to load live prices
-                      </button>
+                      <p className={`text-xs ${hMuted}`}>← Run Portfolio Analysis on the research page to load live prices.</p>
                     )}
                   </div>
                 )}
@@ -5308,22 +5416,22 @@ export default function Home() {
                 {/* ══ MARKET WATCH ══ */}
                 {accountTab === "market-watch" && (
                   <div className="space-y-4">
-                    {/* Add to watchlist form */}
+                    {/* Add form */}
                     <div className={cardCls}>
-                      <div className={`text-xs font-semibold uppercase tracking-widest mb-3 ${hAccent}`}>Add to Watchlist</div>
+                      <AcLabel>Add to Watchlist</AcLabel>
                       <div className="flex flex-wrap gap-2">
                         <input
                           value={watchlistSymbolInput}
                           onChange={(e) => setWatchlistSymbolInput(e.target.value.toUpperCase())}
                           placeholder="Symbol (e.g. AAPL)"
-                          className={`flex-1 min-w-[140px] px-3 py-2 rounded-xl text-sm border outline-none ${isLight ? "bg-white border-slate-300 text-slate-900" : "bg-white/8 border-white/15 text-white"} focus:border-blue-500`}
+                          className={`flex-1 min-w-[140px] px-3 py-2 rounded-xl text-sm border outline-none ${isLight ? "bg-white border-slate-300 text-slate-900" : isAlerik ? "bg-[#000]/60 border-[#d4af37]/20 text-white focus:border-[#d4af37]/50" : "bg-white/8 border-white/15 text-white focus:border-white/35"}`}
                         />
                         <input
                           value={watchlistAlertInput}
                           onChange={(e) => setWatchlistAlertInput(e.target.value)}
                           placeholder="Alert price (optional)"
                           type="number"
-                          className={`w-40 px-3 py-2 rounded-xl text-sm border outline-none ${isLight ? "bg-white border-slate-300 text-slate-900" : "bg-white/8 border-white/15 text-white"} focus:border-blue-500`}
+                          className={`w-44 px-3 py-2 rounded-xl text-sm border outline-none ${isLight ? "bg-white border-slate-300 text-slate-900" : isAlerik ? "bg-[#000]/60 border-[#d4af37]/20 text-white focus:border-[#d4af37]/50" : "bg-white/8 border-white/15 text-white focus:border-white/35"}`}
                         />
                         <button
                           onClick={() => {
@@ -5333,27 +5441,26 @@ export default function Home() {
                               if (prev.find((w) => w.symbol === sym)) return prev;
                               return [...prev, { symbol: sym, alertPrice: watchlistAlertInput ? Number(watchlistAlertInput) : null, addedAt: new Date().toISOString() }];
                             });
-                            setWatchlistSymbolInput("");
-                            setWatchlistAlertInput("");
+                            setWatchlistSymbolInput(""); setWatchlistAlertInput("");
                           }}
-                          className={`px-4 py-2 rounded-xl text-sm font-semibold ${hCtaClass}`}
+                          className={`px-5 py-2 rounded-xl text-sm font-semibold ${hCtaClass}`}
                         >Add</button>
                       </div>
                     </div>
 
                     {watchlistItems.length === 0 ? (
-                      <div className={`${cardCls} text-center py-12`}>
-                        <div className="text-4xl mb-3">👁</div>
-                        <div className="font-semibold">Nothing on your watchlist yet</div>
-                        <div className={`text-sm mt-1 ${hMuted}`}>Add a symbol above, or tap 🔖 while researching.</div>
-                      </div>
+                      <AcEmpty
+                        icon="👁"
+                        title="Watchlist is empty"
+                        subtitle="Add a symbol above, or tap 🔖 next to the Search button while researching."
+                      />
                     ) : (
                       <div className={`${cardCls} overflow-x-auto p-0`}>
                         <table className="w-full">
                           <thead>
-                            <tr className={`border-b ${isLight ? "border-slate-200" : "border-white/10"}`}>
+                            <tr className={`border-b ${isLight ? "border-slate-200 bg-slate-50/60" : isAlerik ? "border-[#d4af37]/12 bg-white/[0.02]" : "border-white/10 bg-white/[0.025]"}`}>
                               <th className={thCls}>Symbol</th>
-                              <th className={`${thCls} text-right`}>Price alert</th>
+                              <th className={`${thCls} text-right`}>Alert price</th>
                               <th className={`${thCls} text-right`}>Added</th>
                               <th className={thCls}></th>
                             </tr>
@@ -5362,11 +5469,15 @@ export default function Home() {
                             {watchlistItems.map((w, i) => (
                               <tr key={i} className={rowCls}>
                                 <td className={`${tdCls} font-bold`}>{w.symbol}</td>
-                                <td className={`${tdCls} text-right`}>{w.alertPrice ? `$${w.alertPrice}` : <span className={hMuted}>—</span>}</td>
-                                <td className={`${tdCls} text-right ${hMuted} text-xs`}>{w.addedAt ? new Date(w.addedAt).toLocaleDateString() : "—"}</td>
                                 <td className={`${tdCls} text-right`}>
-                                  <button onClick={() => { setAccountPageOpen(false); setTicker(w.symbol); searchStock(w.symbol); }} className={`mr-2 text-xs ${hAccent} underline`}>Research</button>
-                                  <button onClick={() => setWatchlistItems((p) => p.filter((_, j) => j !== i))} className="text-xs text-red-400 hover:text-red-300">Remove</button>
+                                  {w.alertPrice
+                                    ? <span className={`text-sm font-medium ${isAlerik ? "text-[#d4af37]" : "text-amber-400"}`}>${w.alertPrice}</span>
+                                    : <span className={hMuted}>—</span>}
+                                </td>
+                                <td className={`${tdCls} text-right text-xs ${hMuted}`}>{w.addedAt ? new Date(w.addedAt).toLocaleDateString("en-US",{month:"short",day:"numeric"}) : "—"}</td>
+                                <td className={`${tdCls} text-right`}>
+                                  <button onClick={() => { setAccountPageOpen(false); setTicker(w.symbol); searchStock(w.symbol); }} className={`mr-3 text-xs font-semibold ${hAccent} underline`}>Research</button>
+                                  <button onClick={() => setWatchlistItems((p) => p.filter((_, j) => j !== i))} className="text-xs text-red-400/70 hover:text-red-400">Remove</button>
                                 </td>
                               </tr>
                             ))}
@@ -5380,21 +5491,21 @@ export default function Home() {
                 {/* ══ ASTRA PICKS ══ */}
                 {accountTab === "astra-picks" && (
                   <div className="space-y-4">
-                    {/* Add pick form */}
+                    {/* Add form */}
                     <div className={cardCls}>
-                      <div className={`text-xs font-semibold uppercase tracking-widest mb-3 ${hAccent}`}>Save an Astra Pick</div>
+                      <AcLabel>Save an Astra Pick</AcLabel>
                       <div className="space-y-2">
                         <div className="flex flex-wrap gap-2">
                           <input
                             value={astroPickSymbolInput}
                             onChange={(e) => setAstroPickSymbolInput(e.target.value.toUpperCase())}
                             placeholder="Symbol (e.g. NVDA)"
-                            className={`flex-1 min-w-[120px] px-3 py-2 rounded-xl text-sm border outline-none ${isLight ? "bg-white border-slate-300 text-slate-900" : "bg-white/8 border-white/15 text-white"} focus:border-blue-500`}
+                            className={`flex-1 min-w-[120px] px-3 py-2 rounded-xl text-sm border outline-none ${isLight ? "bg-white border-slate-300 text-slate-900" : isAlerik ? "bg-[#000]/60 border-[#d4af37]/20 text-white focus:border-[#d4af37]/50" : "bg-white/8 border-white/15 text-white focus:border-white/35"}`}
                           />
                           <select
                             value={astroPickTagInput}
                             onChange={(e) => setAstroPickTagInput(e.target.value)}
-                            className={`px-3 py-2 rounded-xl text-sm border outline-none ${isLight ? "bg-white border-slate-300 text-slate-900" : "bg-white/8 border-white/15 text-white"}`}
+                            className={`px-3 py-2 rounded-xl text-sm border outline-none ${isLight ? "bg-white border-slate-300 text-slate-900" : isAlerik ? "bg-[#000]/60 border-[#d4af37]/20 text-white" : "bg-white/8 border-white/15 text-white"}`}
                           >
                             <option value="high conviction">High conviction</option>
                             <option value="momentum">Momentum</option>
@@ -5407,7 +5518,7 @@ export default function Home() {
                           value={astroPickReasonInput}
                           onChange={(e) => setAstroPickReasonInput(e.target.value)}
                           placeholder="Why Astra recommended it (optional)"
-                          className={`w-full px-3 py-2 rounded-xl text-sm border outline-none ${isLight ? "bg-white border-slate-300 text-slate-900" : "bg-white/8 border-white/15 text-white"} focus:border-blue-500`}
+                          className={`w-full px-3 py-2 rounded-xl text-sm border outline-none ${isLight ? "bg-white border-slate-300 text-slate-900" : isAlerik ? "bg-[#000]/60 border-[#d4af37]/20 text-white focus:border-[#d4af37]/50" : "bg-white/8 border-white/15 text-white focus:border-white/35"}`}
                         />
                         <button
                           onClick={() => {
@@ -5416,34 +5527,34 @@ export default function Home() {
                             setAstraPicks((prev) => [{ symbol: sym, reason: astroPickReasonInput.trim(), tag: astroPickTagInput, pickedAt: new Date().toISOString() }, ...prev].slice(0, 50));
                             setAstroPickSymbolInput(""); setAstroPickReasonInput("");
                           }}
-                          className={`px-4 py-2 rounded-xl text-sm font-semibold ${hCtaClass}`}
+                          className={`px-5 py-2 rounded-xl text-sm font-semibold ${hCtaClass}`}
                         >Save Pick</button>
                       </div>
                     </div>
 
                     {astraPicks.length === 0 ? (
-                      <div className={`${cardCls} text-center py-12`}>
-                        <div className="text-4xl mb-3">⭐</div>
-                        <div className="font-semibold">No picks saved yet</div>
-                        <div className={`text-sm mt-1 ${hMuted}`}>After running an Astra analysis, save the pick here with your thesis.</div>
-                      </div>
+                      <AcEmpty
+                        icon="⭐"
+                        title="No picks saved yet"
+                        subtitle="After running an Astra analysis, save the recommended pick here with your thesis."
+                      />
                     ) : (
-                      <div className="space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                         {astraPicks.map((p, i) => {
-                          const tagColor = p.tag === "high conviction" ? "text-emerald-400 border-emerald-400/30 bg-emerald-500/10" : p.tag === "momentum" ? "text-blue-400 border-blue-400/30 bg-blue-500/10" : p.tag === "safe pick" ? "text-amber-400 border-amber-400/30 bg-amber-500/10" : "text-white/50 border-white/20 bg-white/5";
+                          const tagMeta = { "high conviction": { variant: "teal", label: "High Conviction" }, momentum: { variant: "amber", label: "Momentum" }, "safe pick": { variant: "teal", label: "Safe Pick" }, speculative: { variant: "red", label: "Speculative" }, "watchlist setup": { variant: "gray", label: "Watchlist Setup" } }[p.tag] || { variant: "gray", label: p.tag };
                           return (
-                            <div key={i} className={`${cardCls} flex items-start justify-between gap-4`}>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="text-lg font-bold">{p.symbol}</span>
-                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border capitalize ${tagColor}`}>{p.tag}</span>
+                            <div key={i} className={`${cardCls} flex flex-col gap-3`}>
+                              <div className="flex items-start justify-between gap-2">
+                                <div>
+                                  <div className="text-lg font-bold">{p.symbol}</div>
+                                  <div className={`text-xs mt-0.5 ${hMuted}`}>{p.pickedAt ? new Date(p.pickedAt).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}) : ""}</div>
                                 </div>
-                                {p.reason && <p className={`mt-1 text-sm ${hMuted}`}>{p.reason}</p>}
-                                <div className={`mt-1 text-xs ${hMuted}`}>{p.pickedAt ? new Date(p.pickedAt).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}) : ""}</div>
+                                <AcBadge variant={tagMeta.variant}>{tagMeta.label}</AcBadge>
                               </div>
-                              <div className="flex gap-2 shrink-0">
-                                <button onClick={() => { setAccountPageOpen(false); setTicker(p.symbol); searchStock(p.symbol); }} className={`text-xs font-semibold ${hAccent} underline`}>Research</button>
-                                <button onClick={() => setAstraPicks((prev) => prev.filter((_, j) => j !== i))} className="text-xs text-red-400 hover:text-red-300">✕</button>
+                              {p.reason && <p className={`text-sm leading-relaxed ${hMuted} flex-1`}>{p.reason}</p>}
+                              <div className="flex gap-2 mt-auto pt-1">
+                                <button onClick={() => { setAccountPageOpen(false); setTicker(p.symbol); searchStock(p.symbol); }} className={`flex-1 text-xs py-1.5 rounded-lg border font-medium transition-colors ${isLight ? "border-slate-200 text-slate-600 hover:border-slate-400" : isAlerik ? "border-[#d4af37]/25 text-[#d4af37]/80 hover:border-[#d4af37]/45 hover:text-[#d4af37]" : "border-white/12 text-white/55 hover:border-white/25 hover:text-white/80"}`}>Research</button>
+                                <button onClick={() => setAstraPicks((prev) => prev.filter((_, j) => j !== i))} className={`px-3 text-xs py-1.5 rounded-lg border transition-colors border-red-500/20 text-red-400/60 hover:border-red-500/40 hover:text-red-400`}>✕</button>
                               </div>
                             </div>
                           );
@@ -5455,46 +5566,84 @@ export default function Home() {
 
                 {/* ══ SAVED SEARCHES ══ */}
                 {accountTab === "saved-searches" && (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {savedSearches.length === 0 ? (
-                      <div className={`${cardCls} text-center py-12`}>
-                        <div className="text-4xl mb-3">🔖</div>
-                        <div className="font-semibold">No saved searches yet</div>
-                        <div className={`text-sm mt-1 ${hMuted}`}>Tap 🔖 next to the Search button while researching any symbol to save it here.</div>
+                      <AcEmpty
+                        icon="🔖"
+                        title="No saved searches yet"
+                        subtitle="Tap 🔖 next to the Search button while researching any symbol to save it here."
+                      />
+                    ) : savedSearches.map((s, i) => {
+                      const modeColor = { stock: isAlerik ? "bg-[#d4af37]/10 text-[#d4af37] border-[#d4af37]/25" : "bg-emerald-500/10 text-emerald-400 border-emerald-500/25", crypto: "bg-amber-500/10 text-amber-400 border-amber-500/25", etf: "bg-blue-500/10 text-blue-400 border-blue-500/25" }[s.assetMode] || (isLight ? "bg-slate-100 text-slate-600 border-slate-200" : "bg-white/6 text-white/45 border-white/12");
+                      return (
+                        <div key={i} className={`${cardCls} flex items-center justify-between gap-4 py-3.5 px-4`}>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-semibold text-sm truncate">{s.query}</div>
+                            <div className={`text-xs mt-0.5 ${hMuted}`}>{s.savedAt ? new Date(s.savedAt).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}) : ""}</div>
+                          </div>
+                          <div className="flex items-center gap-3 flex-shrink-0">
+                            <span className={`text-[11px] px-2.5 py-0.5 rounded-full border capitalize font-medium ${modeColor}`}>{s.assetMode || "stock"}</span>
+                            <button
+                              onClick={() => { setAccountPageOpen(false); if (s.assetMode && s.assetMode !== assetMode) setAssetMode(s.assetMode); setTicker(s.query); setTimeout(() => searchStock(s.query), 100); }}
+                              className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors ${isLight ? "border-slate-200 text-slate-600 hover:border-slate-400" : isAlerik ? "border-[#d4af37]/25 text-[#d4af37]/80 hover:border-[#d4af37]/45" : "border-white/12 text-white/55 hover:border-white/25 hover:text-white/80"}`}
+                            >Re-run</button>
+                            <button onClick={() => setSavedSearches((p) => p.filter((_, j) => j !== i))} className="text-xs text-red-400/60 hover:text-red-400">✕</button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* ══ INVESTOR QUIZ ══ */}
+                {accountTab === "investor-quiz" && (
+                  <div className="space-y-4">
+                    <div className={cardCls}>
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <AcLabel>{quizCompleted ? "Investor Profile Quiz — Completed" : "Investor Profile Quiz"}</AcLabel>
+                          <p className={`text-sm leading-relaxed ${hMuted}`}>
+                            {quizCompleted
+                              ? "Your quiz is complete. Retake it any time your goals or risk appetite change."
+                              : "Complete this quiz so Astra can give you personalised picks, analysis, and day-trading signals."}
+                          </p>
+                        </div>
+                        {quizCompleted && <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 text-base ${isAlerik ? "bg-[#d4af37]/12 border border-[#d4af37]/30 text-[#d4af37]" : "bg-emerald-500/10 border border-emerald-500/25"}`}>✓</div>}
                       </div>
-                    ) : (
-                      <div className={`${cardCls} overflow-x-auto p-0`}>
-                        <table className="w-full">
-                          <thead>
-                            <tr className={`border-b ${isLight ? "border-slate-200" : "border-white/10"}`}>
-                              <th className={thCls}>Query</th>
-                              <th className={thCls}>Mode</th>
-                              <th className={`${thCls} text-right`}>Saved</th>
-                              <th className={thCls}></th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {savedSearches.map((s, i) => (
-                              <tr key={i} className={rowCls}>
-                                <td className={`${tdCls} font-bold`}>{s.query}</td>
-                                <td className={`${tdCls} capitalize text-sm ${hMuted}`}>{s.assetMode || "stock"}</td>
-                                <td className={`${tdCls} text-right text-xs ${hMuted}`}>{s.savedAt ? new Date(s.savedAt).toLocaleDateString() : "—"}</td>
-                                <td className={`${tdCls} text-right`}>
-                                  <button
-                                    onClick={() => {
-                                      setAccountPageOpen(false);
-                                      if (s.assetMode && s.assetMode !== assetMode) setAssetMode(s.assetMode);
-                                      setTicker(s.query);
-                                      setTimeout(() => searchStock(s.query), 100);
-                                    }}
-                                    className={`mr-2 text-xs font-semibold ${hAccent} underline`}
-                                  >Re-run</button>
-                                  <button onClick={() => setSavedSearches((p) => p.filter((_, j) => j !== i))} className="text-xs text-red-400 hover:text-red-300">✕</button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                      <button
+                        onClick={() => { setAccountPageOpen(false); setQuizPanelOpen(true); setQuizFollowupMode(false); setQuizDismissed(false); }}
+                        className={`mt-5 px-6 py-2.5 rounded-xl text-sm font-semibold ${hCtaClass}`}
+                      >
+                        {quizCompleted ? "Retake / Update Quiz" : "Take Quiz Now"}
+                      </button>
+                    </div>
+
+                    {quizCompleted && (
+                      <div className={cardCls}>
+                        <AcLabel>Your Answers</AcLabel>
+                        <div>
+                          {[
+                            ["Goal", quizAnswers.goal],
+                            ["Time horizon", quizAnswers.horizon],
+                            ["Risk tolerance", quizAnswers.riskTolerance],
+                            ["Drawdown action", quizAnswers.drawdownAction],
+                            ["Income stability", quizAnswers.incomeStability],
+                            ["Experience", quizAnswers.experience],
+                            ["Analysis style", quizAnswers.analysisStyle],
+                            ["Review frequency", quizAnswers.reviewFrequency],
+                            ["Asset classes", Array.isArray(quizAnswers.assetClasses) ? quizAnswers.assetClasses.join(", ") : ""],
+                            ["Region focus", quizAnswers.regionFocus],
+                            ["Sector preferences", Array.isArray(quizAnswers.sectorPreferences) ? quizAnswers.sectorPreferences.join(", ") : ""],
+                            ["Exclusions", quizAnswers.exclusions],
+                            ["Liquidity needs", quizAnswers.liquidityNeeds],
+                            ["Ethical preference", quizAnswers.ethicalPreference],
+                            ["Day trading interest", quizAnswers.dayTradingInterest],
+                            ["Day trading markets", Array.isArray(quizAnswers.dayTradingMarkets) ? quizAnswers.dayTradingMarkets.join(", ") : ""],
+                            ["Day trading time", quizAnswers.dayTradingTime],
+                          ].filter(([, v]) => v).map(([label, val]) => (
+                            <AcRow key={label} label={label} value={val} />
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>

@@ -269,3 +269,150 @@ class BybitWSFeed:
 
     def _on_close(self, ws, code, msg) -> None:
         log.info("BybitWS closed (code=%s)", code)
+
+
+# ─── Binance.US WebSocket Symbol Map ─────────────────────────────────────────
+# Internal symbol → Binance.US stream ticker name (lowercase, no slash).
+# Binance.US uses USDT as primary quote; map /USD variants too.
+_BINANCE_US_WS_MAP = {
+    "BTC/USD":   "btcusdt",  "BTC/USDT":  "btcusdt",
+    "ETH/USD":   "ethusdt",  "ETH/USDT":  "ethusdt",
+    "SOL/USD":   "solusdt",  "SOL/USDT":  "solusdt",
+    "XRP/USD":   "xrpusdt",  "XRP/USDT":  "xrpusdt",
+    "ADA/USD":   "adausdt",  "ADA/USDT":  "adausdt",
+    "DOGE/USD":  "dogeusdt", "DOGE/USDT": "dogeusdt",
+    "AVAX/USD":  "avaxusdt", "AVAX/USDT": "avaxusdt",
+    "DOT/USD":   "dotusdt",  "DOT/USDT":  "dotusdt",
+    "LINK/USD":  "linkusdt", "LINK/USDT": "linkusdt",
+    "ATOM/USD":  "atomusdt", "ATOM/USDT": "atomusdt",
+    "LTC/USD":   "ltcusdt",  "LTC/USDT":  "ltcusdt",
+    "UNI/USD":   "uniusdt",  "UNI/USDT":  "uniusdt",
+}
+# Reverse map: prefer the USD internal symbol (USD entries appear first)
+_BINANCE_US_WS_REVERSE: dict = {}
+for _int_sym, _bin_name in _BINANCE_US_WS_MAP.items():
+    if _bin_name not in _BINANCE_US_WS_REVERSE:
+        _BINANCE_US_WS_REVERSE[_bin_name] = _int_sym
+
+
+class BinanceUSWSFeed:
+    """
+    Real-time Binance.US WebSocket miniTicker feed.
+
+    Connects to the combined-stream endpoint and subscribes to
+    24hrMiniTicker for each symbol.  Exposes the same interface as
+    KrakenWSFeed (get_price / is_alive / start / stop).
+    """
+
+    WS_BASE     = "wss://stream.binance.us:9443/stream"
+    STALE_SEC   = 30
+    MAX_BACKOFF = 60
+
+    def __init__(self, symbols: list, price_callback=None):
+        self._internal_syms = [s for s in symbols if s in _BINANCE_US_WS_MAP]
+        self._bin_names     = list({_BINANCE_US_WS_MAP[s] for s in self._internal_syms})
+        self._callback      = price_callback
+        self._cache: dict   = {}
+        self._ws            = None
+        self._running       = False
+        self._last_msg      = 0.0
+        self._backoff       = 1
+        self._lock          = threading.Lock()
+
+    # ── Public API ────────────────────────────────────────────────────────────
+
+    def start(self):
+        if not WS_AVAILABLE:
+            log.error("Cannot start BinanceUS WS feed — websocket-client missing")
+            return None
+        self._running = True
+        t = threading.Thread(target=self._run, daemon=True, name="BinanceUSWSFeed")
+        t.start()
+        log.info("BinanceUSWSFeed started for %d symbols: %s",
+                 len(self._bin_names), self._bin_names)
+        return t
+
+    def stop(self) -> None:
+        self._running = False
+        if self._ws:
+            self._ws.close()
+
+    def get_price(self, internal_sym: str):
+        with self._lock:
+            entry = self._cache.get(internal_sym)
+        if entry and (time.time() - entry["ts"]) < self.STALE_SEC:
+            return entry["price"]
+        return None
+
+    def is_alive(self) -> bool:
+        return (time.time() - self._last_msg) < self.STALE_SEC
+
+    # ── Internal ──────────────────────────────────────────────────────────────
+
+    def _ws_url(self) -> str:
+        streams = "/".join(f"{s}@miniTicker" for s in self._bin_names)
+        return f"{self.WS_BASE}?streams={streams}"
+
+    def _run(self) -> None:
+        while self._running:
+            try:
+                self._ws = websocket.WebSocketApp(
+                    self._ws_url(),
+                    on_open    = self._on_open,
+                    on_message = self._on_message,
+                    on_error   = self._on_error,
+                    on_close   = self._on_close,
+                )
+                self._ws.run_forever(ping_interval=20, ping_timeout=10)
+                self._backoff = 1
+            except Exception as exc:
+                log.error("BinanceUSWS error: %s", exc)
+            if self._running:
+                log.info("BinanceUSWS reconnecting in %ds...", self._backoff)
+                time.sleep(self._backoff)
+                self._backoff = min(self._backoff * 2, self.MAX_BACKOFF)
+
+    def _on_open(self, ws) -> None:
+        log.info("BinanceUSWS connected: %s", self._bin_names)
+
+    def _on_message(self, ws, message: str) -> None:
+        self._last_msg = time.time()
+        try:
+            msg      = json.loads(message)
+            stream   = msg.get("stream", "")     # e.g. "btcusdt@miniTicker"
+            data     = msg.get("data", {})
+            bin_sym  = stream.split("@")[0]       # e.g. "btcusdt"
+            internal = _BINANCE_US_WS_REVERSE.get(bin_sym)
+            if not internal:
+                return
+            price_str = data.get("c")             # last/close price in miniTicker
+            if price_str:
+                price = float(price_str)
+                with self._lock:
+                    self._cache[internal] = {"price": price, "ts": self._last_msg}
+                if self._callback:
+                    self._callback(internal, price)
+        except Exception as exc:
+            log.debug("BinanceUSWS parse error: %s", exc)
+
+    def _on_error(self, ws, error) -> None:
+        log.warning("BinanceUSWS error: %s", error)
+
+    def _on_close(self, ws, code, msg) -> None:
+        log.info("BinanceUSWS closed (code=%s)", code)
+
+
+def get_ws_feed(symbols: list, price_callback=None, exchange: str = None):
+    """
+    Factory: return the correct WS feed instance for the configured exchange.
+    Defaults to KrakenWSFeed if exchange is None or unrecognized.
+    """
+    if exchange is None:
+        try:
+            from config import EXCHANGE as _active
+            exchange = _active
+        except Exception:
+            exchange = "kraken"
+    if exchange == "binance_us":
+        return BinanceUSWSFeed(symbols, price_callback)
+    return KrakenWSFeed(symbols, price_callback)

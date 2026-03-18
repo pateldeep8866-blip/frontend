@@ -7,11 +7,15 @@ from dotenv import load_dotenv
 # Load .env from this file's directory
 load_dotenv(Path(__file__).parent / ".env")
 
+# ─── Active Exchange ──────────────────────────────────────────────────────────
+# Set via env var to switch venues: EXCHANGE=binance_us  (default: kraken)
+EXCHANGE = os.getenv("EXCHANGE", "kraken")
+
 # ─── Exchange Settings ───────────────────────────────────────────────────────
 # Only include non-Kraken exchanges when their API key is configured.
 # This prevents the scanner from fetching (and generating signals from)
 # exchanges the user hasn't set up, which would pollute opportunities.
-EXCHANGES = ["kraken"] + [
+EXCHANGES = [EXCHANGE] + [
     ex for ex in ("coinbase", "kucoin")
     if os.getenv(f"{ex.upper()}_API_KEY", "")
 ]
@@ -30,12 +34,17 @@ EXCHANGE_CREDENTIALS = {
         "secret":    os.getenv("KUCOIN_API_SECRET", ""),
         "password":  os.getenv("KUCOIN_PASSPHRASE", ""),
     },
+    "binance_us": {
+        "apiKey": os.getenv("BINANCE_US_API_KEY", ""),
+        "secret": os.getenv("BINANCE_US_API_SECRET", ""),
+    },
 }
 
 EXCHANGE_FEES = {
-    "kraken":   0.0026,
-    "coinbase": 0.0060,
-    "kucoin":   0.0010,
+    "kraken":     0.0026,
+    "coinbase":   0.0060,
+    "kucoin":     0.0010,
+    "binance_us": 0.000095,  # taker fee, Tier 0 with BNB discount
 }
 
 # ─── Trading Universe ────────────────────────────────────────────────────────
@@ -91,7 +100,7 @@ VOL_VOLUME_SPIKE_THRESHOLD    = 1.8
 STALE_ORDER_TIMEOUT_SEC   = 300    # 5 min — matches SCALP_MAX_HOLD_SEC
 MARKET_DATA_FRESHNESS_SEC = 30
 MIN_EDGE_AFTER_FEES_PCT   = 0.05
-USD_FEE_RESERVE           = 0.50   # Keep $0.50 USD untouched for Kraken sell-order fee buffer
+USD_FEE_RESERVE           = 0.50 if EXCHANGE == "kraken" else 0.0   # Kraken deducts fees from USD balance; other venues take from proceeds
 
 # ─── Scan & Loop Timing ──────────────────────────────────────────────────────
 MAIN_LOOP_INTERVAL_SEC     = 5
@@ -123,6 +132,46 @@ KRAKEN_MAKER_FEE     = 0.0016
 KRAKEN_TAKER_FEE     = 0.0026
 MICRO_ROUND_TRIP_FEE = 0.0032
 SCALP_MIN_NET_EDGE   = 0.005
+
+# ─── Binance.US Settings ──────────────────────────────────────────────────────
+BINANCE_US_BASE_URL  = "https://api.binance.us"
+BINANCE_US_WS_URL    = "wss://stream.binance.us:9443/stream"
+BINANCE_US_MAKER_FEE = 0.0        # Tier 0 with BNB: maker free
+BINANCE_US_TAKER_FEE = 0.000095   # Tier 0 with BNB: 0.0095% taker
+
+BINANCE_US_MIN_ORDER_SIZES = {
+    "BTC/USD":   0.00001,  "BTC/USDT":   0.00001,
+    "ETH/USD":   0.0001,   "ETH/USDT":   0.0001,
+    "SOL/USD":   0.01,     "SOL/USDT":   0.01,
+    "XRP/USD":   0.1,      "XRP/USDT":   0.1,
+    "ADA/USD":   1.0,      "ADA/USDT":   1.0,
+    "DOGE/USD":  1.0,      "DOGE/USDT":  1.0,
+    "AVAX/USD":  0.01,     "AVAX/USDT":  0.01,
+    "DOT/USD":   0.1,      "DOT/USDT":   0.1,
+    "LINK/USD":  0.1,      "LINK/USDT":  0.1,
+    "ATOM/USD":  0.01,     "ATOM/USDT":  0.01,
+    "LTC/USD":   0.001,    "LTC/USDT":   0.001,
+    "UNI/USD":   0.1,      "UNI/USDT":   0.1,
+}
+
+# ─── Exchange CCXT IDs ────────────────────────────────────────────────────────
+# Maps our internal exchange names to ccxt library identifiers.
+EXCHANGE_CCXT_ID = {
+    "kraken":     "kraken",
+    "binance_us": "binanceus",
+    "coinbase":   "coinbase",
+    "kucoin":     "kucoin",
+}
+
+# ─── Per-exchange minimum order sizes ────────────────────────────────────────
+EXCHANGE_MIN_ORDER_SIZES = {
+    "kraken":     KRAKEN_MIN_ORDER_SIZES,
+    "binance_us": BINANCE_US_MIN_ORDER_SIZES,
+}
+
+# ─── Active exchange fee shortcuts ────────────────────────────────────────────
+ACTIVE_MAKER_FEE = BINANCE_US_MAKER_FEE if EXCHANGE == "binance_us" else KRAKEN_MAKER_FEE
+ACTIVE_TAKER_FEE = BINANCE_US_TAKER_FEE if EXCHANGE == "binance_us" else KRAKEN_TAKER_FEE
 
 # ─── Fast Scalp Mode ─────────────────────────────────────────────────────────
 FAST_SCALP_TP_PCT              = 0.006     # 0.6% take profit
