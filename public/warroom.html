@@ -450,6 +450,49 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
 .escl-delta{font-family:var(--mono);font-size:.36rem;margin-left:.2rem;}
 .escl-delta.up{color:var(--red);}
 .escl-delta.dn{color:var(--cyan);}
+
+/* PORTFOLIO STACK */
+.ps-block{background:linear-gradient(135deg,rgba(0,220,255,0.04),rgba(192,64,255,0.04));border-bottom:1px solid var(--b2);padding:.6rem .8rem;flex-shrink:0;}
+.ps-head{font-family:var(--mono);font-size:.4rem;letter-spacing:.2em;color:var(--cyan);text-transform:uppercase;margin-bottom:.45rem;display:flex;align-items:center;justify-content:space-between;}
+.ps-row{display:flex;align-items:center;gap:.3rem;margin-bottom:.22rem;flex-wrap:wrap;}
+.ps-label{font-family:var(--mono);font-size:.36rem;letter-spacing:.08em;text-transform:uppercase;width:44px;flex-shrink:0;}
+.ps-label.add{color:var(--green);}.ps-label.hold{color:var(--cyan);}.ps-label.watch{color:var(--amber2);}.ps-label.avoid{color:var(--red2);}
+.ps-chip{font-family:var(--mono);font-size:.42rem;padding:1px 5px;border:1px solid;cursor:pointer;transition:all .15s;letter-spacing:.04em;}
+.ps-chip.add{color:var(--green);border-color:rgba(0,255,160,.3);}.ps-chip.add:hover{background:rgba(0,255,160,.1);}
+.ps-chip.hold{color:var(--cyan);border-color:rgba(0,220,255,.3);}.ps-chip.hold:hover{background:rgba(0,220,255,.08);}
+.ps-chip.watch{color:var(--amber2);border-color:rgba(255,170,0,.3);}.ps-chip.watch:hover{background:rgba(255,170,0,.08);}
+.ps-chip.avoid{color:var(--red2);border-color:rgba(255,34,68,.3);}.ps-chip.avoid:hover{background:rgba(255,34,68,.08);}
+.ps-divider{border:none;border-top:1px solid var(--b1);margin:.3rem 0;}
+.ps-etf{font-family:var(--mono);font-size:.38rem;color:var(--body);margin-bottom:.18rem;}.ps-etf span{color:var(--amber2);}
+.ps-reason{font-family:var(--sans);font-size:.58rem;color:rgba(0,220,255,0.68);font-style:italic;line-height:1.3;}
+.ps-age{font-family:var(--mono);font-size:.36rem;color:rgba(0,200,255,0.3);letter-spacing:.08em;}
+.ps-loading{font-family:var(--mono);font-size:.42rem;color:var(--body);letter-spacing:.1em;padding:.3rem 0;animation:psload 1.3s ease-in-out infinite;}
+@keyframes psload{0%,100%{opacity:.55}50%{opacity:1}}
+
+/* ASTRA WAR ROOM BUTTON */
+#astra-war-btn{position:fixed;bottom:44px;right:20px;z-index:900;background:rgba(1,8,16,.95);border:1px solid rgba(0,220,255,0.4);box-shadow:0 0 15px rgba(0,220,255,0.15),inset 0 0 20px rgba(0,220,255,0.03);padding:.4rem .85rem;font-family:var(--mono);font-size:.48rem;letter-spacing:.15em;color:var(--cyan);cursor:pointer;display:flex;align-items:center;gap:.45rem;transition:all .2s;text-transform:uppercase;backdrop-filter:blur(8px);}
+#astra-war-btn:hover{border-color:var(--cyan);box-shadow:0 0 25px rgba(0,220,255,.25);color:var(--cyan2);}
+.astra-pulse{width:6px;height:6px;border-radius:50%;background:var(--cyan);flex-shrink:0;animation:pulse-a 1.8s ease-in-out infinite;}
+@keyframes pulse-a{0%,100%{opacity:1;box-shadow:0 0 6px var(--cyan-glow)}50%{opacity:.25;box-shadow:none}}
+
+/* ASTRA WAR ROOM PANEL */
+#astra-panel{position:fixed;bottom:92px;right:20px;width:400px;height:500px;z-index:901;background:linear-gradient(180deg,rgba(2,14,26,.98),rgba(1,8,16,.99));border:1px solid rgba(0,220,255,0.28);box-shadow:0 0 30px rgba(0,220,255,.1),-4px -4px 24px rgba(0,0,0,.6);display:flex;flex-direction:column;transform:translateY(16px);opacity:0;pointer-events:none;transition:transform .25s ease,opacity .25s ease;backdrop-filter:blur(12px);}
+#astra-panel.open{transform:translateY(0);opacity:1;pointer-events:auto;}
+.ap-head{background:linear-gradient(90deg,rgba(0,220,255,.07),rgba(192,64,255,.05));border-bottom:1px solid var(--b2);padding:.5rem .75rem;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.ap-title{font-family:var(--disp);font-size:.52rem;letter-spacing:.22em;color:var(--cyan2);text-shadow:0 0 8px var(--cyan-glow);}
+.ap-sub{font-family:var(--mono);font-size:.36rem;color:var(--body);letter-spacing:.1em;margin-top:1px;}
+.ap-close{font-family:var(--mono);font-size:.42rem;color:var(--body);cursor:pointer;transition:color .15s;letter-spacing:.05em;}.ap-close:hover{color:var(--cyan);}
+.ap-messages{flex:1;overflow-y:auto;padding:.5rem .65rem;display:flex;flex-direction:column;gap:.4rem;}
+.ap-msg{max-width:90%;padding:.42rem .6rem;font-family:var(--sans);font-size:.62rem;line-height:1.5;}
+.ap-msg.user{align-self:flex-end;background:rgba(0,220,255,.07);border:1px solid rgba(0,220,255,.18);color:var(--bright);}
+.ap-msg.ai{align-self:flex-start;background:rgba(192,64,255,.05);border:1px solid rgba(192,64,255,.15);color:var(--white);}
+.ap-msg-label{font-family:var(--mono);font-size:.34rem;letter-spacing:.18em;color:var(--cyan);margin-bottom:3px;text-transform:uppercase;}
+.ap-thinking{align-self:flex-start;font-family:var(--mono);font-size:.42rem;color:var(--body);animation:psload 1.3s ease-in-out infinite;padding:.3rem 0;}
+.ap-quickbtns{padding:.35rem .6rem;display:flex;gap:.3rem;flex-wrap:wrap;border-top:1px solid var(--b1);flex-shrink:0;background:rgba(0,0,0,.25);}
+.ap-qbtn{font-family:var(--mono);font-size:.37rem;padding:2px 6px;border:1px solid var(--b1);color:var(--body);cursor:pointer;transition:all .15s;letter-spacing:.04em;white-space:nowrap;}.ap-qbtn:hover{border-color:var(--cyan);color:var(--cyan);}
+.ap-input-row{display:flex;border-top:1px solid var(--b2);flex-shrink:0;}
+.ap-input{flex:1;background:rgba(0,0,0,.45);border:none;padding:.45rem .7rem;font-family:var(--mono);font-size:.52rem;color:var(--text);outline:none;letter-spacing:.02em;}.ap-input::placeholder{color:rgba(0,200,255,.22);}
+.ap-send{background:rgba(0,220,255,.07);border:none;border-left:1px solid var(--b2);padding:.45rem .85rem;font-family:var(--mono);font-size:.5rem;color:var(--cyan);cursor:pointer;transition:all .15s;letter-spacing:.1em;flex-shrink:0;}.ap-send:hover{background:rgba(0,220,255,.14);}
 </style>
 </head>
 <body>
@@ -682,6 +725,11 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
 
   <!-- RIGHT PANEL -->
   <div class="rpanel">
+    <!-- PORTFOLIO STACK -->
+    <div class="ps-block" id="portfolio-stack">
+      <div class="ps-head">◈ PORTFOLIO STACK — LIVE AI<span class="ps-age" id="ps-age"></span></div>
+      <div id="ps-body"><div class="ps-loading">◈ UPDATING...</div></div>
+    </div>
     <div class="rp-tabs">
       <div class="rp-tab active" onclick="setRTab('connections')">Connections</div>
       <div class="rp-tab" onclick="setRTab('revolving')">Rev. Door</div>
@@ -709,6 +757,30 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
 
 </div><!-- end main -->
 </div><!-- end shell -->
+
+<!-- ASTRA FLOATING BUTTON -->
+<div id="astra-war-btn" onclick="toggleAstraWarRoom()">◈ ASTRA<span class="astra-pulse"></span></div>
+
+<!-- ASTRA WAR ROOM PANEL -->
+<div id="astra-panel">
+  <div class="ap-head">
+    <div><div class="ap-title">◈ ASTRA</div><div class="ap-sub">WAR ROOM INTELLIGENCE TERMINAL</div></div>
+    <div class="ap-close" onclick="toggleAstraWarRoom()">[ CLOSE ]</div>
+  </div>
+  <div class="ap-messages" id="ap-messages">
+    <div class="ap-msg ai"><div class="ap-msg-label">ASTRA</div>War Room terminal active. I have access to current conflict escalation data and defense sector intelligence. Ask me about any theater, stock, or contract signal.</div>
+  </div>
+  <div class="ap-quickbtns" id="ap-quickbtns">
+    <div class="ap-qbtn" onclick="astraQuick('portfolio')">📊 Portfolio Stack</div>
+    <div class="ap-qbtn" onclick="astraQuick('news')">🔍 Search News</div>
+    <div class="ap-qbtn" onclick="astraQuick('signals')">⚡ Explain Signals</div>
+    <div class="ap-qbtn" id="ap-conflict-btn" onclick="astraQuick('conflict')">🎯 Ukraine</div>
+  </div>
+  <div class="ap-input-row">
+    <input class="ap-input" id="ap-input" placeholder="Ask ASTRA..." onkeydown="if(event.key==='Enter')sendAstraMsg()">
+    <div class="ap-send" onclick="sendAstraMsg()">SEND</div>
+  </div>
+</div>
 
 <!-- CONNECTION DRAWER -->
 <div class="conn-drawer-overlay" id="conn-drawer-overlay" onclick="closeConnDrawer()"></div>
@@ -1002,6 +1074,8 @@ function selectConflict(id){
   setView('intel');
   renderIntel();
   renderConnections();
+  fetchPortfolioStack();
+  updateAstraQuickBtns();
   persistWarRoomContext({suggestedMode:'geopolitics'});
 }
 
@@ -1502,6 +1576,122 @@ function renderTheaterPositioning(){
   document.getElementById('theater-etf').textContent='Consider XAR / ITA ETF for broad MIC exposure vs single-name risk';
 }
 
+// PORTFOLIO STACK
+let _psLastFetch=0,_psTimeout=null;
+async function fetchPortfolioStack(){
+  const body=document.getElementById('ps-body');
+  if(!body)return;
+  // client-side 1-hour guard
+  if(_psLastFetch&&Date.now()-_psLastFetch<3600000)return;
+  body.innerHTML='<div class="ps-loading">◈ UPDATING...</div>';
+  try{
+    const conflicts=Object.entries(CONFLICTS).map(([id])=>{
+      const scoreEl=document.getElementById('escl-'+id);
+      return{id,score:scoreEl?parseFloat(scoreEl.textContent)||5:5,delta:0};
+    });
+    const companies=Object.entries(COMPANIES).map(([ticker,d])=>({
+      ticker,dependency:d.dep||50,ytd:d.ytd||'0%',backlog:d.backlog||'N/A',
+    }));
+    const res=await fetch('/api/portfolio-stack',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({conflicts,companies})});
+    if(!res.ok)throw new Error();
+    const data=await res.json();
+    if(data.error)throw new Error(data.error);
+    _psLastFetch=Date.now();
+    const row=(cls,label,tickers)=>{
+      if(!tickers||!tickers.length)return'';
+      const chips=tickers.map(t=>`<span class="ps-chip ${cls}" onclick="openConnDrawer('${t}')">${t}</span>`).join('');
+      return`<div class="ps-row"><span class="ps-label ${cls}">[${label}]</span>${chips}</div>`;
+    };
+    const ageMs=Date.now()-new Date(data.asOf).getTime();
+    const ageMin=Math.floor(ageMs/60000);
+    document.getElementById('ps-age').textContent=ageMin<1?' · just now':` · ${ageMin}m ago`;
+    body.innerHTML=`
+      ${row('add','ADD',data.add)}
+      ${row('hold','HOLD',data.hold)}
+      ${row('watch','WATCH',data.watch)}
+      ${row('avoid','AVOID',data.avoid)}
+      <hr class="ps-divider">
+      <div class="ps-etf">ETF: <span>${data.etf||'XAR / ITA'}</span></div>
+      <div class="ps-reason">"${data.reasoning||''}"</div>`;
+    // schedule next refresh in 1 hour
+    if(_psTimeout)clearTimeout(_psTimeout);
+    _psTimeout=setTimeout(()=>{_psLastFetch=0;fetchPortfolioStack();},3600000);
+  }catch{
+    body.innerHTML='<div class="ps-loading" style="opacity:.45">◈ STACK UNAVAILABLE — CHECK OPENAI_API_KEY</div>';
+  }
+}
+// Update age display every minute
+setInterval(()=>{
+  if(_psLastFetch>0){
+    const el=document.getElementById('ps-age');
+    if(el){const m=Math.floor((Date.now()-_psLastFetch)/60000);el.textContent=m<1?' · just now':` · ${m}m ago`;}
+  }
+},60000);
+
+// ASTRA WAR ROOM CHAT
+let _astraMsgs=[],_astraOpen=false;
+function toggleAstraWarRoom(){
+  _astraOpen=!_astraOpen;
+  document.getElementById('astra-panel').classList.toggle('open',_astraOpen);
+  if(_astraOpen){updateAstraQuickBtns();setTimeout(()=>document.getElementById('ap-input').focus(),50);}
+}
+function updateAstraQuickBtns(){
+  const name=CONFLICTS[currentConflict]?.name||'Ukraine–Russia War';
+  const short=name.split(/[\/–-]/)[0].trim().split(' ').slice(0,2).join(' ');
+  const btn=document.getElementById('ap-conflict-btn');
+  if(btn)btn.textContent='🎯 '+short;
+}
+function astraQuick(type){
+  const name=CONFLICTS[currentConflict]?.name||'Ukraine–Russia War';
+  const map={
+    portfolio:'Generate a portfolio priority stack based on current escalation levels',
+    news:'Search for the latest defense contract news from the past 24 hours',
+    signals:'Explain the current pre-award signals and what they mean for defense contractors',
+    conflict:`What is the investment thesis for ${name} right now?`,
+  };
+  sendAstraMsg(map[type]);
+}
+async function sendAstraMsg(overrideText){
+  const input=document.getElementById('ap-input');
+  const text=overrideText||(input?input.value.trim():'');
+  if(!text)return;
+  if(input&&!overrideText)input.value='';
+  const msgs=document.getElementById('ap-messages');
+  msgs.innerHTML+=`<div class="ap-msg user">${text}</div><div class="ap-thinking" id="ap-thinking">◈ ANALYZING...</div>`;
+  msgs.scrollTop=msgs.scrollHeight;
+  _astraMsgs.push({role:'user',content:text});
+  // gather live context
+  const escalationScores={};
+  Object.keys(CONFLICTS).forEach(id=>{
+    const el=document.getElementById('escl-'+id);
+    escalationScores[id]=el?parseFloat(el.textContent)||5:5;
+  });
+  const signalsCount=document.querySelectorAll('.sig-card').length;
+  try{
+    const res=await fetch('/api/warroom-chat',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({messages:_astraMsgs.slice(-10),conflictData:CONFLICTS[currentConflict],escalationScores,currentConflict,signalsCount}),
+    });
+    const thinking=document.getElementById('ap-thinking');
+    if(thinking)thinking.remove();
+    if(!res.ok)throw new Error();
+    const data=await res.json();
+    const answer=data?.answer||'No response — check API key configuration.';
+    _astraMsgs.push({role:'assistant',content:answer});
+    if(_astraMsgs.length>20)_astraMsgs=_astraMsgs.slice(-20);
+    const el=document.getElementById('ap-messages');
+    el.innerHTML+=`<div class="ap-msg ai"><div class="ap-msg-label">ASTRA</div>${answer}</div>`;
+    el.scrollTop=el.scrollHeight;
+  }catch{
+    const thinking=document.getElementById('ap-thinking');
+    if(thinking)thinking.remove();
+    const el=document.getElementById('ap-messages');
+    el.innerHTML+=`<div class="ap-msg ai"><div class="ap-msg-label">ASTRA</div>Connection error — check OPENAI_API_KEY or OPENROUTER_API_KEY configuration.</div>`;
+    el.scrollTop=el.scrollHeight;
+  }
+}
+
 // INIT
 initMoneySelectors();
 renderRevolvingDoor();
@@ -1517,6 +1707,8 @@ refreshContractsTicker();
 setInterval(refreshContractsTicker, 1800000);
 fetchEscalationScores();
 setInterval(fetchEscalationScores, 1800000);
+fetchPortfolioStack();
+setInterval(()=>{_psLastFetch=0;fetchPortfolioStack();},3600000);
 initMapbox();
 </script>
 </body>
