@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ARTHASTRA // WAR ROOM</title>
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 :root{
   --void:#010810;--deep:#021018;--base:#031520;--surface:#041c2a;--raised:#062030;--card:#082438;
@@ -119,10 +121,9 @@ body{background:var(--void);color:var(--body);font-family:var(--sans);font-size:
 .view.active{display:block;}
 
 /* MAP */
-#view-map{display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;position:relative;background:radial-gradient(ellipse at center,rgba(4,20,40,1) 0%,rgba(1,8,18,1) 100%);}
-#view-map.active{display:flex;}
-.map-wrap{position:relative;width:100%;height:100%;}
-svg#worldmap{width:100%;height:100%;}
+#view-map{overflow:hidden;position:relative;background:radial-gradient(ellipse at center,rgba(4,20,40,1) 0%,rgba(1,8,18,1) 100%);}
+#view-map.active{display:block;}
+.map-wrap{position:absolute;top:0;left:0;right:0;bottom:0;}
 .map-hint{position:absolute;bottom:2.5rem;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:.46rem;letter-spacing:.2em;color:var(--body);text-transform:uppercase;text-align:center;pointer-events:none;animation:hint-fade 3s ease-in-out infinite;}
 @keyframes hint-fade{0%,100%{opacity:.4}50%{opacity:.9}}
 .hs-ring{fill:none;stroke-width:1;animation:ring-pulse 2.5s ease-out infinite;}
@@ -345,6 +346,110 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
 .hex-bg{position:absolute;top:0;left:0;right:0;bottom:0;opacity:0.025;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='48'%3E%3Cpath d='M28 0 L56 16 L56 32 L28 48 L0 32 L0 16Z' fill='none' stroke='%2300dcff' stroke-width='0.5'/%3E%3C/svg%3E");background-size:56px 48px;pointer-events:none;}
 /* CIRCUIT LINES on panels */
 .circuit-tl{position:absolute;top:0;left:0;width:60px;height:60px;opacity:0.3;pointer-events:none;background:linear-gradient(135deg,var(--cyan-dim) 0%,transparent 60%);}
+/* LEAFLET MAP */
+#mapbox-container{position:absolute;top:0;left:0;right:0;bottom:22px;min-height:400px;}
+#mapbox-container .leaflet-container{width:100%;height:100%;background:#010810!important;cursor:crosshair!important;}
+.leaflet-control-attribution{opacity:0.3;background:rgba(1,8,16,0.7)!important;color:rgba(0,220,255,0.4)!important;}
+.leaflet-control-attribution a{color:rgba(0,220,255,0.4)!important;}
+/* CONFLICT MARKERS */
+@keyframes marker-pulse{0%{transform:scale(1);opacity:0.8}100%{transform:scale(3.5);opacity:0}}
+.cf-marker{position:relative;width:14px;height:14px;cursor:pointer;}
+.cf-ring{position:absolute;border-radius:50%;width:14px;height:14px;top:0;left:0;animation:marker-pulse 2s ease-out infinite;}
+.cf-ring2{position:absolute;border-radius:50%;width:14px;height:14px;top:0;left:0;animation:marker-pulse 2s ease-out infinite;animation-delay:.7s;}
+.cf-core{width:14px;height:14px;border-radius:50%;position:relative;z-index:1;}
+.cf-war .cf-ring{border:1.5px solid #ff1040;}.cf-war .cf-ring2{border:1px solid #ff1040;}.cf-war .cf-core{background:rgba(255,16,64,0.35);border:2px solid #ff1040;box-shadow:0 0 8px rgba(255,16,64,0.6);}
+.cf-watch .cf-ring{border:1.5px solid #ffa800;}.cf-watch .cf-ring2{border:1px solid #ffa800;}.cf-watch .cf-core{background:rgba(255,168,0,0.3);border:2px solid #ffa800;box-shadow:0 0 6px rgba(255,168,0,0.5);}
+.cf-latent .cf-ring{border:1px solid rgba(0,220,255,0.5);}.cf-latent .cf-ring2{border:1px solid rgba(0,220,255,0.3);}.cf-latent .cf-core{background:rgba(0,220,255,0.1);border:1px solid rgba(0,220,255,0.45);}
+/* CONNECTION DRAWER */
+.conn-drawer-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);z-index:199;display:none;}
+.conn-drawer-overlay.open{display:block;}
+.conn-drawer{position:fixed;top:0;right:-540px;width:540px;height:100vh;background:linear-gradient(180deg,rgba(2,10,20,.99),rgba(1,8,18,1));border-left:1px solid var(--b2);box-shadow:-4px 0 40px rgba(0,220,255,0.1);z-index:200;transition:right .32s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;overflow:hidden;}
+.conn-drawer.open{right:0;}
+.conn-drawer::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--purple),var(--cyan),transparent);}
+.conn-drawer-head{padding:.7rem 1rem;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;background:rgba(0,200,255,.03);flex-shrink:0;}
+.conn-drawer-title{font-family:var(--mono);font-size:.55rem;letter-spacing:.18em;color:var(--cyan);text-transform:uppercase;text-shadow:0 0 6px var(--cyan-glow);}
+.conn-drawer-close{font-family:var(--mono);font-size:.7rem;color:var(--body);cursor:pointer;padding:.2rem .5rem;border:1px solid var(--b1);transition:all .15s;letter-spacing:.08em;}
+.conn-drawer-close:hover{color:var(--cyan);border-color:var(--cyan);}
+.conn-drawer-body{flex:1;overflow-y:auto;padding:.9rem;}
+.cd-ticker{font-family:var(--disp);font-size:1.5rem;color:var(--cyan2);text-shadow:0 0 12px var(--cyan-glow);margin-bottom:.12rem;}
+.cd-fullname{font-size:.75rem;color:var(--text);margin-bottom:.9rem;}
+.cd-section{margin-bottom:1.1rem;}
+.cd-section-label{font-family:var(--mono);font-size:.42rem;letter-spacing:.22em;color:var(--body);text-transform:uppercase;margin-bottom:.45rem;padding-bottom:.28rem;border-bottom:1px solid var(--b1);}
+.cd-row{display:flex;justify-content:space-between;align-items:baseline;padding:.3rem 0;border-bottom:1px solid var(--b1);font-size:.65rem;}
+.cd-row:last-child{border-bottom:none;}
+.cd-dlabel{color:var(--body);}
+.cd-dvalue{font-family:var(--mono);font-size:.61rem;color:var(--amber2);text-align:right;}
+.cd-chain{display:flex;flex-direction:column;gap:.5rem;margin-top:.4rem;}
+.cd-node{background:var(--card);border:1px solid var(--b2);padding:.55rem .7rem;position:relative;}
+.cd-node::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--cyan),transparent);opacity:.3;}
+.cd-step{font-family:var(--mono);font-size:.38rem;letter-spacing:.18em;color:var(--body);text-transform:uppercase;margin-bottom:.18rem;}
+.cd-ntitle{font-family:var(--disp);font-size:.85rem;margin-bottom:.2rem;}
+.cd-nbody{font-size:.63rem;color:var(--text);line-height:1.52;}
+.cd-arrow{text-align:center;font-size:.75rem;color:var(--cyan);text-shadow:0 0 6px var(--cyan-glow);padding:.1rem 0;}
+.reveal-card[data-co]{cursor:pointer;transition:border-color .2s;}
+.reveal-card[data-co]:hover{border-color:var(--cyan);}
+/* SIGNALS VIEW */
+.signals-wrap{padding:.7rem;display:flex;flex-direction:column;gap:.55rem;overflow-y:auto;height:100%;}
+.sig-card{background:linear-gradient(135deg,rgba(4,18,32,.97),rgba(2,12,24,.98));border:1px solid var(--b2);padding:.6rem .75rem;position:relative;}
+.sig-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--cyan),transparent);opacity:.4;}
+.sig-top{display:flex;align-items:center;gap:.45rem;margin-bottom:.4rem;}
+.sig-type{font-family:var(--mono);font-size:.38rem;letter-spacing:.12em;padding:1px 6px;border:1px solid;}
+.sig-type.BUDGET_REQUEST{color:var(--cyan);border-color:rgba(0,220,255,.4);}
+.sig-type.MARKUP{color:var(--purple);border-color:rgba(192,64,255,.4);}
+.sig-type.ESCALATION{color:var(--red);border-color:rgba(255,16,64,.4);}
+.sig-type.CONTRACT_AWARD{color:var(--amber);border-color:rgba(255,168,0,.4);}
+.sig-dir{font-family:var(--mono);font-size:.38rem;letter-spacing:.1em;padding:1px 6px;border:1px solid;}
+.sig-dir.BULLISH{color:var(--green);border-color:rgba(0,255,160,.4);}
+.sig-dir.WATCH{color:var(--amber);border-color:rgba(255,168,0,.4);}
+.sig-dir.NEUTRAL{color:var(--body);border-color:var(--b1);}
+.sig-headline{font-family:var(--sans);font-size:.68rem;color:var(--text);line-height:1.5;margin-bottom:.4rem;}
+.sig-chips{display:flex;flex-wrap:wrap;gap:.3rem;margin-bottom:.35rem;}
+.sig-chip{font-family:var(--mono);font-size:.42rem;padding:1px 7px;border:1px solid var(--b2);color:var(--amber2);cursor:pointer;transition:all .15s;}
+.sig-chip:hover{border-color:var(--amber);color:var(--amber);background:var(--amber-dim);}
+.sig-time{font-family:var(--mono);font-size:.38rem;color:var(--body);letter-spacing:.08em;}
+.sig-empty{font-family:var(--mono);font-size:.52rem;color:var(--body);text-align:center;padding:2rem;letter-spacing:.12em;}
+.sig-loading{font-family:var(--mono);font-size:.52rem;color:var(--cyan);text-align:center;padding:2rem;letter-spacing:.12em;animation:hint-fade 1.5s ease-in-out infinite;}
+/* INVESTOR IMPLICATION */
+.cd-impl{margin-top:.8rem;padding:.7rem;border:1px solid var(--b1);background:rgba(0,220,255,.02);position:relative;}
+.cd-impl::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--purple),var(--cyan),transparent);}
+.cd-impl-label{font-family:var(--mono);font-size:.42rem;letter-spacing:.16em;color:var(--body);margin-bottom:.45rem;text-transform:uppercase;}
+.cd-impl-loading{font-family:var(--mono);font-size:.5rem;color:var(--cyan);letter-spacing:.1em;animation:hint-fade 1.5s ease-in-out infinite;}
+.cd-impl-badge{display:inline-block;font-family:var(--mono);font-size:.5rem;letter-spacing:.12em;padding:2px 10px;border:1px solid;margin-bottom:.4rem;}
+.cd-impl-badge.BULLISH{color:var(--green);border-color:rgba(0,255,160,.5);box-shadow:0 0 8px rgba(0,255,160,.2);}
+.cd-impl-badge.CAUTION{color:var(--amber);border-color:rgba(255,168,0,.5);box-shadow:0 0 8px rgba(255,168,0,.2);}
+.cd-impl-badge.AVOID{color:var(--red);border-color:rgba(255,16,64,.5);box-shadow:0 0 8px rgba(255,16,64,.2);}
+.cd-impl-reason{font-family:var(--sans);font-size:.62rem;color:var(--text);line-height:1.55;}
+/* THEATER POSITIONING */
+.theater-block{margin:.7rem;padding:.7rem;border:1px solid var(--b1);background:linear-gradient(135deg,rgba(4,18,32,.97),rgba(2,12,24,.98));position:relative;}
+.theater-block::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,var(--green),var(--amber),var(--red));}
+.theater-head{font-family:var(--mono);font-size:.44rem;letter-spacing:.16em;color:var(--cyan);margin-bottom:.6rem;text-transform:uppercase;}
+.theater-row{display:flex;align-items:baseline;gap:.6rem;padding:.25rem 0;border-bottom:1px solid var(--b1);}
+.theater-row:last-child{border-bottom:none;}
+.theater-label{font-family:var(--mono);font-size:.4rem;letter-spacing:.1em;width:90px;flex-shrink:0;}
+.theater-label.ow{color:var(--green);}
+.theater-label.nt{color:var(--amber);}
+.theater-label.uw{color:var(--red);}
+.theater-cos{display:flex;flex-wrap:wrap;gap:.25rem;flex:1;}
+.theater-co{font-family:var(--mono);font-size:.42rem;padding:1px 6px;border:1px solid;cursor:pointer;transition:all .15s;}
+.theater-co.ow{color:var(--green);border-color:rgba(0,255,160,.35);}
+.theater-co.nt{color:var(--amber);border-color:rgba(255,168,0,.35);}
+.theater-co.uw{color:var(--red);border-color:rgba(255,16,64,.35);}
+.theater-etf{font-family:var(--mono);font-size:.42rem;color:var(--body);margin-top:.55rem;padding-top:.5rem;border-top:1px solid var(--b1);letter-spacing:.05em;}
+/* LIVE REVOLVING DOOR */
+.door-live-item{padding:.4rem 0;border-bottom:1px solid var(--b1);display:flex;gap:.5rem;align-items:flex-start;}
+.door-live-item:last-child{border-bottom:none;}
+.door-pulse{width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:.2rem;}
+.door-pulse.active{background:var(--amber);box-shadow:0 0 5px var(--amber);animation:dot-live-pulse 1.5s ease-in-out infinite;}
+.door-pulse.hist{background:var(--body);}
+.door-live-text{flex:1;}
+.door-live-h{font-family:var(--sans);font-size:.62rem;color:var(--text);line-height:1.45;}
+.door-live-dt{font-family:var(--mono);font-size:.38rem;color:var(--body);margin-top:.1rem;}
+.door-hist-toggle{font-family:var(--mono);font-size:.4rem;color:var(--cyan);cursor:pointer;padding:.4rem 0;display:block;letter-spacing:.08em;text-align:center;border-top:1px solid var(--b1);margin-top:.3rem;}
+.door-hist-section{display:none;}
+.door-hist-section.open{display:block;}
+.escl-delta{font-family:var(--mono);font-size:.36rem;margin-left:.2rem;}
+.escl-delta.up{color:var(--red);}
+.escl-delta.dn{color:var(--cyan);}
 </style>
 </head>
 <body>
@@ -406,16 +511,17 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
       <div class="tnav-item" onclick="setView('web')"><div class="tnav-icon">◉</div><div><div class="tnav-label">Relationship Web</div><div class="tnav-sub">Click any node</div></div></div>
       <div class="tnav-item" onclick="setView('sim')"><div class="tnav-icon">◈</div><div><div class="tnav-label">What If Simulator</div><div class="tnav-sub">Drag to see impact</div></div></div>
       <div class="tnav-item" onclick="setView('compare')"><div class="tnav-icon">⊞</div><div><div class="tnav-label">Company Compare</div><div class="tnav-sub">Side-by-side analysis</div></div></div>
+      <div class="tnav-item" onclick="setView('signals')"><div class="tnav-icon">⚡</div><div><div class="tnav-label">Pre-Award Signals</div><div class="tnav-sub">Budget + contract intel</div></div></div>
     </div>
     <div class="cl-head">◈ Select Conflict</div>
     <div class="conflict-list">
-      <div class="cl-item active" onclick="selectConflict('ukraine')"><div class="cl-name">Ukraine–Russia War</div><div class="cl-region">Eastern Europe</div><div class="cl-badge w">Active War</div><div class="cl-esc"><div class="cl-bar"><div class="cl-fill" style="width:92%"></div></div><div class="cl-n">9.2</div></div></div>
-      <div class="cl-item" onclick="selectConflict('gaza')"><div class="cl-name">Gaza / Israel–Hamas</div><div class="cl-region">Middle East</div><div class="cl-badge w">Active Combat</div><div class="cl-esc"><div class="cl-bar"><div class="cl-fill" style="width:88%"></div></div><div class="cl-n">8.8</div></div></div>
-      <div class="cl-item" onclick="selectConflict('redsea')"><div class="cl-name">Iran Proxy / Red Sea</div><div class="cl-region">Middle East</div><div class="cl-badge w">Multi-Theater</div><div class="cl-esc"><div class="cl-bar"><div class="cl-fill" style="width:78%"></div></div><div class="cl-n">7.8</div></div></div>
-      <div class="cl-item" onclick="selectConflict('sudan')"><div class="cl-name">Sudan Civil War</div><div class="cl-region">Sub-Saharan Africa</div><div class="cl-badge w">Active War</div><div class="cl-esc"><div class="cl-bar"><div class="cl-fill" style="width:71%"></div></div><div class="cl-n">7.1</div></div></div>
-      <div class="cl-item" onclick="selectConflict('taiwan')"><div class="cl-name">Taiwan Strait</div><div class="cl-region">Indo-Pacific</div><div class="cl-badge m">Monitoring</div><div class="cl-esc"><div class="cl-bar"><div class="cl-fill" style="width:62%"></div></div><div class="cl-n">6.2</div></div></div>
-      <div class="cl-item" onclick="selectConflict('indopak')"><div class="cl-name">India–Pakistan Border</div><div class="cl-region">South Asia</div><div class="cl-badge m">Elevated</div><div class="cl-esc"><div class="cl-bar"><div class="cl-fill" style="width:55%"></div></div><div class="cl-n">5.5</div></div></div>
-      <div class="cl-item" onclick="selectConflict('sahel')"><div class="cl-name">Sahel Instability</div><div class="cl-region">West Africa</div><div class="cl-badge l">Latent</div><div class="cl-esc"><div class="cl-bar"><div class="cl-fill" style="width:38%"></div></div><div class="cl-n">3.8</div></div></div>
+      <div class="cl-item active" onclick="selectConflict('ukraine')"><div class="cl-name">Ukraine–Russia War</div><div class="cl-region">Eastern Europe</div><div class="cl-badge w">Active War</div><div class="cl-esc"><div class="cl-bar"><div class="cl-fill" id="escl-bar-ukraine" style="width:92%"></div></div><div class="cl-n" id="escl-ukraine">9.2</div><span class="escl-delta" id="delta-ukraine"></span></div></div>
+      <div class="cl-item" onclick="selectConflict('gaza')"><div class="cl-name">Gaza / Israel–Hamas</div><div class="cl-region">Middle East</div><div class="cl-badge w">Active Combat</div><div class="cl-esc"><div class="cl-bar"><div class="cl-fill" id="escl-bar-gaza" style="width:88%"></div></div><div class="cl-n" id="escl-gaza">8.8</div><span class="escl-delta" id="delta-gaza"></span></div></div>
+      <div class="cl-item" onclick="selectConflict('redsea')"><div class="cl-name">Iran Proxy / Red Sea</div><div class="cl-region">Middle East</div><div class="cl-badge w">Multi-Theater</div><div class="cl-esc"><div class="cl-bar"><div class="cl-fill" id="escl-bar-redsea" style="width:78%"></div></div><div class="cl-n" id="escl-redsea">7.8</div><span class="escl-delta" id="delta-redsea"></span></div></div>
+      <div class="cl-item" onclick="selectConflict('sudan')"><div class="cl-name">Sudan Civil War</div><div class="cl-region">Sub-Saharan Africa</div><div class="cl-badge w">Active War</div><div class="cl-esc"><div class="cl-bar"><div class="cl-fill" id="escl-bar-sudan" style="width:71%"></div></div><div class="cl-n" id="escl-sudan">7.1</div><span class="escl-delta" id="delta-sudan"></span></div></div>
+      <div class="cl-item" onclick="selectConflict('taiwan')"><div class="cl-name">Taiwan Strait</div><div class="cl-region">Indo-Pacific</div><div class="cl-badge m">Monitoring</div><div class="cl-esc"><div class="cl-bar"><div class="cl-fill" id="escl-bar-taiwan" style="width:62%"></div></div><div class="cl-n" id="escl-taiwan">6.2</div><span class="escl-delta" id="delta-taiwan"></span></div></div>
+      <div class="cl-item" onclick="selectConflict('indopak')"><div class="cl-name">India–Pakistan Border</div><div class="cl-region">South Asia</div><div class="cl-badge m">Elevated</div><div class="cl-esc"><div class="cl-bar"><div class="cl-fill" id="escl-bar-indopak" style="width:55%"></div></div><div class="cl-n" id="escl-indopak">5.5</div><span class="escl-delta" id="delta-indopak"></span></div></div>
+      <div class="cl-item" onclick="selectConflict('sahel')"><div class="cl-name">Sahel Instability</div><div class="cl-region">West Africa</div><div class="cl-badge l">Latent</div><div class="cl-esc"><div class="cl-bar"><div class="cl-fill" id="escl-bar-sahel" style="width:38%"></div></div><div class="cl-n" id="escl-sahel">3.8</div><span class="escl-delta" id="delta-sahel"></span></div></div>
     </div>
   </div>
 
@@ -428,6 +534,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
       <div class="vbtn" onclick="setView('web')">◉ REL WEB</div>
       <div class="vbtn" onclick="setView('sim')">◈ SIMULATOR</div>
       <div class="vbtn" onclick="setView('compare')">⊞ COMPARE</div>
+      <div class="vbtn" onclick="setView('signals')">⚡ SIGNALS</div>
     </div>
     <div class="conflict-banner">
       <div class="cb-label">TARGET</div>
@@ -440,140 +547,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
       <!-- MAP VIEW -->
       <div id="view-map" class="view active">
         <div class="map-wrap">
-          <svg id="worldmap" viewBox="0 0 900 460" preserveAspectRatio="xMidYMid meet">
-            <defs>
-              <radialGradient id="map-overlay" cx="50%" cy="50%"><stop offset="0%" stop-color="#0a1828" stop-opacity="0"/><stop offset="100%" stop-color="#020810" stop-opacity="0.7"/></radialGradient>
-              <radialGradient id="bg-grad" cx="50%" cy="50%">
-                <stop offset="0%" stop-color="#041530"/>
-                <stop offset="100%" stop-color="#010810"/>
-              </radialGradient>
-              <filter id="glow-red"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter><filter id="glow-purple"><feGaussianBlur stdDeviation="4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-              <filter id="glow-cyan"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-            </defs>
-            <rect width="900" height="460" fill="url(#bg-grad)"/><rect width="900" height="460" fill="url(#map-overlay)" opacity="0.6"/>
-            <!-- Grid -->
-            <g stroke="rgba(0,220,255,0.05)" stroke-width="0.5">
-              <line x1="0" y1="115" x2="900" y2="115"/><line x1="0" y1="230" x2="900" y2="230"/><line x1="0" y1="345" x2="900" y2="345"/>
-              <line x1="180" y1="0" x2="180" y2="460"/><line x1="360" y1="0" x2="360" y2="460"/><line x1="540" y1="0" x2="540" y2="460"/><line x1="720" y1="0" x2="720" y2="460"/>
-            </g>
-            <!-- Equator -->
-            <line x1="0" y1="230" x2="900" y2="230" stroke="rgba(0,200,255,0.08)" stroke-width="1" stroke-dasharray="6,6"/>
-            <!-- North America -->
-            <path d="M55,55 L175,50 L195,75 L205,125 L185,165 L165,195 L135,215 L105,235 L85,205 L70,175 L60,135 L50,95 Z" fill="rgba(0,220,255,0.05)" stroke="rgba(0,220,255,0.18)" stroke-width="0.8"/>
-            <!-- South America -->
-            <path d="M125,235 L175,230 L195,255 L205,295 L195,335 L180,375 L160,395 L145,375 L130,335 L120,295 L115,265 Z" fill="rgba(0,220,255,0.05)" stroke="rgba(0,220,255,0.18)" stroke-width="0.8"/>
-            <!-- Europe -->
-            <path d="M355,55 L425,50 L440,70 L435,95 L415,110 L395,115 L370,105 L353,90 Z" fill="rgba(0,220,255,0.06)" stroke="rgba(0,220,255,0.25)" stroke-width="0.8"/>
-            <!-- Africa -->
-            <path d="M355,125 L435,120 L455,150 L460,195 L450,245 L435,285 L415,315 L390,325 L370,305 L355,265 L347,215 L345,170 Z" fill="rgba(0,220,255,0.05)" stroke="rgba(0,220,255,0.18)" stroke-width="0.8"/>
-            <!-- Asia -->
-            <path d="M440,45 L675,40 L705,75 L715,125 L695,165 L655,180 L605,175 L555,170 L515,155 L475,135 L450,105 L443,75 Z" fill="rgba(0,200,255,0.04)" stroke="rgba(0,200,255,0.18)" stroke-width="0.8"/>
-            <!-- Middle East -->
-            <path d="M450,125 L515,120 L525,150 L510,180 L475,190 L453,170 Z" fill="rgba(0,220,255,0.06)" stroke="rgba(0,220,255,0.25)" stroke-width="0.8"/>
-            <!-- Australia -->
-            <path d="M675,305 L755,300 L775,330 L770,370 L745,390 L710,385 L690,360 L680,330 Z" fill="rgba(0,220,255,0.05)" stroke="rgba(0,220,255,0.18)" stroke-width="0.8"/>
-
-            <!-- RADAR CIRCLES (center of map) -->
-            <circle cx="450" cy="230" r="80" fill="none" stroke="rgba(0,200,255,0.04)" stroke-width="1"/>
-            <circle cx="450" cy="230" r="160" fill="none" stroke="rgba(0,200,255,0.03)" stroke-width="1"/>
-            <circle cx="450" cy="230" r="240" fill="none" stroke="rgba(0,200,255,0.02)" stroke-width="1"/>
-
-            <!-- RADAR SWEEP on MAP -->
-            <g transform="translate(450,230)">
-              <defs><linearGradient id="sweep-grad" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#00dcff" stop-opacity="0"/><stop offset="100%" stop-color="#00dcff" stop-opacity="0.15"/></linearGradient></defs>
-              <path class="radar-sweep" d="M0,0 L0,-280 A280,280 0 0,1 140,-242 Z" fill="url(#sweep-grad)"/>
-            </g>
-            <!-- Purple ring accent on map -->
-            <circle cx="450" cy="230" r="200" fill="none" stroke="rgba(192,64,255,0.05)" stroke-width="1"/>
-            <circle cx="450" cy="230" r="280" fill="none" stroke="rgba(192,64,255,0.03)" stroke-width="1"/>
-            <!-- UKRAINE HOTSPOT -->
-            <g class="hotspot" onclick="selectConflict('ukraine')" id="hs-ukraine">
-              <circle cx="465" cy="85" r="22" fill="none" stroke="rgba(192,64,255,0.15)" stroke-width="1" stroke-dasharray="3,5"/><circle class="hs-ring war" cx="465" cy="85" r="10" filter="url(#glow-red)"/>
-              <circle class="hs-ring2 war" cx="465" cy="85" r="10"/>
-              <circle class="core" cx="465" cy="85" r="7" fill="rgba(255,34,68,0.3)" stroke="#ff2244" stroke-width="1.5" filter="url(#glow-red)"/>
-              <circle cx="465" cy="85" r="2" fill="#ff4466"/>
-              <line x1="472" y1="78" x2="495" y2="70" stroke="rgba(255,34,68,0.4)" stroke-width="0.5"/>
-              <text x="497" y="68" fill="#ff4466" font-size="6.5" font-family="Share Tech Mono" filter="url(#glow-red)">UKRAINE</text>
-              <text x="497" y="76" fill="rgba(255,100,120,0.7)" font-size="5.5" font-family="Share Tech Mono">ESCL 9.2 ■ ACTIVE WAR</text>
-            </g>
-
-            <!-- GAZA HOTSPOT -->
-            <g class="hotspot" onclick="selectConflict('gaza')" id="hs-gaza">
-              <circle class="hs-ring war" cx="483" cy="147" r="10" style="animation-delay:.5s" filter="url(#glow-red)"/>
-              <circle class="hs-ring2 war" cx="483" cy="147" r="10" style="animation-delay:1.3s"/>
-              <circle class="core" cx="483" cy="147" r="6" fill="rgba(255,34,68,0.25)" stroke="#ff2244" stroke-width="1.2" filter="url(#glow-red)"/>
-              <circle cx="483" cy="147" r="2" fill="#ff4466"/>
-              <line x1="490" y1="141" x2="510" y2="133" stroke="rgba(255,34,68,0.4)" stroke-width="0.5"/>
-              <text x="512" y="131" fill="#ff4466" font-size="6.5" font-family="Share Tech Mono">GAZA</text>
-              <text x="512" y="139" fill="rgba(255,100,120,0.7)" font-size="5.5" font-family="Share Tech Mono">ESCL 8.8 ■ COMBAT</text>
-            </g>
-
-            <!-- RED SEA HOTSPOT -->
-            <g class="hotspot" onclick="selectConflict('redsea')" id="hs-redsea">
-              <circle class="hs-ring war" cx="498" cy="167" r="9" style="animation-delay:1s"/>
-              <circle class="core" cx="498" cy="167" r="5" fill="rgba(255,34,68,0.2)" stroke="#ff2244" stroke-width="1"/>
-              <circle cx="498" cy="167" r="2" fill="#ff4466"/>
-              <text x="505" y="172" fill="rgba(255,100,120,0.7)" font-size="5.5" font-family="Share Tech Mono">RED SEA 7.8</text>
-            </g>
-
-            <!-- SUDAN HOTSPOT -->
-            <g class="hotspot" onclick="selectConflict('sudan')" id="hs-sudan">
-              <circle class="hs-ring war" cx="432" cy="197" r="9" style="animation-delay:1.5s"/>
-              <circle class="core" cx="432" cy="197" r="5" fill="rgba(255,34,68,0.2)" stroke="#ff2244" stroke-width="1"/>
-              <circle cx="432" cy="197" r="2" fill="#ff4466"/>
-              <line x1="426" y1="193" x2="408" y2="184" stroke="rgba(255,34,68,0.3)" stroke-width="0.5"/>
-              <text x="365" y="183" fill="rgba(255,100,120,0.7)" font-size="5.5" font-family="Share Tech Mono">SUDAN 7.1</text>
-            </g>
-
-            <!-- TAIWAN HOTSPOT -->
-            <g class="hotspot" onclick="selectConflict('taiwan')" id="hs-taiwan">
-              <circle cx="690" cy="153" r="22" fill="none" stroke="rgba(192,64,255,0.12)" stroke-width="1" stroke-dasharray="2,6"/><circle class="hs-ring watch" cx="690" cy="153" r="9" style="animation-delay:.3s"/>
-              <circle class="hs-ring2 watch" cx="690" cy="153" r="9" style="animation-delay:1.1s"/>
-              <circle class="core" cx="690" cy="153" r="6" fill="rgba(255,170,0,0.2)" stroke="#ffaa00" stroke-width="1.2"/>
-              <circle cx="690" cy="153" r="2" fill="#ffcc44"/>
-              <line x1="697" y1="147" x2="715" y2="138" stroke="rgba(255,170,0,0.4)" stroke-width="0.5"/>
-              <text x="717" y="136" fill="#ffcc44" font-size="6.5" font-family="Share Tech Mono">TAIWAN</text>
-              <text x="717" y="144" fill="rgba(255,180,60,0.7)" font-size="5.5" font-family="Share Tech Mono">ESCL 6.2 ■ WATCH</text>
-            </g>
-
-            <!-- INDIA-PAKISTAN HOTSPOT -->
-            <g class="hotspot" onclick="selectConflict('indopak')" id="hs-indopak">
-              <circle class="hs-ring watch" cx="581" cy="163" r="8" style="animation-delay:.7s"/>
-              <circle class="core" cx="581" cy="163" r="5" fill="rgba(255,170,0,0.2)" stroke="#ffaa00" stroke-width="1"/>
-              <circle cx="581" cy="163" r="2" fill="#ffcc44"/>
-              <text x="588" y="168" fill="rgba(255,180,60,0.7)" font-size="5.5" font-family="Share Tech Mono">IND/PAK 5.5</text>
-            </g>
-
-            <!-- SAHEL HOTSPOT -->
-            <g class="hotspot" onclick="selectConflict('sahel')" id="hs-sahel">
-              <circle class="core" cx="373" cy="212" r="4" fill="rgba(0,200,255,0.1)" stroke="rgba(0,200,255,0.3)" stroke-width="0.8"/>
-              <text x="380" y="217" fill="rgba(0,200,255,0.35)" font-size="5" font-family="Share Tech Mono">SAHEL 3.8</text>
-            </g>
-
-            <!-- Connection lines between hotspots -->
-            <line x1="465" y1="85" x2="483" y2="147" stroke="url(#line-grad)" stroke-width="0.8" stroke-dasharray="3,4"/>
-            <line x1="483" y1="147" x2="498" y2="167" stroke="rgba(255,34,68,0.08)" stroke-width="0.8" stroke-dasharray="3,4"/>
-            <line x1="465" y1="85" x2="690" y2="153" stroke="rgba(0,200,255,0.04)" stroke-width="0.5" stroke-dasharray="4,8"/>
-          </svg>
-          <div class="map-hint">◈ CLICK ANY CONFLICT HOTSPOT TO BEGIN ANALYSIS ◈</div>
-          <!-- FINGERPRINT RING OVERLAY -->
-          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;opacity:0.025;width:340px;height:340px;">
-            <svg viewBox="0 0 340 340" width="340" height="340">
-              <circle cx="170" cy="170" r="20" fill="none" stroke="#00dcff" stroke-width="1"/>
-              <circle cx="170" cy="170" r="35" fill="none" stroke="#00dcff" stroke-width="0.8"/>
-              <circle cx="170" cy="170" r="52" fill="none" stroke="#c040ff" stroke-width="0.8"/>
-              <circle cx="170" cy="170" r="70" fill="none" stroke="#00dcff" stroke-width="0.8"/>
-              <circle cx="170" cy="170" r="90" fill="none" stroke="#c040ff" stroke-width="0.6"/>
-              <circle cx="170" cy="170" r="112" fill="none" stroke="#00dcff" stroke-width="0.6"/>
-              <circle cx="170" cy="170" r="136" fill="none" stroke="#c040ff" stroke-width="0.6"/>
-              <circle cx="170" cy="170" r="162" fill="none" stroke="#00dcff" stroke-width="0.5"/>
-              <!-- crosshairs -->
-              <line x1="170" y1="0" x2="170" y2="340" stroke="#00dcff" stroke-width="0.4"/>
-              <line x1="0" y1="170" x2="340" y2="170" stroke="#00dcff" stroke-width="0.4"/>
-              <line x1="50" y1="50" x2="290" y2="290" stroke="#c040ff" stroke-width="0.3"/>
-              <line x1="290" y1="50" x2="50" y2="290" stroke="#c040ff" stroke-width="0.3"/>
-            </svg>
-          </div>
+          <div id="mapbox-container"></div>
           <div class="ribbon-wrap">
             <div class="ribbon-tag">INTEL</div>
             <div class="ribbon-scroll"><div class="ribbon-track" id="intel-ribbon-track">
@@ -618,6 +592,11 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
               <div id="intel-news"></div>
             </div>
           </div>
+        </div>
+        <div class="theater-block" id="theater-positioning">
+          <div class="theater-head">◈ Theater Positioning — <span id="theater-conflict-name">Select Conflict</span></div>
+          <div id="theater-rows"></div>
+          <div class="theater-etf" id="theater-etf"></div>
         </div>
       </div>
 
@@ -691,6 +670,13 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
         </div>
       </div>
 
+      <!-- SIGNALS -->
+      <div id="view-signals" class="view">
+        <div class="signals-wrap" id="signals-feed">
+          <div class="sig-loading">◈ LOADING PRE-AWARD SIGNALS...</div>
+        </div>
+      </div>
+
     </div><!-- end view-area -->
   </div><!-- end center -->
 
@@ -723,6 +709,47 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
 
 </div><!-- end main -->
 </div><!-- end shell -->
+
+<!-- CONNECTION DRAWER -->
+<div class="conn-drawer-overlay" id="conn-drawer-overlay" onclick="closeConnDrawer()"></div>
+<div class="conn-drawer" id="conn-drawer">
+  <div class="conn-drawer-head">
+    <div class="conn-drawer-title">◈ COMPANY INTELLIGENCE — <span id="cd-co-ticker">LMT</span></div>
+    <div class="conn-drawer-close" onclick="closeConnDrawer()">[ CLOSE ]</div>
+  </div>
+  <div class="conn-drawer-body">
+    <div class="cd-ticker" id="cd-ticker">LMT</div>
+    <div class="cd-fullname" id="cd-fullname">Lockheed Martin Corporation</div>
+    <div class="cd-section">
+      <div class="cd-section-label">Financial Metrics</div>
+      <div class="cd-row"><span class="cd-dlabel">DOD Contracts (FY)</span><span class="cd-dvalue" id="cd-dod">—</span></div>
+      <div class="cd-row"><span class="cd-dlabel">YTD Stock</span><span class="cd-dvalue" id="cd-ytd">—</span></div>
+      <div class="cd-row"><span class="cd-dlabel">Lobbying Spend</span><span class="cd-dvalue" id="cd-lobby">—</span></div>
+      <div class="cd-row"><span class="cd-dlabel">Congress Dependency</span><span class="cd-dvalue" id="cd-dep">—</span></div>
+    </div>
+    <div class="cd-section">
+      <div class="cd-section-label">Revolving Door</div>
+      <div id="cd-door-live"></div>
+      <div id="cd-door-text" class="cd-nbody" style="display:none;">—</div>
+    </div>
+    <div class="cd-section">
+      <div class="cd-section-label">Money Flow Chain</div>
+      <div class="cd-chain" id="cd-chain">
+        <div class="cd-node"><div class="cd-step">Step 01</div><div class="cd-ntitle" id="cd-n1">Company</div><div class="cd-nbody" id="cd-n1b">—</div></div>
+        <div class="cd-arrow">↓</div>
+        <div class="cd-node"><div class="cd-step">Step 02</div><div class="cd-ntitle">Lobbying</div><div class="cd-nbody" id="cd-n2b">—</div></div>
+        <div class="cd-arrow">↓</div>
+        <div class="cd-node"><div class="cd-step">Step 03</div><div class="cd-ntitle">Congress</div><div class="cd-nbody" id="cd-n3b">—</div></div>
+        <div class="cd-arrow">↓</div>
+        <div class="cd-node"><div class="cd-step">Step 04</div><div class="cd-ntitle">DOD Contracts</div><div class="cd-nbody" id="cd-n4b">—</div></div>
+      </div>
+    </div>
+    <div class="cd-impl" id="cd-investor-impl">
+      <div class="cd-impl-label">◈ Investor Implication</div>
+      <div id="cd-impl-body"><div class="cd-impl-loading">◈ ANALYZING...</div></div>
+    </div>
+  </div>
+</div>
 
 <script>
 // BINARY RAIN
@@ -873,10 +900,11 @@ function applyIncomingContext(){
 
 async function hydrateLiveData(){
   try{
-    const [newsRes,perfRes,statusRes]=await Promise.all([
+    const [newsRes,perfRes,statusRes,contractsRes]=await Promise.all([
       fetch('/api/geopolitics-news',{cache:'no-store'}).catch(()=>null),
       fetch('/api/global-market-performance',{cache:'no-store'}).catch(()=>null),
       fetch('/api/status',{cache:'no-store'}).catch(()=>null),
+      fetch('/api/defense-contracts',{cache:'no-store'}).catch(()=>null),
     ]);
 
     if(newsRes&&newsRes.ok){
@@ -915,6 +943,21 @@ async function hydrateLiveData(){
         regime.className=`hst-v ${ok?'g':'r'}`;
       }
     }
+
+    if(contractsRes&&contractsRes.ok){
+      const contractsData=await contractsRes.json().catch(()=>({}));
+      const contracts=Array.isArray(contractsData?.contracts)?contractsData.contracts:[];
+      if(contracts.length){
+        const track=document.getElementById('intel-ribbon-track');
+        if(track){
+          const items=contracts.slice(0,10).map(c=>`${c.headline||''} — ${c.source||'DOD'}`).filter(Boolean);
+          if(items.length){
+            const all=[...items,...items];
+            track.innerHTML=all.map(item=>`<div class="ri">${item}</div>`).join('');
+          }
+        }
+      }
+    }
   }catch{}
 }
 
@@ -924,14 +967,16 @@ function setView(v){
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
   document.querySelectorAll('.vbtn').forEach(el=>el.classList.remove('active'));
   document.querySelectorAll('.tnav-item').forEach(el=>el.classList.remove('active'));
-  const vm={map:0,intel:1,money:2,web:3,sim:4,compare:5};
+  const vm={map:0,intel:1,money:2,web:3,sim:4,compare:5,signals:6};
   document.getElementById('view-'+v).classList.add('active');
   document.querySelectorAll('.vbtn')[vm[v]].classList.add('active');
   document.querySelectorAll('.tnav-item')[vm[v]].classList.add('active');
+  if(v==='map')initMapbox();
   if(v==='web')initWeb();
   if(v==='sim'){renderSimCo();updateSim();}
   if(v==='compare')initCompare();
   if(v==='money')renderMoneyTrace('LMT');
+  if(v==='signals')renderSignals();
   persistWarRoomContext({suggestedMode:v==='map'||v==='intel'?'geopolitics':'stock'});
 }
 
@@ -967,6 +1012,7 @@ function renderIntel(){
   document.getElementById('intel-tags').innerHTML=c.tags.map(t=>`<span class="tag ${t.startsWith('$')||t.includes('Aid')?'c':'r'}">${t}</span>`).join('');
   document.getElementById('intel-copills').innerHTML=`<div class="co-pill active" onclick="filterCo(null,this)">ALL</div>`+c.companies.map(co=>`<div class="co-pill" onclick="filterCo('${co}',this)">${co}</div>`).join('');
   renderIntelContracts(null);
+  renderTheaterPositioning();
   // Show static intel news immediately
   const newsEl=document.getElementById('intel-news');
   newsEl.innerHTML=c.news.map(n=>`<div class="news-item"><div class="news-dt">${n.dt}</div><div class="news-h">${n.h}</div><div class="news-s">◈ ${n.s}</div></div>`).join('');
@@ -1017,7 +1063,7 @@ function renderConnections(){
   document.getElementById('conn-conflict-label').textContent=c.name;
   document.getElementById('connections-list').innerHTML=c.companies.map(co=>{
     const d=COMPANIES[co];if(!d)return'';
-    return`<div class="reveal-card">
+    return`<div class="reveal-card" data-co="${co}" onclick="openConnDrawer('${co}')">
       <div class="rc-head"><div class="rc-type">Company Connection</div><div class="rc-badge r">${co}</div></div>
       <div class="rc-body">
         <div class="rc-title">${co} → Lobby → Congress → Contracts</div>
@@ -1259,6 +1305,203 @@ function renderTimeline(yr){
 }
 function updateScrubber(yr){renderTimeline(yr);}
 
+// MAPBOX
+const CONFLICT_COORDS={
+  ukraine:{lng:31.2,lat:49.0,type:'war'},
+  gaza:{lng:34.46,lat:31.5,type:'war'},
+  redsea:{lng:43.0,lat:15.5,type:'war'},
+  sudan:{lng:30.2,lat:15.5,type:'war'},
+  taiwan:{lng:120.97,lat:23.7,type:'watch'},
+  indopak:{lng:74.0,lat:30.5,type:'watch'},
+  sahel:{lng:1.5,lat:14.5,type:'latent'},
+};
+let _leafletInited=false,_leafletMap=null;
+function initMapbox(){
+  const container=document.getElementById('mapbox-container');
+  if(!container)return;
+  if(_leafletInited){if(_leafletMap)requestAnimationFrame(()=>_leafletMap.invalidateSize());return;}
+  _leafletInited=true;
+  requestAnimationFrame(()=>{
+    _leafletMap=L.map('mapbox-container',{zoomControl:false,attributionControl:false}).setView([20,15],2);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:19}).addTo(_leafletMap);
+    _leafletMap.invalidateSize();
+    Object.entries(CONFLICT_COORDS).forEach(([id,co])=>{
+      const el=document.createElement('div');
+      el.className=`cf-marker cf-${co.type}`;
+      el.innerHTML='<div class="cf-ring"></div><div class="cf-ring2"></div><div class="cf-core"></div>';
+      el.title=CONFLICTS[id]?.name||id;
+      el.addEventListener('click',()=>selectConflict(id));
+      const icon=L.divIcon({html:el,className:'',iconSize:[14,14],iconAnchor:[7,7]});
+      L.marker([co.lat,co.lng],{icon}).addTo(_leafletMap);
+    });
+  });
+}
+
+// CONNECTION DRAWER
+function openConnDrawer(co){
+  const d=COMPANIES[co];if(!d)return;
+  document.getElementById('cd-co-ticker').textContent=co;
+  document.getElementById('cd-ticker').textContent=co;
+  document.getElementById('cd-fullname').textContent=d.name||co;
+  document.getElementById('cd-dod').textContent=d.dod||'—';
+  document.getElementById('cd-ytd').textContent=d.ytd||'—';
+  document.getElementById('cd-lobby').textContent=d.lobbying||'—';
+  document.getElementById('cd-dep').textContent=d.dep?`${d.dep}/100`:'—';
+  document.getElementById('cd-door-text').textContent=d.door||'—';
+  document.getElementById('cd-n1').textContent=co;
+  document.getElementById('cd-n1b').textContent=`${d.name||co} — DOD dependency ${d.dep||'?'}/100`;
+  document.getElementById('cd-n2b').textContent=d.lobbying||'—';
+  document.getElementById('cd-n3b').textContent=d.congress||'—';
+  document.getElementById('cd-n4b').textContent=d.dod||'—';
+  document.getElementById('conn-drawer').classList.add('open');
+  document.getElementById('conn-drawer-overlay').classList.add('open');
+  document.body.style.overflow='hidden';
+  fetchRevolvingDoor(co);
+  fetchInvestorImplication(co);
+}
+function closeConnDrawer(){
+  document.getElementById('conn-drawer').classList.remove('open');
+  document.getElementById('conn-drawer-overlay').classList.remove('open');
+  document.body.style.overflow='';
+}
+
+// ESCALATION SCORES
+async function fetchEscalationScores(){
+  try{
+    const res=await fetch('/api/escalation-scores',{cache:'no-store'});
+    if(!res.ok)return;
+    const data=await res.json();
+    const scores=data?.scores||{};
+    Object.entries(scores).forEach(([id,s])=>{
+      const scoreEl=document.getElementById('escl-'+id);
+      const barEl=document.getElementById('escl-bar-'+id);
+      const deltaEl=document.getElementById('delta-'+id);
+      if(scoreEl)scoreEl.textContent=s.score;
+      if(barEl)barEl.style.width=(s.score*10)+'%';
+      if(deltaEl){
+        if(s.delta>0){deltaEl.textContent='↑'+s.delta;deltaEl.className='escl-delta up';}
+        else if(s.delta<0){deltaEl.textContent='↓'+Math.abs(s.delta);deltaEl.className='escl-delta dn';}
+        else{deltaEl.textContent='';deltaEl.className='escl-delta';}
+      }
+    });
+  }catch{}
+}
+
+// PRE-AWARD SIGNALS
+let _signalsLoaded=false;
+async function renderSignals(){
+  const feed=document.getElementById('signals-feed');
+  if(!feed)return;
+  if(_signalsLoaded)return;
+  feed.innerHTML='<div class="sig-loading">◈ LOADING PRE-AWARD SIGNALS...</div>';
+  try{
+    const res=await fetch('/api/pre-award-signals',{cache:'no-store'});
+    if(!res.ok)throw new Error('fetch failed');
+    const data=await res.json();
+    const signals=Array.isArray(data?.signals)?data.signals:[];
+    if(!signals.length){feed.innerHTML='<div class="sig-empty">◈ NO SIGNALS AVAILABLE</div>';return;}
+    _signalsLoaded=true;
+    feed.innerHTML=signals.map(s=>{
+      const age=s.datetime?relTime(s.datetime):'';
+      const chips=s.companies&&s.companies.length
+        ?`<div class="sig-chips">${s.companies.map(c=>`<span class="sig-chip" onclick="openConnDrawer('${c}')">${c}</span>`).join('')}</div>`
+        :'';
+      return`<div class="sig-card">
+        <div class="sig-top"><span class="sig-type ${s.type}">${s.type.replace('_',' ')}</span><span class="sig-dir ${s.direction}">${s.direction}</span></div>
+        <div class="sig-headline"><a href="${s.url||'#'}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">${s.headline}</a></div>
+        ${chips}
+        <div class="sig-time">${age?age+' · ':''}${s.source||''}</div>
+      </div>`;
+    }).join('');
+  }catch{feed.innerHTML='<div class="sig-empty">◈ SIGNAL FEED UNAVAILABLE</div>';}
+}
+
+function relTime(dtStr){
+  const ts=Date.parse(String(dtStr||''));
+  if(!Number.isFinite(ts))return'';
+  const diff=Math.floor((Date.now()-ts)/1000);
+  if(diff<3600)return Math.max(1,Math.floor(diff/60))+'m ago';
+  if(diff<86400)return Math.floor(diff/3600)+'h ago';
+  return Math.floor(diff/86400)+'d ago';
+}
+
+// REVOLVING DOOR LIVE
+async function fetchRevolvingDoor(co){
+  const el=document.getElementById('cd-door-live');
+  if(!el)return;
+  el.innerHTML='<div class="cd-impl-loading">◈ LOADING...</div>';
+  try{
+    const res=await fetch('/api/revolving-door-watch',{cache:'no-store'});
+    if(!res.ok)throw new Error();
+    const data=await res.json();
+    const items=(data?.door?.[co]||[]);
+    if(!items.length){el.innerHTML='<div class="cd-nbody" style="color:var(--body)">No recent activity found.</div>';return;}
+    const active=items.filter(i=>i.status==='ACTIVE');
+    const hist=items.filter(i=>i.status==='HISTORICAL');
+    let html=active.map(i=>`<div class="door-live-item">
+      <div class="door-pulse active"></div>
+      <div class="door-live-text"><div class="door-live-h">${i.headline}</div><div class="door-live-dt">ACTIVE · ${i.datetime||''}</div></div>
+    </div>`).join('');
+    if(hist.length){
+      html+=`<span class="door-hist-toggle" onclick="this.nextElementSibling.classList.toggle('open')">▸ SHOW ${hist.length} HISTORICAL</span>
+      <div class="door-hist-section">${hist.map(i=>`<div class="door-live-item">
+        <div class="door-pulse hist"></div>
+        <div class="door-live-text"><div class="door-live-h" style="color:var(--body)">${i.headline}</div><div class="door-live-dt">${i.datetime||''}</div></div>
+      </div>`).join('')}</div>`;
+    }
+    el.innerHTML=html;
+  }catch{el.innerHTML=`<div class="cd-nbody">${document.getElementById('cd-door-text')?.textContent||'—'}</div>`;}
+}
+
+// INVESTOR IMPLICATION
+async function fetchInvestorImplication(co){
+  const el=document.getElementById('cd-impl-body');
+  if(!el)return;
+  el.innerHTML='<div class="cd-impl-loading">◈ ANALYZING...</div>';
+  const d=COMPANIES[co];
+  if(!d){el.innerHTML='<div class="cd-impl-reason" style="color:var(--body)">No data available.</div>';return;}
+  const conflict=currentConflict;
+  const cData=CONFLICTS[conflict];
+  const recentSignals=cData?.news?.slice(0,3).map(n=>n.h)||[];
+  const escScore=parseFloat(document.getElementById('escl-'+conflict)?.textContent)||6;
+  try{
+    const res=await fetch('/api/investor-implication',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({conflict:cData?.name||conflict,company:co,escalationScore:escScore,dependencyScore:d.dep,recentSignals}),
+    });
+    if(!res.ok)throw new Error();
+    const {signal,reasoning}=await res.json();
+    const cls=signal==='BULLISH'?'BULLISH':signal==='AVOID'?'AVOID':'CAUTION';
+    el.innerHTML=`<div class="cd-impl-badge ${cls}">${signal}</div><div class="cd-impl-reason">${reasoning||''}</div>`;
+  }catch{el.innerHTML='<div class="cd-impl-reason" style="color:var(--body)">Analysis unavailable — check ANTHROPIC_API_KEY.</div>';}
+}
+
+// THEATER POSITIONING
+function renderTheaterPositioning(){
+  const c=CONFLICTS[currentConflict];
+  if(!c)return;
+  const escScore=parseFloat(document.getElementById('escl-'+currentConflict)?.textContent)||5;
+  document.getElementById('theater-conflict-name').textContent=c.name;
+  const ow=[],nt=[],uw=[];
+  (c.companies||[]).forEach(co=>{
+    const d=COMPANIES[co];if(!d)return;
+    if(d.dep>70&&escScore>7)ow.push(co);
+    else if(d.dep>=40||escScore>=4)nt.push(co);
+    else uw.push(co);
+  });
+  // Companies not in this conflict's list go to underweight
+  Object.keys(COMPANIES).forEach(co=>{
+    if(!(c.companies||[]).includes(co))uw.push(co);
+  });
+  const rowHtml=(arr,cls)=>arr.length?`<div class="theater-cos">${arr.map(co=>`<span class="theater-co ${cls}" onclick="openConnDrawer('${co}')">${co}</span>`).join('')}</div>`:'<div class="theater-cos"><span style="font-family:var(--mono);font-size:.42rem;color:var(--body)">—</span></div>';
+  document.getElementById('theater-rows').innerHTML=`
+    <div class="theater-row"><div class="theater-label ow">OVERWEIGHT</div>${rowHtml(ow,'ow')}</div>
+    <div class="theater-row"><div class="theater-label nt">NEUTRAL</div>${rowHtml(nt,'nt')}</div>
+    <div class="theater-row"><div class="theater-label uw">UNDERWEIGHT</div>${rowHtml(uw,'uw')}</div>`;
+  document.getElementById('theater-etf').textContent='Consider XAR / ITA ETF for broad MIC exposure vs single-name risk';
+}
+
 // INIT
 initMoneySelectors();
 renderRevolvingDoor();
@@ -1269,6 +1512,12 @@ applyIncomingContext();
 persistWarRoomContext();
 hydrateLiveData();
 setInterval(hydrateLiveData, 60000);
+function refreshContractsTicker(){fetch('/api/defense-contracts',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(d=>{if(!d?.contracts?.length)return;const track=document.getElementById('intel-ribbon-track');if(!track)return;const items=d.contracts.slice(0,10).map(c=>`${c.headline||''} — ${c.source||'DOD'}`).filter(Boolean);if(items.length){const all=[...items,...items];track.innerHTML=all.map(i=>`<div class="ri">${i}</div>`).join('');}}).catch(()=>{});}
+refreshContractsTicker();
+setInterval(refreshContractsTicker, 1800000);
+fetchEscalationScores();
+setInterval(fetchEscalationScores, 1800000);
+initMapbox();
 </script>
 </body>
 </html>
