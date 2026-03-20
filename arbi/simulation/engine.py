@@ -34,7 +34,7 @@ log = get_logger("simulation.engine")
 # ── Config ────────────────────────────────────────────────────────────────────
 
 SIM_DB_PATH        = "simulation_knowledge.db"   # shared across all sim instances
-LOOP_INTERVAL_SEC  = 15       # how often the main loop runs
+LOOP_INTERVAL_SEC  = 5        # how often the main loop runs (5s for intraday)
 CANDLE_TIMEFRAME   = "1h"
 STARTING_BALANCE   = 100.0
 # ── Aggressive paper-mode sizing ─────────────────────────────────────────────
@@ -96,7 +96,12 @@ def init_sim_db():
             features         TEXT,
             status           TEXT    NOT NULL DEFAULT 'OPEN',
             exit_reason      TEXT,
-            regime_at_entry  TEXT
+            regime_at_entry  TEXT,
+            score_used       INTEGER,
+            ev_val           REAL,
+            kelly_frac       REAL,
+            size_usd         REAL,
+            orderflow_score  REAL
         );
 
         CREATE TABLE IF NOT EXISTS sim_signals (
@@ -165,6 +170,11 @@ def init_sim_db():
     for col_sql in [
         "ALTER TABLE sim_trades ADD COLUMN exit_reason TEXT",
         "ALTER TABLE sim_trades ADD COLUMN regime_at_entry TEXT",
+        "ALTER TABLE sim_trades ADD COLUMN score_used INTEGER",
+        "ALTER TABLE sim_trades ADD COLUMN ev_val REAL",
+        "ALTER TABLE sim_trades ADD COLUMN kelly_frac REAL",
+        "ALTER TABLE sim_trades ADD COLUMN size_usd REAL",
+        "ALTER TABLE sim_trades ADD COLUMN orderflow_score REAL",
     ]:
         try:
             conn.execute(col_sql)
@@ -191,7 +201,9 @@ class SimulationEngine:
         self._running    = False
         self._lock       = threading.Lock()
 
-        self._ws_feed = _get_ws_feed(SYMBOLS, exchange=_ACTIVE_EXCHANGE)
+        self._symbol_cooldown: dict = {}   # symbol → cooldown_until_ts
+        self._ws_feed = _get_ws_feed(SYMBOLS, price_callback=self._on_ws_price,
+                                     exchange=_ACTIVE_EXCHANGE)
         self._ws_feed.start()
 
         # Session-level exit tracking (in-memory, for summary stats)
@@ -277,7 +289,7 @@ class SimulationEngine:
         # 5. Paper trade the best signal
         if signals:
             best = max(signals, key=lambda s: s.get("score", 0))
-            if best["score"] > 10 and len(self.positions) < 3:
+            if best["score"] >= 55 and len(self.positions) < 3:
                 self._paper_enter(best, market_data, regime)
 
         # 6. Monitor and close open positions
@@ -579,10 +591,42 @@ class SimulationEngine:
         if not price or sym in self.positions:
             return
 
+        # Symbol cooldown — wait 60s after last exit on this symbol
+        now = time.time()
+        if now < self._symbol_cooldown.get(sym, 0.0):
+            log.info("[SIM] COOLDOWN %s — %.0fs remaining", sym,
+                     self._symbol_cooldown[sym] - now)
+            return
+
         size_usd = self.balance * RISK_PER_TRADE_PCT * signal.get("score", 50) / 100 * regime.get("size_mult", 1.0)
         size_usd = max(size_usd, self.balance * PAPER_MIN_SIZE_PCT)  # floor: at least 10%
         size_usd = min(size_usd, self.balance * PAPER_MAX_SIZE_PCT)  # cap:   at most 35%
         regime_name = regime.get("regime", "RANGING")
+
+        # FIX 2: TREND_DOWN only allows mean_reversion; block all other strategies
+        if regime_name == "TREND_DOWN" and signal.get("strategy") != "mean_reversion":
+            log.info("[SIM] SKIP %s — TREND_DOWN blocks %s", sym, signal.get("strategy"))
+            return
+
+        # EV/Kelly computation — done before INSERT so we can persist these fields
+        try:
+            from core.ev_model import EVModel
+            strategy_name = signal.get("strategy", "mean_reversion")
+            _EV_PRIORS_SIM = {
+                "funding_rate_arb":   (0.68, 0.010, 0.004),
+                "mean_reversion":     (0.60, 0.008, 0.005),
+                "cross_exchange_arb": (0.65, 0.003, 0.002),
+                "liquidity_signal":   (0.55, 0.015, 0.008),
+            }
+            priors = _EV_PRIORS_SIM.get(strategy_name, (0.55, 0.010, 0.007))
+            base_p, avg_w, avg_l = priors
+            p_win  = min(max(base_p + (signal.get("score", 50) - 50) / 200.0, 0.30), 0.92)
+            ev_val = EVModel.compute(p_win, avg_w, avg_l, 0.0002, 0.0005)
+            kelly  = EVModel.kelly_fraction(p_win, avg_w, avg_l)
+        except Exception:
+            ev_val, kelly, p_win = 0.0, 0.0, 0.0
+
+        of_score = signal.get("orderflow_score")   # may be None if orderflow not run
 
         self.positions[sym] = {
             "strategy":       signal["strategy"],
@@ -602,18 +646,25 @@ class SimulationEngine:
         conn = sqlite3.connect(SIM_DB_PATH)
         conn.execute("""
             INSERT INTO sim_trades
-              (ts, sim_user, symbol, strategy, side, entry_price, features, status, regime_at_entry)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'OPEN', ?)
+              (ts, sim_user, symbol, strategy, side, entry_price, features, status,
+               regime_at_entry, score_used, ev_val, kelly_frac, size_usd, orderflow_score)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'OPEN', ?, ?, ?, ?, ?, ?)
         """, (time.time(), self.sim_user, sym, signal["strategy"],
-              signal.get("action","BUY"), price, json.dumps(signal.get("features",{})), regime_name))
+              signal.get("action", "BUY"), price, json.dumps(signal.get("features", {})),
+              regime_name, signal.get("score", 0), ev_val, kelly, size_usd, of_score))
         conn.commit()
         conn.close()
 
         write_trade(self.sim_user, sym, signal["strategy"], signal.get("action","BUY"), price,
                     status="OPEN", score=signal.get("score",0), regime_at_entry=regime_name)
 
-        log.info("[SIM] ENTER %s %s @ $%.4f size=$%.2f score=%.0f regime=%s",
-                 signal.get("action","BUY"), sym, price, size_usd, signal.get("score",0), regime_name)
+        log.info(
+            "[SIM] ENTER %s %s @ $%.4f | size=$%.2f | score=%.0f | "
+            "regime=%s | EV=%.6f | kelly=%.4f | p_win=%.2f | of=%.1f",
+            signal.get("action", "BUY"), sym, price, size_usd,
+            signal.get("score", 0), regime_name, ev_val, kelly, p_win,
+            of_score if of_score is not None else -1.0,
+        )
 
     def _monitor_positions(self, market_data: dict, regime: dict):
         """
@@ -663,6 +714,9 @@ class SimulationEngine:
         if not pos:
             return
 
+        # Set per-symbol cooldown — no re-entry for 60s after exit
+        self._symbol_cooldown[sym] = time.time() + 60
+
         pnl_usd      = pos["size_usd"] * pnl_pct
         self.balance += pnl_usd
         self.trade_count += 1
@@ -700,6 +754,92 @@ class SimulationEngine:
                  sym, pnl_pct*100, pnl_usd, reason, hold_mins, regime_entry, self.balance)
 
     # ── Data logging ──────────────────────────────────────────────────────────
+
+    # ── WS-event-driven exit check ────────────────────────────────────────────
+
+    def _on_ws_price(self, symbol: str, price: float) -> None:
+        """
+        Called on every WebSocket price tick.
+        Checks open positions for TP/SL/time-exit without waiting for the
+        5-second polled loop.  Uses in-memory position data only (no DB I/O).
+        """
+        if not self._running:
+            return
+
+        with self._lock:
+            pos = self.positions.get(symbol)
+            if not pos:
+                return
+
+            entry    = pos["entry_price"]
+            strategy = pos["strategy"]
+            if entry <= 0:
+                return
+
+            pnl_pct = (price - entry) / entry
+            if pos.get("side") == "SELL":
+                pnl_pct = -pnl_pct
+
+            exits = STRATEGY_EXITS.get(strategy) or REGIME_EXITS.get("RANGING")
+            tp    = exits["tp"]
+            sl    = exits["sl"]
+            max_hold_hrs = exits["max_hold_hrs"]
+            hours_held   = (time.time() - pos["entry_ts"]) / 3600
+
+            reason = None
+            if pnl_pct >= tp:
+                reason = "take_profit"
+            elif pnl_pct <= sl:
+                reason = "stop_loss"
+            elif hours_held >= max_hold_hrs:
+                reason = "time_exit"
+
+            if reason:
+                # Remove now (inside lock) so the polled loop won't double-exit
+                self.positions.pop(symbol, None)
+
+        if reason:
+            # Record exit outside the lock (DB I/O is slow)
+            self._symbol_cooldown[symbol] = time.time() + 60
+            self._paper_exit_record(symbol, pos, price, pnl_pct, reason)
+
+    def _paper_exit_record(self, sym: str, pos: dict,
+                           exit_price: float, pnl_pct: float, reason: str) -> None:
+        """Write exit outcome to DB.  Called from _on_ws_price (outside lock)."""
+        pnl_usd      = pos["size_usd"] * pnl_pct
+        self.balance += pnl_usd
+        self.trade_count += 1
+        if pnl_pct > 0:
+            self.session_wins += 1
+        hold_hrs     = (time.time() - pos["entry_ts"]) / 3600
+        hold_mins    = round(hold_hrs * 60, 1)
+        regime_entry = pos.get("regime_at_entry", "UNKNOWN")
+
+        self._exit_counts[reason] = self._exit_counts.get(reason, 0) + 1
+        self._hold_minutes.append(hold_mins)
+
+        conn = sqlite3.connect(SIM_DB_PATH)
+        conn.execute("""
+            UPDATE sim_trades
+            SET exit_price=?, pnl_pct=?, profitable=?, hold_hrs=?, status='CLOSED',
+                exit_reason=?, regime_at_entry=?
+            WHERE rowid=(
+                SELECT rowid FROM sim_trades
+                WHERE sim_user=? AND symbol=? AND status='OPEN'
+                ORDER BY ts DESC LIMIT 1
+            )
+        """, (exit_price, round(pnl_pct * 100, 4), 1 if pnl_pct > 0 else 0,
+              round(hold_hrs, 2), reason, regime_entry, self.sim_user, sym))
+        conn.commit()
+        conn.close()
+
+        write_trade(self.sim_user, sym, pos["strategy"], pos["side"], pos["entry_price"],
+                    status="CLOSED", exit_price=exit_price, pnl_pct=pnl_pct,
+                    profitable=pnl_pct > 0, hold_hrs=hold_hrs,
+                    exit_reason=reason, regime_at_entry=regime_entry)
+
+        log.info("[SIM/WS] EXIT %s pnl=%.2f%% ($%.2f) reason=%s hold=%.0fm | balance=$%.2f",
+                 sym, pnl_pct * 100, pnl_usd, reason, hold_mins, self.balance)
 
     def _log_signal(self, signal: dict):
         conn = sqlite3.connect(SIM_DB_PATH)

@@ -1,5 +1,6 @@
 # execution/router.py — Connects ranked opportunities to order execution
 
+import collections
 import time
 from typing import Optional
 
@@ -21,7 +22,53 @@ from config import (
     FAST_SCALP_PAIRS, FAST_SCALP_MIN_SCORE, FAST_SCALP_MAX_SPREAD_PCT,
     FAST_SCALP_CAPITAL_PCT, FAST_SCALP_MAX_TRADES_PER_HOUR,
     FAST_SCALP_CONSEC_LOSS_LIMIT, FAST_SCALP_COOLDOWN_SEC,
+    MIN_SCORE_THRESHOLD, MIN_EV_THRESHOLD, MAX_KELLY_PCT,
+    SYMBOL_COOLDOWN_SEC, REGIME_CACHE_TTL_SEC, EV_HISTORY_WINDOW,
+    ACTIVE_MAKER_FEE, ACTIVE_TAKER_FEE, EXCHANGE,
 )
+
+# ── EV priors per signal/strategy type ────────────────────────────────────────
+# (base_p_win @ score=50, avg_win fraction, avg_loss fraction)
+# p_win is adjusted: += (score - 50) / 200  (score 100 → +0.25 above base)
+_EV_PRIORS: dict[str, tuple] = {
+    "cross_exchange_arb": (0.65, 0.003, 0.002),  # near-certain when edge confirmed
+    "triangular_arb":     (0.70, 0.003, 0.001),  # highest certainty
+    "arbitrage":          (0.65, 0.003, 0.002),  # router strategy alias
+    "liquidity_signal":   (0.55, 0.015, 0.008),  # directional book pressure
+    "liquidity":          (0.55, 0.015, 0.008),
+    "vol_breakout":       (0.45, 0.020, 0.010),  # momentum — lower p_win, bigger move
+    "breakout":           (0.45, 0.020, 0.010),
+    "mean_reversion":     (0.60, 0.008, 0.005),  # high win rate, smaller moves
+    "funding_rate_arb":   (0.68, 0.010, 0.004),  # carry trade
+}
+
+# Regime → allowed opp types (user spec overrides detector defaults)
+_REGIME_ALLOWED: dict[str, set] = {
+    "TREND_UP":   {"vol_breakout", "breakout", "cross_exchange_arb", "triangular_arb"},
+    "TREND_DOWN": {"mean_reversion"},                              # only MR long entries
+    "RANGING":    {"mean_reversion", "liquidity_signal", "liquidity",
+                   "funding_rate_arb", "cross_exchange_arb", "triangular_arb"},
+    "HIGH_VOL":   {"cross_exchange_arb", "triangular_arb"},       # market-neutral only
+    "LOW_VOL":    {"mean_reversion", "liquidity_signal", "liquidity",
+                   "funding_rate_arb"},
+    "RISK_OFF":   set(),                                           # nothing trades
+    "UNKNOWN":    {"cross_exchange_arb", "triangular_arb",
+                   "liquidity_signal", "vol_breakout", "mean_reversion"},
+}
+
+# Regime → Kelly fraction multiplier (user spec)
+_REGIME_KELLY_MULT: dict[str, float] = {
+    "TREND_UP":   1.00,   # full Kelly
+    "TREND_DOWN": 0.50,   # half Kelly
+    "RANGING":    0.75,   # 75% Kelly
+    "HIGH_VOL":   0.25,   # 25% Kelly
+    "LOW_VOL":    1.00,
+    "RISK_OFF":   0.00,
+    "UNKNOWN":    0.50,
+}
+
+# HIGH_VOL requires a higher score to trade (too noisy for normal threshold)
+_HIGH_VOL_SCORE_BOOST = 15
 
 log = get_logger("execution.router")
 
@@ -61,6 +108,11 @@ class ExecutionRouter:
         self._fast_cooldown_until    = 0.0
 
         self._last_order_refresh = 0.0
+
+        # Quant engine state
+        self._regime_cache:   dict = {}   # symbol → {"regime": dict, "expires": float}
+        self._symbol_cooldown: dict = {}  # symbol → cooldown_until_ts
+        self._ev_history = collections.deque(maxlen=EV_HISTORY_WINDOW)  # recent EV values
 
     # ─── Main entry point ─────────────────────────────────────────────────────
 
@@ -153,6 +205,131 @@ class ExecutionRouter:
         for opp in ranked_opportunities[:3]:   # evaluate top 3 only
             self._evaluate_opportunity(opp, allocations, market_cache)
 
+    # ─── Regime detection (per-symbol, cached 5 min) ──────────────────────────
+
+    def _get_regime(self, symbol: str, exchange: str) -> dict:
+        """
+        Return a regime dict for this symbol.  Caches for REGIME_CACHE_TTL_SEC
+        seconds so we aren't fetching hourly candles on every 5s loop tick.
+
+        Falls back to UNKNOWN if candles are unavailable.
+        """
+        now    = time.time()
+        cached = self._regime_cache.get(symbol)
+        if cached and now < cached["expires"]:
+            return cached["regime"]
+
+        regime = {"regime": "UNKNOWN", "size_mult": 0.5, "allowed": list(
+            _REGIME_ALLOWED["UNKNOWN"])}
+        try:
+            from strategies.detector import detect_regime
+            adapter = self.adapters.get(exchange) or next(iter(self.adapters.values()), None)
+            if not adapter:
+                return regime
+
+            client = getattr(adapter, "_client", None)
+            if client is None:
+                return regime
+
+            # Symbol mapping: binance_us needs USDT; kraken prefers USD
+            fetch_sym = symbol
+            if exchange == "binance_us" and symbol.endswith("/USD"):
+                fetch_sym = symbol.replace("/USD", "/USDT")
+
+            raw = client.fetch_ohlcv(fetch_sym, "1h", limit=60)
+            if not raw or len(raw) < 20:
+                return regime
+
+            candles = [
+                {"open": c[1], "high": c[2], "low": c[3], "close": c[4], "volume": c[5]}
+                for c in raw
+            ]
+            regime = detect_regime(candles)
+
+        except Exception as exc:
+            log.debug("_get_regime %s: %s", symbol, exc)
+
+        self._regime_cache[symbol] = {"regime": regime, "expires": now + REGIME_CACHE_TTL_SEC}
+        return regime
+
+    # ─── EV candidate builder ─────────────────────────────────────────────────
+
+    def _build_ev_candidate(self, opp: dict, opp_type: str, score: float) -> Optional[dict]:
+        """
+        Build EV model inputs from scanner opportunity priors and compute EV.
+
+        Returns a dict with all sizing inputs, or None if EV is negative.
+        Strategy-specific (base_p_win, avg_win, avg_loss) come from _EV_PRIORS.
+        p_win is adjusted upward as score rises above 50.
+        """
+        from core.ev_model import EVModel
+
+        priors = _EV_PRIORS.get(opp_type, _EV_PRIORS.get("liquidity_signal"))
+        if not priors:
+            return None
+
+        base_p_win, avg_win, avg_loss = priors
+
+        # For arb types, use the actual measured net_edge as avg_win
+        measured_edge = opp.get("net_edge_pct", 0)
+        if measured_edge > 0 and opp_type in ("cross_exchange_arb", "triangular_arb"):
+            avg_win  = measured_edge / 100.0
+            avg_loss = avg_win * 0.5   # worst-case: edge closes against us
+
+        # Score adjustment: score 100 → +0.25 above base; score 0 → -0.25
+        p_win = min(max(base_p_win + (score - 50.0) / 200.0, 0.30), 0.92)
+
+        # Round-trip fees (maker both ways is the best case)
+        fees_pct     = ACTIVE_MAKER_FEE * 2
+        slippage_pct = 0.0005   # conservative 0.05% slippage
+
+        ev = EVModel.compute(p_win, avg_win, avg_loss, fees_pct, slippage_pct)
+
+        # Kelly fraction (full, caller applies half-Kelly via regime mult)
+        kelly = EVModel.kelly_fraction(p_win, avg_win, avg_loss)
+
+        return {
+            "p_win":        p_win,
+            "avg_win":      avg_win,
+            "avg_loss":     avg_loss,
+            "fees_pct":     fees_pct,
+            "slippage_pct": slippage_pct,
+            "ev":           ev,
+            "kelly":        kelly,
+        }
+
+    # ─── Kelly-based position sizer ───────────────────────────────────────────
+
+    def _compute_kelly_size(
+        self,
+        kelly:           float,
+        balance:         float,
+        regime_kelly_mult: float,
+        ev_confidence_mult: float,
+        orderflow_mult:  float,
+    ) -> float:
+        """
+        Dollar position size using half-Kelly with all regime/signal multipliers.
+
+        Chain:
+          base    = balance * half_kelly
+          × regime_kelly_mult     (0.25–1.0 based on regime)
+          × ev_confidence_mult    (0.5–2.0 based on EV vs recent avg)
+          × orderflow_mult        (1.2 if orderflow agrees, 1.0 otherwise)
+          hard cap: MAX_KELLY_PCT * balance
+          floor:    MIN_POSITION_USD
+        """
+        half_kelly = kelly * 0.5
+        base       = balance * half_kelly
+
+        base *= regime_kelly_mult
+        base *= ev_confidence_mult
+        base *= orderflow_mult
+
+        cap  = balance * MAX_KELLY_PCT
+        size = min(base, cap)
+        return size if size >= MIN_POSITION_USD else 0.0
+
     # ─── Opportunity evaluation ───────────────────────────────────────────────
 
     def _evaluate_opportunity(self, opp: dict, allocations: dict,
@@ -163,7 +340,7 @@ class ExecutionRouter:
         edge_pct = opp.get("net_edge_pct", opp.get("imbalance", 0) * 100)
 
         # vol_breakout and liquidity_signal don't carry net_edge_pct.
-        # Derive edge from score as proxy (score=46 → 0.46%, well above 0.05% min).
+        # Derive edge from score as proxy (score=60 → 0.60%).
         if edge_pct == 0 and opp_type in ("liquidity_signal", "vol_breakout"):
             edge_pct = score / 100
 
@@ -174,7 +351,25 @@ class ExecutionRouter:
         if not exchange or not symbol:
             return
 
-        # Get data timestamp for freshness check
+        # ── 1. Symbol cooldown ────────────────────────────────────────────────
+        now = time.time()
+        cooldown_until = self._symbol_cooldown.get(symbol, 0.0)
+        if now < cooldown_until:
+            log.info("COOLDOWN %s — %.0fs remaining", symbol, cooldown_until - now)
+            return
+
+        # ── 2. Minimum score gate ─────────────────────────────────────────────
+        # HIGH_VOL regime requires a higher bar — checked after regime detection.
+        # This first check rejects obviously weak signals before any API calls.
+        if score < MIN_SCORE_THRESHOLD:
+            log.info("REJECTED %s/%s — score %.1f < threshold %d (reason=score_below_threshold)",
+                     symbol, exchange, score, MIN_SCORE_THRESHOLD)
+            log_event("SIGNAL_REJECTED", "router",
+                      {"symbol": symbol, "exchange": exchange, "score": score,
+                       "reason": "score_below_threshold", "threshold": MIN_SCORE_THRESHOLD})
+            return
+
+        # Get data row and timestamp for freshness check
         row     = market_cache.get(exchange, {}).get(symbol, {})
         data_ts = row.get("ticker_ts")
 
@@ -184,7 +379,7 @@ class ExecutionRouter:
         log.info("Evaluating: %s | %s | %s | score=%.1f | edge=%.4f%%",
                  opp_type, symbol, exchange, score, edge_pct)
 
-        # Fast scalp: enforce minimum score and spread protection
+        # ── Fast scalp: enforce minimum score and spread protection ───────────
         if self.fast_scalp_mode:
             if score < FAST_SCALP_MIN_SCORE:
                 log.info("FAST SCALP REJECTED %s/%s — score %.0f < min %d",
@@ -199,11 +394,67 @@ class ExecutionRouter:
                              symbol, exchange, spread_pct * 100, FAST_SCALP_MAX_SPREAD_PCT * 100)
                     return
 
+        # ── 3. Regime-aware strategy gate ─────────────────────────────────────
+        regime_dict     = self._get_regime(symbol, exchange)
+        regime          = regime_dict.get("regime", "UNKNOWN")
+        regime_allowed  = _REGIME_ALLOWED.get(regime, _REGIME_ALLOWED["UNKNOWN"])
+        kelly_mult      = _REGIME_KELLY_MULT.get(regime, 0.50)
+
+        # RISK_OFF: nothing trades
+        if regime == "RISK_OFF":
+            log.info("REJECTED %s/%s — regime=RISK_OFF", symbol, exchange)
+            return
+
+        # HIGH_VOL: raise score threshold by _HIGH_VOL_SCORE_BOOST
+        effective_threshold = MIN_SCORE_THRESHOLD
+        if regime == "HIGH_VOL":
+            effective_threshold += _HIGH_VOL_SCORE_BOOST
+            if score < effective_threshold:
+                log.info("REJECTED %s/%s — regime=HIGH_VOL score %.1f < %d",
+                         symbol, exchange, score, effective_threshold)
+                return
+
+        # TREND_DOWN: explicit long block with clear label
+        if regime == "TREND_DOWN" and opp_type not in ("mean_reversion",) and strategy not in ("mean_reversion",):
+            log.info("REJECTED %s/%s — TREND_DOWN blocks %s (only mean_reversion allowed)",
+                     symbol, exchange, opp_type)
+            return
+
+        # Check strategy allowed in regime (check both opp_type and strategy alias)
+        if opp_type not in regime_allowed and strategy not in regime_allowed:
+            log.info("REJECTED %s/%s — opp_type=%s not allowed in regime=%s (allowed=%s)",
+                     symbol, exchange, opp_type, regime, sorted(regime_allowed))
+            log_event("SIGNAL_REJECTED", "router",
+                      {"symbol": symbol, "exchange": exchange, "opp_type": opp_type,
+                       "regime": regime, "reason": "regime_filter"})
+            return
+
+        # ── 4. EV filter ──────────────────────────────────────────────────────
+        ev_inputs = self._build_ev_candidate(opp, opp_type, score)
+        if ev_inputs is None:
+            log.debug("No EV priors for %s/%s type=%s — skipping", symbol, exchange, opp_type)
+            return
+
+        ev    = ev_inputs["ev"]
+        kelly = ev_inputs["kelly"]
+
+        if ev < MIN_EV_THRESHOLD:
+            log.info("REJECTED %s/%s — EV=%.6f < threshold %.6f (regime=%s)",
+                     symbol, exchange, ev, MIN_EV_THRESHOLD, regime)
+            log_event("SIGNAL_REJECTED", "router",
+                      {"symbol": symbol, "exchange": exchange, "ev": round(ev, 8),
+                       "regime": regime, "reason": "ev_below_threshold"})
+            return
+
+        # Track EV history for confidence multiplier
+        self._ev_history.append(ev)
+
+        # ── 5. Risk checks ────────────────────────────────────────────────────
         if not self.risk.allow_trade(edge_pct=edge_pct, data_ts=data_ts):
             log.info("REJECTED %s/%s — risk check failed (see above)", symbol, exchange)
             return
 
-        # Scalp mode: RSI / Z-score / spread / volume gate
+        # ── Scalp mode: RSI / Z-score / spread / volume gate ─────────────────
         if self.scalp_mode:
             approved, reason = self.scalp_filter.validate(
                 symbol, exchange, market_cache, score=score
@@ -212,41 +463,70 @@ class ExecutionRouter:
                 log.info("REJECTED %s/%s — scalp filter: %s", symbol, exchange, reason)
                 return
 
-        # Determine buy price (limit order at ask = maker fee)
+        # ── 6. Buy price ──────────────────────────────────────────────────────
         buy_price = row.get("ask") or row.get("last")
         if not buy_price:
             log.debug("No price available for %s/%s", symbol, exchange)
             return
 
-        # Position sizing:
-        # - Always leave USD_FEE_RESERVE in USD so sell orders can pay Kraken fees.
-        # - Scalp mode: fixed MIN_POSITION_USD per trade, capped to spendable.
-        # - Standard: percentage-based, floored at MIN_POSITION_USD.
+        # ── 7. Dynamic position sizing ────────────────────────────────────────
         spendable = max(self.risk.balance - USD_FEE_RESERVE, 0)
+
         if self.fast_scalp_mode:
             trade_dollar = min(self.risk.balance * FAST_SCALP_CAPITAL_PCT, spendable)
+
         elif self.scalp_mode:
             trade_dollar = min(MIN_POSITION_USD, spendable)
+
         else:
-            strategy_budget = allocations.get(strategy, self.risk.balance * 0.05)
-            trade_dollar    = min(self.risk.position_size(), strategy_budget * 0.10)
-            trade_dollar    = max(trade_dollar, MIN_POSITION_USD)
-            trade_dollar    = min(trade_dollar, spendable)
+            # EV confidence multiplier: current EV vs rolling average
+            if len(self._ev_history) >= 3:
+                avg_ev = sum(self._ev_history) / len(self._ev_history)
+                ev_conf_mult = min(max(ev / avg_ev if avg_ev > 0 else 1.0, 0.5), 2.0)
+            else:
+                ev_conf_mult = 1.0
+
+            # Orderflow alignment: 1.2x if orderflow matches trade direction
+            of_dir = opp.get("orderflow_direction", "NEUTRAL")
+            of_match = of_dir == "BUY" and opp_type not in ("cross_exchange_arb", "triangular_arb")
+            orderflow_mult = 1.20 if of_match else 1.0
+
+            trade_dollar = self._compute_kelly_size(
+                kelly, self.risk.balance,
+                kelly_mult, ev_conf_mult, orderflow_mult
+            )
+            trade_dollar = min(trade_dollar, spendable)
+
+            log.info(
+                "SIZING %s/%s | kelly=%.4f | regime=%s kelly_mult=%.2f | "
+                "ev=%.6f ev_conf=%.2f | of_mult=%.2f | size=$%.2f",
+                symbol, exchange, kelly, regime, kelly_mult,
+                ev, ev_conf_mult, orderflow_mult, trade_dollar,
+            )
+
+        if trade_dollar < MIN_POSITION_USD:
+            log.info("REJECTED %s/%s — sized below MIN_POSITION_USD ($%.2f < $%.2f)",
+                     symbol, exchange, trade_dollar, MIN_POSITION_USD)
+            return
 
         quantity = trade_dollar / buy_price
         if quantity <= 0:
             return
 
-        # Pre-trade: already in position?
+        # ── 8. Pre-trade: already in position? ────────────────────────────────
         existing = self.positions.get(symbol, exchange)
         if existing and existing["quantity"] > 0:
             log.debug("Already in position for %s/%s — skipping", symbol, exchange)
             return
 
-        log.info("Executing: %s | %s | %s | qty=%.6f | price=%.4f | edge=%.4f%%",
-                 strategy, opp_type, symbol, quantity, buy_price, edge_pct)
+        log.info(
+            "EXECUTING %s | %s | %s | qty=%.6f | price=%.4f | "
+            "ev=%.6f | kelly=%.4f | regime=%s | size=$%.2f | score=%.1f",
+            strategy, opp_type, symbol, quantity, buy_price,
+            ev, kelly, regime, trade_dollar, score,
+        )
 
-        # Submit limit buy (maker fee = 0.16%)
+        # Submit limit buy (maker fee)
         order = self.order_mgr.submit(
             exchange   = exchange,
             symbol     = symbol,
@@ -267,7 +547,9 @@ class ExecutionRouter:
                 self.positions.record_buy(symbol, exchange, quantity, fill_price)
                 log_event("TRADE_OPENED", "router",
                           {"strategy": strategy, "symbol": symbol,
-                           "exchange": exchange, "qty": quantity, "price": fill_price})
+                           "exchange": exchange, "qty": quantity, "price": fill_price,
+                           "ev": round(ev, 8), "kelly": round(kelly, 6),
+                           "regime": regime, "score": score})
 
     # ─── Scalp exit manager ───────────────────────────────────────────────────
 
@@ -510,11 +792,12 @@ class ExecutionRouter:
             pnl = self.positions.record_sell(symbol, exchange, sell_qty, fill_price)
             self.risk.record_trade_close(pnl)
             self.tracker.update(reason, pnl)
+            self._symbol_cooldown[symbol] = time.time() + SYMBOL_COOLDOWN_SEC
             log_event("TRADE_CLOSED", "router",
                       {"symbol": symbol, "exchange": exchange,
                        "pnl": pnl, "reason": reason, "mode": "fast_scalp"})
-            log.info("Fast-scalp closed %s/%s — qty=%.6f PnL=%.4f (%s)",
-                     symbol, exchange, sell_qty, pnl, reason)
+            log.info("Fast-scalp closed %s/%s — qty=%.6f PnL=%.4f (%s) | cooldown=%ds",
+                     symbol, exchange, sell_qty, pnl, reason, SYMBOL_COOLDOWN_SEC)
 
         return order
 
@@ -550,10 +833,12 @@ class ExecutionRouter:
             pnl = self.positions.record_sell(symbol, exchange, pos["quantity"], fill_price)
             self.risk.record_trade_close(pnl)
             self.tracker.update(reason, pnl)
+            self._symbol_cooldown[symbol] = time.time() + SYMBOL_COOLDOWN_SEC
             log_event("TRADE_CLOSED", "router",
                       {"symbol": symbol, "exchange": exchange,
                        "pnl": pnl, "reason": reason})
-            log.info("Closed %s/%s — PnL: %.4f (%s)", symbol, exchange, pnl, reason)
+            log.info("Closed %s/%s — PnL: %.4f (%s) | cooldown=%ds",
+                     symbol, exchange, pnl, reason, SYMBOL_COOLDOWN_SEC)
 
         return order
 

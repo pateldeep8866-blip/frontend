@@ -1,6 +1,7 @@
+export const dynamic = "force-static";
 import { NextResponse } from "next/server";
 
-export const dynamic = "force-dynamic";
+
 
 const OPENROUTER_MODEL = "mistralai/mistral-7b-instruct";
 const OPENAI_MODEL = "gpt-4.1-mini";

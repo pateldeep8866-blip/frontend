@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Arthastra</string>
+    <string name="title_activity_main">Arthastra</string>
+    <string name="package_name">com.arthastraai.app</string>
+    <string name="custom_url_scheme">com.arthastraai.app</string>
+</resources>

@@ -3,8 +3,13 @@ export function getAdminSecret() {
 }
 
 export function checkAdminAuth(request) {
-  const cookie = request.cookies.get("admin_auth")?.value;
-  const secret = getAdminSecret();
-  return Boolean(cookie && secret && cookie === secret);
+  try {
+    const cookie = request.cookies.get("admin_auth")?.value;
+    const secret = getAdminSecret();
+    return Boolean(cookie && secret && cookie === secret);
+  } catch {
+    // During static export prerender, request.cookies throws StaticGenBailoutError.
+    // Return false (unauthenticated) so the route can return a static response.
+    return false;
+  }
 }
-

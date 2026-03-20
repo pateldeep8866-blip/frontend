@@ -1,10 +1,11 @@
+export const dynamic = "force-static";
 import { NextResponse } from "next/server";
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { checkAdminAuth } from "../../_lib/admin-auth";
 
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+
 
 const RUNS_ROOT = process.env.QUANT_RUNS_ROOT || "/Users/juanramirez/NOVA/NOVA_LAB/QUANT_LAB/reports/runs";
 

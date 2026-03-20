@@ -1,24 +1,26 @@
+export const dynamic = "force-static";
+
 export async function GET(request) {
-  const { searchParams } = new URL(request.url);
-  const symbol = (searchParams.get("symbol") || "").trim().toUpperCase();
-
-  if (!symbol) {
-    return Response.json({ error: "Symbol required" }, { status: 400 });
-  }
-
-  const API_KEY = process.env.FINNHUB_API_KEY;
-  if (!API_KEY) {
-    return Response.json({ error: "Missing FINNHUB_API_KEY" }, { status: 500 });
-  }
-
-  // last 7 days
-  const to = new Date();
-  const from = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-
-  const toStr = to.toISOString().slice(0, 10);
-  const fromStr = from.toISOString().slice(0, 10);
-
   try {
+    const { searchParams } = new URL(request.url);
+    const symbol = (searchParams.get("symbol") || "").trim().toUpperCase();
+
+    if (!symbol) {
+      return Response.json({ error: "Symbol required" }, { status: 400 });
+    }
+
+    const API_KEY = process.env.FINNHUB_API_KEY;
+    if (!API_KEY) {
+      return Response.json({ error: "Missing FINNHUB_API_KEY" }, { status: 500 });
+    }
+
+    // last 7 days
+    const to = new Date();
+    const from = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    const toStr = to.toISOString().slice(0, 10);
+    const fromStr = from.toISOString().slice(0, 10);
+
     const res = await fetch(
       `https://finnhub.io/api/v1/company-news?symbol=${encodeURIComponent(symbol)}&from=${fromStr}&to=${toStr}&token=${API_KEY}`
     );

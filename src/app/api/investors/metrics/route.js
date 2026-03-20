@@ -1,3 +1,5 @@
+export const dynamic = "force-static";
+
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { isInvestorAuthorizedFromCookies } from "@/app/api/_lib/investor-auth";
@@ -67,7 +69,13 @@ async function fetchCoinGeckoBtc() {
 }
 
 export async function GET() {
-  const jar = await cookies();
+  let jar;
+  try {
+    jar = await cookies();
+  } catch {
+    // During static export prerender, cookies() throws. Return unauthorized.
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  }
   if (!isInvestorAuthorizedFromCookies(jar)) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }

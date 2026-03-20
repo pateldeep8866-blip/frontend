@@ -391,6 +391,7 @@ class ARBIBot:
         from scanner.volatility_scanner import scan_volatility
         from scanner.liquidity_scanner  import scan_liquidity
         from scanner.triangular_scanner import scan_all_triangular
+        from scanner.orderflow_scanner  import scan_orderflow
         from scanner.ranker             import rank_opportunities
 
         findings = []
@@ -398,7 +399,8 @@ class ARBIBot:
         findings.extend(scan_volatility(snap))
         findings.extend(scan_liquidity(snap))
         findings.extend(scan_all_triangular(snap))
-        ranked = rank_opportunities(findings)
+        orderflow_data = scan_orderflow(snap)
+        ranked = rank_opportunities(findings, orderflow_data=orderflow_data)
 
         if ranked:
             log.info("=== TOP OPPORTUNITIES ===")

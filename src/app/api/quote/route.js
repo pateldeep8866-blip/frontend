@@ -1,3 +1,5 @@
+export const dynamic = "force-static";
+
 function toNum(v) {
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
@@ -34,7 +36,12 @@ async function fetchYahooQuote(symbol) {
 }
 
 export async function GET(request) {
-  const { searchParams } = new URL(request.url);
+  let searchParams;
+  try {
+    searchParams = new URL(request.url).searchParams;
+  } catch {
+    return Response.json({ error: "Server error" }, { status: 500 });
+  }
   const symbol = (searchParams.get("symbol") || "").trim().toUpperCase();
   const API_KEY = process.env.FINNHUB_API_KEY;
 

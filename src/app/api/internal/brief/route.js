@@ -1,3 +1,4 @@
+export const dynamic = "force-static";
 /**
  * /api/internal/brief
  * YUNI's single-call briefing endpoint.
@@ -11,7 +12,7 @@ import { ok, UNAUTHORIZED } from "../../_lib/response";
 import { getSupabaseServer } from "../../_lib/supabase-server";
 
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+
 
 function toNum(v, fallback = null) {
   const n = Number(v);

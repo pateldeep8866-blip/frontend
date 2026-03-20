@@ -1,6 +1,7 @@
+export const dynamic = "force-static";
 import { NextResponse } from "next/server";
 
-export const dynamic = "force-dynamic";
+
 
 const COUNTRY_BENCHMARKS = [
   { code: "US", symbol: "SPY" },

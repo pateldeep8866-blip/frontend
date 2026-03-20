@@ -4,7 +4,7 @@ import { checkAdminAuth } from "../../_lib/admin-auth";
 import { ok, fail, UNAUTHORIZED } from "../../_lib/response";
 
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+
 
 export async function POST(request) {
   if (!checkAdminAuth(request)) return UNAUTHORIZED();

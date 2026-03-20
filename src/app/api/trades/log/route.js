@@ -4,7 +4,7 @@ import { validateTrade } from "../../_lib/validate";
 import { ok, fail, UNAUTHORIZED } from "../../_lib/response";
 
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+
 
 export async function POST(req) {
   if (!checkAdminAuth(req)) return UNAUTHORIZED();

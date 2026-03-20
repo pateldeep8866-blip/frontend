@@ -3,7 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+
 
 const QUANT_CACHE_ROOT = process.env.QUANT_CACHE_ROOT || "/Users/juanramirez/NOVA/NOVA_LAB/QUANT_LAB/data/cache";
 const localCache = new Map();

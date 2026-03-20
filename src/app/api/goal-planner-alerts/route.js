@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseClient } from "@/app/api/_lib/supabaseClient";
 
-export const dynamic = "force-dynamic";
+
 
 // ── Alert types supported ────────────────────────────────────────────────────
 const VALID_ALERT_TYPES = ["buy", "sell", "hold", "rebalance", "weekly_summary"];

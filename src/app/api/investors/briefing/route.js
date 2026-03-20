@@ -1,3 +1,4 @@
+export const dynamic = "force-static";
 import { NextResponse } from "next/server";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
@@ -5,7 +6,7 @@ import { DatabaseSync } from "node:sqlite";
 import { STATIC_BRIEFING, STATIC_PICKS } from "../../_lib/static-picks.js";
 
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+
 
 const DB_PATH = process.env.TRADES_DB_PATH || "/Users/juanramirez/NOVA/NOVA_LAB/data/trades.db";
 let _db = null;
@@ -34,8 +35,13 @@ function windowMs(w) {
 }
 
 export async function GET(req) {
-  const { searchParams } = new URL(req.url);
-  const win = searchParams.get("window") || "all";
+  let win = "all";
+  try {
+    const { searchParams } = new URL(req.url);
+    win = searchParams.get("window") || "all";
+  } catch {
+    // During static export prerender, req.url throws. Use default value.
+  }
 
   const db = getDb();
 

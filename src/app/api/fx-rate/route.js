@@ -1,3 +1,5 @@
+export const dynamic = "force-static";
+
 import { NextResponse } from "next/server";
 
 async function fetchFrankfurterRate(from, to) {

@@ -1,3 +1,5 @@
+export const dynamic = "force-static";
+
 // src/app/api/arbi/route.js
 // Serves live ARBI bot data to the dashboard from Supabase
 
@@ -18,6 +20,10 @@ const supabase = ARBI_SUPABASE_URL && ARBI_SUPABASE_KEY
   : null;
 
 export async function GET() {
+  // During static export prerender, skip to avoid directory conflict with /api/arbi/bot-status
+  if (process.env.NEXT_PHASE === 'phase-production-build') {
+    return Response.json({ status: 'unavailable' }, { status: 503 });
+  }
   try {
     if (!supabase) {
       return Response.json(

@@ -1,3 +1,5 @@
+export const dynamic = "force-static";
+
 import { NextResponse } from "next/server";
 import { avGet, avGetMetal, yahooGetMetalCandles } from "../_lib/alphavantage";
 

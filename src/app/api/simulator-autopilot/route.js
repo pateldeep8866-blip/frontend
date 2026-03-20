@@ -5,7 +5,7 @@ import { createRequire } from "module";
 const require = createRequire(import.meta.url);
 const { handleAutopilotRequest } = require("../../../lib/autopilot-engine-v2.js");
 
-export const dynamic = "force-dynamic";
+
 
 const OPENROUTER_MODEL = "mistralai/mistral-7b-instruct";
 const OPENAI_MODEL = "gpt-4.1-mini";

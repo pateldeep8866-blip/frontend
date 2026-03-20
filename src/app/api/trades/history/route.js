@@ -1,9 +1,10 @@
+export const dynamic = "force-static";
 import { getTradeHistory, getDbMeta } from "../../_lib/trade-db";
 import { checkAdminAuth } from "../../_lib/admin-auth";
 import { ok, fail, UNAUTHORIZED } from "../../_lib/response";
 
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+
 
 export async function GET(req) {
   if (!checkAdminAuth(req)) return UNAUTHORIZED();

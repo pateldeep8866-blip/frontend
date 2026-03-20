@@ -1,3 +1,5 @@
+export const dynamic = "force-static";
+
 import { NextResponse } from "next/server";
 
 const FX_QUOTES = ["EUR", "GBP", "JPY", "INR", "CAD", "AUD", "CHF", "CNY", "AED", "MXN"];

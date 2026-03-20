@@ -185,3 +185,12 @@ FAST_SCALP_CAPITAL_PCT         = 0.25      # 25% of available USD per trade
 FAST_SCALP_MAX_TRADES_PER_HOUR = 10
 FAST_SCALP_CONSEC_LOSS_LIMIT   = 3
 FAST_SCALP_COOLDOWN_SEC        = 1800      # 30-minute cooldown after 3 consecutive losses
+
+# ─── Quant Engine ─────────────────────────────────────────────────────────────
+MIN_SCORE_THRESHOLD    = 55       # minimum scanner score to consider a trade
+MIN_EV_THRESHOLD       = 0.00005  # minimum EV per dollar (0.005%) to enter
+MAX_KELLY_PCT          = 0.10     # hard cap: never risk more than 10% of balance per trade
+SYMBOL_COOLDOWN_SEC    = 60       # seconds to wait after exiting a symbol before re-entering
+REGIME_CACHE_TTL_SEC   = 300      # re-detect regime every 5 minutes per symbol
+EV_HISTORY_WINDOW      = 20       # rolling window of recent EVs for confidence multiplier
+ORDERFLOW_SCORE_WEIGHT = 0.30     # orderflow_score contributes 30% of final opportunity score

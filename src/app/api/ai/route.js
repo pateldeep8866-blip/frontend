@@ -1,3 +1,5 @@
+export const dynamic = "force-static";
+
 import { NextResponse } from "next/server";
 
 const OPENROUTER_MODEL = "mistralai/mistral-7b-instruct";

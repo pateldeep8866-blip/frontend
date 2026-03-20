@@ -6,7 +6,13 @@
  */
 
 export function checkYuniAuth(request) {
-  const token = request.headers.get("x-yuni-token");
-  const secret = process.env.YUNI_INTERNAL_TOKEN;
-  return Boolean(token && secret && token === secret);
+  try {
+    const token = request.headers.get("x-yuni-token");
+    const secret = process.env.YUNI_INTERNAL_TOKEN;
+    return Boolean(token && secret && token === secret);
+  } catch {
+    // During static export prerender, request.headers throws StaticGenBailoutError.
+    // Return false (unauthenticated) so the route can return a static response.
+    return false;
+  }
 }

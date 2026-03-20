@@ -1,3 +1,5 @@
+export const dynamic = "force-static";
+
 import { NextResponse } from "next/server";
 import { avGetMetalSnapshot, METALS_CATALOG } from "../_lib/alphavantage";
 

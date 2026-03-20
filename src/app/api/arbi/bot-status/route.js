@@ -1,3 +1,5 @@
+export const dynamic = "force-static";
+
 // src/app/api/arbi/bot-status/route.js
 // Priority:
 //   1. /tmp/arbi_live_state.json (< 60s old) → LIVE mode

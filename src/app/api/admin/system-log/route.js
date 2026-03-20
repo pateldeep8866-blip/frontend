@@ -1,9 +1,10 @@
+export const dynamic = "force-static";
 import { NextResponse } from "next/server";
 import { checkAdminAuth } from "../../_lib/admin-auth";
 import { getSystemLog } from "../../_lib/trade-db";
 
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+
 
 export async function GET(req) {
   if (!checkAdminAuth(req)) {

@@ -1,3 +1,5 @@
+export const dynamic = "force-static";
+
 import { NextResponse } from "next/server";
 import { METALS_CATALOG } from "../_lib/alphavantage";
 
