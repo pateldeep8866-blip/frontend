@@ -476,23 +476,23 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
 @keyframes pulse-a{0%,100%{opacity:1;box-shadow:0 0 6px var(--cyan-glow)}50%{opacity:.25;box-shadow:none}}
 
 /* ASTRA WAR ROOM PANEL */
-#astra-panel{position:fixed;bottom:92px;right:20px;width:400px;height:500px;z-index:901;background:linear-gradient(180deg,rgba(2,14,26,.98),rgba(1,8,16,.99));border:1px solid rgba(0,220,255,0.28);box-shadow:0 0 30px rgba(0,220,255,.1),-4px -4px 24px rgba(0,0,0,.6);display:flex;flex-direction:column;transform:translateY(16px);opacity:0;pointer-events:none;transition:transform .25s ease,opacity .25s ease;backdrop-filter:blur(12px);}
+#astra-panel{position:fixed;bottom:92px;right:20px;width:500px;height:660px;z-index:901;background:linear-gradient(180deg,rgba(2,14,26,.98),rgba(1,8,16,.99));border:1px solid rgba(0,220,255,0.28);box-shadow:0 0 30px rgba(0,220,255,.1),-4px -4px 24px rgba(0,0,0,.6);display:flex;flex-direction:column;transform:translateY(16px);opacity:0;pointer-events:none;transition:transform .25s ease,opacity .25s ease;backdrop-filter:blur(12px);}
 #astra-panel.open{transform:translateY(0);opacity:1;pointer-events:auto;}
-.ap-head{background:linear-gradient(90deg,rgba(0,220,255,.07),rgba(192,64,255,.05));border-bottom:1px solid var(--b2);padding:.5rem .75rem;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
-.ap-title{font-family:var(--disp);font-size:.52rem;letter-spacing:.22em;color:var(--cyan2);text-shadow:0 0 8px var(--cyan-glow);}
-.ap-sub{font-family:var(--mono);font-size:.36rem;color:var(--body);letter-spacing:.1em;margin-top:1px;}
-.ap-close{font-family:var(--mono);font-size:.42rem;color:var(--body);cursor:pointer;transition:color .15s;letter-spacing:.05em;}.ap-close:hover{color:var(--cyan);}
-.ap-messages{flex:1;overflow-y:auto;padding:.5rem .65rem;display:flex;flex-direction:column;gap:.4rem;}
-.ap-msg{max-width:90%;padding:.42rem .6rem;font-family:var(--sans);font-size:.62rem;line-height:1.5;}
+.ap-head{background:linear-gradient(90deg,rgba(0,220,255,.07),rgba(192,64,255,.05));border-bottom:1px solid var(--b2);padding:.6rem .85rem;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.ap-title{font-family:var(--disp);font-size:.62rem;letter-spacing:.22em;color:var(--cyan2);text-shadow:0 0 8px var(--cyan-glow);}
+.ap-sub{font-family:var(--mono);font-size:.44rem;color:var(--body);letter-spacing:.1em;margin-top:2px;}
+.ap-close{font-family:var(--mono);font-size:.52rem;color:var(--body);cursor:pointer;transition:color .15s;letter-spacing:.05em;}.ap-close:hover{color:var(--cyan);}
+.ap-messages{flex:1;overflow-y:auto;padding:.65rem .8rem;display:flex;flex-direction:column;gap:.5rem;}
+.ap-msg{max-width:92%;padding:.55rem .75rem;font-family:var(--sans);font-size:.75rem;line-height:1.6;}
 .ap-msg.user{align-self:flex-end;background:rgba(0,220,255,.07);border:1px solid rgba(0,220,255,.18);color:var(--bright);}
 .ap-msg.ai{align-self:flex-start;background:rgba(192,64,255,.05);border:1px solid rgba(192,64,255,.15);color:var(--white);}
-.ap-msg-label{font-family:var(--mono);font-size:.34rem;letter-spacing:.18em;color:var(--cyan);margin-bottom:3px;text-transform:uppercase;}
-.ap-thinking{align-self:flex-start;font-family:var(--mono);font-size:.42rem;color:var(--body);animation:psload 1.3s ease-in-out infinite;padding:.3rem 0;}
-.ap-quickbtns{padding:.35rem .6rem;display:flex;gap:.3rem;flex-wrap:wrap;border-top:1px solid var(--b1);flex-shrink:0;background:rgba(0,0,0,.25);}
-.ap-qbtn{font-family:var(--mono);font-size:.37rem;padding:2px 6px;border:1px solid var(--b1);color:var(--body);cursor:pointer;transition:all .15s;letter-spacing:.04em;white-space:nowrap;}.ap-qbtn:hover{border-color:var(--cyan);color:var(--cyan);}
+.ap-msg-label{font-family:var(--mono);font-size:.42rem;letter-spacing:.18em;color:var(--cyan);margin-bottom:4px;text-transform:uppercase;}
+.ap-thinking{align-self:flex-start;font-family:var(--mono);font-size:.5rem;color:var(--body);animation:psload 1.3s ease-in-out infinite;padding:.35rem 0;}
+.ap-quickbtns{padding:.45rem .75rem;display:flex;gap:.4rem;flex-wrap:wrap;border-top:1px solid var(--b1);flex-shrink:0;background:rgba(0,0,0,.25);}
+.ap-qbtn{font-family:var(--mono);font-size:.44rem;padding:3px 8px;border:1px solid var(--b1);color:var(--body);cursor:pointer;transition:all .15s;letter-spacing:.04em;white-space:nowrap;}.ap-qbtn:hover{border-color:var(--cyan);color:var(--cyan);}
 .ap-input-row{display:flex;border-top:1px solid var(--b2);flex-shrink:0;}
-.ap-input{flex:1;background:rgba(0,0,0,.45);border:none;padding:.45rem .7rem;font-family:var(--mono);font-size:.52rem;color:var(--text);outline:none;letter-spacing:.02em;}.ap-input::placeholder{color:rgba(0,200,255,.22);}
-.ap-send{background:rgba(0,220,255,.07);border:none;border-left:1px solid var(--b2);padding:.45rem .85rem;font-family:var(--mono);font-size:.5rem;color:var(--cyan);cursor:pointer;transition:all .15s;letter-spacing:.1em;flex-shrink:0;}.ap-send:hover{background:rgba(0,220,255,.14);}
+.ap-input{flex:1;background:rgba(0,0,0,.45);border:none;padding:.55rem .85rem;font-family:var(--mono);font-size:.62rem;color:var(--text);outline:none;letter-spacing:.02em;}.ap-input::placeholder{color:rgba(0,200,255,.22);}
+.ap-send{background:rgba(0,220,255,.07);border:none;border-left:1px solid var(--b2);padding:.55rem 1rem;font-family:var(--mono);font-size:.58rem;color:var(--cyan);cursor:pointer;transition:all .15s;letter-spacing:.1em;flex-shrink:0;}.ap-send:hover{background:rgba(0,220,255,.14);}
 </style>
 </head>
 <body>

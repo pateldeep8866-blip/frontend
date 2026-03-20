@@ -42,21 +42,44 @@ export async function POST(req) {
       : "{}";
     const scoresJson = escalationScores ? JSON.stringify(escalationScores).slice(0, 400) : "{}";
 
+    // Fetch live pre-award signals server-side
+    let liveSignalLines = "";
+    try {
+      const sigSources = [
+        "https://news.google.com/rss/search?q=NDAA+markup+defense+appropriations&hl=en-US&gl=US&ceid=US:en",
+        "https://news.google.com/rss/search?q=Pentagon+supplemental+budget+defense+contract+award&hl=en-US&gl=US&ceid=US:en",
+      ];
+      const sigResults = await Promise.all(
+        sigSources.map(u => fetch(u, { cache: "no-store" }).then(r => r.ok ? r.text() : "").catch(() => ""))
+      );
+      const headlines = [];
+      for (const xml of sigResults) {
+        const re = /<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>|<title>([\s\S]*?)<\/title>/gi;
+        let m;
+        while ((m = re.exec(xml)) !== null && headlines.length < 5) {
+          const h = (m[1] || m[2] || "").trim();
+          if (h && !h.startsWith("Google News") && !headlines.includes(h)) headlines.push(h);
+        }
+        if (headlines.length >= 5) break;
+      }
+      if (headlines.length) liveSignalLines = "\nLive pre-award signals (top headlines right now):\n" + headlines.slice(0, 5).map((h, i) => `${i + 1}. ${h}`).join("\n");
+    } catch { /* non-fatal */ }
+
     const systemPrompt = `You are ASTRA, an intelligence analyst embedded in the ARTHASTRA War Room. You have access to current conflict data and defense sector intelligence. You can answer questions about active conflicts, explain what signals mean for specific defense stocks, generate portfolio positioning rationale, and search for the latest defense news.
 
 Current active conflict: ${currentConflict || "ukraine"}.
 Active conflict data: ${conflictJson}.
 Current escalation scores (1-10): ${scoresJson}.
-Active pre-award signals in feed: ${signalsCount}.
+Active pre-award signals in feed: ${signalsCount}.${liveSignalLines}
 
-Always be direct and specific. Format stock tickers in caps. Keep responses under 150 words unless asked for detail. No markdown code fences. Use plain dashes for lists.`;
+Always be direct and specific. Format stock tickers in caps. Keep responses under 200 words unless asked for detail. No markdown code fences. Use plain dashes for lists.`;
 
     const response = await fetch(url, {
       method: "POST",
       headers,
       body: JSON.stringify({
         model,
-        max_tokens: 300,
+        max_tokens: 600,
         temperature: 0.4,
         messages: [
           { role: "system", content: systemPrompt },
