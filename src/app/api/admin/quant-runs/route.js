@@ -1,4 +1,4 @@
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";

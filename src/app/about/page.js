@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import SakuraThemeBackground from "@/components/SakuraThemeBackground";
 import AzulaThemeBackground from "@/components/AzulaThemeBackground";
+import { useTranslation } from "@/hooks/useTranslation";
 
 const PILLARS = [
   {
@@ -64,6 +65,7 @@ const ROADMAP = [
 ];
 
 export default function AboutPage() {
+  const { t } = useTranslation();
   const [theme, setTheme] = useState("dark");
 
   useEffect(() => {
@@ -108,7 +110,7 @@ export default function AboutPage() {
       <main className="relative z-10 mx-auto w-full max-w-6xl px-6 py-10 md:py-14">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div className={`text-xs uppercase tracking-[0.2em] ${isAlerik ? "text-[#c9a84c]/70" : isLight ? "text-slate-500" : "text-white/60"}`}>
-            About Arthastra
+            {t("aboutTitle")}
           </div>
           <Link
             href="/home"
@@ -120,16 +122,16 @@ export default function AboutPage() {
                   : "border-white/15 bg-slate-900/60 text-white/85 hover:bg-slate-800/70"
             }`}
           >
-            Back Home
+            {t("backHome")}
           </Link>
         </div>
 
         <section className="app-card rounded-2xl border border-white/12 bg-slate-900/55 backdrop-blur-md p-6 md:p-8 shadow-[0_14px_40px_-22px_rgba(15,23,42,0.9)] mb-6">
           <div className={`inline-flex items-center rounded-full border px-3 py-1 text-[11px] uppercase tracking-[0.16em] ${accentPillClass}`}>
-            Company Overview
+            {t("aboutTitle")}
           </div>
           <h1 className={`text-4xl md:text-6xl font-semibold leading-tight ${isAlerik ? "text-[#f5f0e8]" : isLight ? "text-slate-900" : "text-white"}`}>
-            Built for people who want to understand before they invest.
+            {t("aboutTagline")}
           </h1>
           <p className={`mt-4 max-w-3xl text-sm md:text-base leading-7 ${isAlerik ? "text-[#f5f0e8]/72" : isLight ? "text-slate-600" : "text-white/75"}`}>
             Most platforms take your money first and explain later. Arthastra is built to close that gap: research, education, and simulation first, then informed decision-making.

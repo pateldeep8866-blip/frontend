@@ -1,4 +1,4 @@
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 /**
  * /api/internal/brief
  * YUNI's single-call briefing endpoint.

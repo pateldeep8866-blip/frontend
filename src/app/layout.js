@@ -4,6 +4,7 @@ import SiteFooter from "../components/SiteFooter";
 import CookieConsent from "../components/CookieConsent";
 import GlobalDisclaimerBanner from "../components/GlobalDisclaimerBanner";
 import GlobalThemeSwitcher from "../components/GlobalThemeSwitcher";
+import { LanguageProvider } from "@/lib/i18n/LanguageContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -52,11 +53,13 @@ export default function RootLayout({ children }) {
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <GlobalDisclaimerBanner />
-        <GlobalThemeSwitcher />
-        {children}
-        <SiteFooter />
-        <CookieConsent />
+        <LanguageProvider>
+          <GlobalDisclaimerBanner />
+          <GlobalThemeSwitcher />
+          {children}
+          <SiteFooter />
+          <CookieConsent />
+        </LanguageProvider>
       </body>
     </html>
   );

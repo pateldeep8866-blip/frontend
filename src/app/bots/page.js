@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import AzulaThemeBackground from "@/components/AzulaThemeBackground";
 import SakuraThemeBackground from "@/components/SakuraThemeBackground";
+import { useTranslation } from "@/hooks/useTranslation";
 
 export default function BotsPage() {
+  const { t } = useTranslation();
   const [theme, setTheme] = useState("dark");
 
   useEffect(() => {
@@ -55,9 +57,9 @@ export default function BotsPage() {
       <div className="mx-auto max-w-4xl px-6 py-12 relative z-10">
         <div className="mb-8 flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-semibold">Bots</h1>
+            <h1 className="text-3xl font-semibold">{t("botsTitle")}</h1>
             <p className={`mt-2 text-sm ${isLight ? "text-slate-600" : "text-white/70"}`}>
-              Choose one bot. No market tabs here.
+              {t("botsSubtitle")}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -69,11 +71,11 @@ export default function BotsPage() {
               }`}
               aria-label="Theme"
             >
-              <option value="dark">Theme: Dark</option>
-              <option value="light">Theme: Light</option>
-              <option value="cherry">Theme: Sakura</option>
-              <option value="azula">Theme: Azula</option>
-              <option value="alerik">Theme: Alerik</option>
+              <option value="dark">{t("theme")}: {t("dark")}</option>
+              <option value="light">{t("theme")}: {t("light")}</option>
+              <option value="cherry">{t("theme")}: {t("sakura")}</option>
+              <option value="azula">{t("theme")}: {t("azula")}</option>
+              <option value="alerik">{t("theme")}: {t("alerik")}</option>
             </select>
             <Link
               href="/home"
@@ -81,7 +83,7 @@ export default function BotsPage() {
                 isLight ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-100" : "border-white/15 bg-white/10 text-white/85 hover:bg-white/15"
               }`}
             >
-              Back Home
+              {t("backHome")}
             </Link>
           </div>
         </div>
@@ -91,10 +93,10 @@ export default function BotsPage() {
             href="/simulator?bot=quant"
             className={`rounded-2xl border p-6 transition ${panelClass}`}
           >
-            <div className="text-xs uppercase tracking-[0.14em] text-blue-500">QUANT</div>
-            <h2 className="mt-2 text-xl font-semibold">Quant Simulator Bot</h2>
+            <div className="text-xs uppercase tracking-[0.14em] text-blue-500">{t("botQuantLabel")}</div>
+            <h2 className="mt-2 text-xl font-semibold">{t("botQuantTitle")}</h2>
             <p className={`mt-2 text-sm ${isLight ? "text-slate-600" : "text-white/75"}`}>
-              Existing portfolio simulator, manual trading, and ASTRA auto-pilot.
+              {t("botQuantDesc")}
             </p>
           </Link>
 
@@ -102,10 +104,10 @@ export default function BotsPage() {
             href="/arbi-dashboard.html"
             className={`rounded-2xl border p-6 transition ${panelClass}`}
           >
-            <div className="text-xs uppercase tracking-[0.14em] text-blue-500">ARBI</div>
-            <h2 className="mt-2 text-xl font-semibold">Arbitrage Intelligence Bot</h2>
+            <div className="text-xs uppercase tracking-[0.14em] text-blue-500">{t("botArbiLabel")}</div>
+            <h2 className="mt-2 text-xl font-semibold">{t("botArbiTitle")}</h2>
             <p className={`mt-2 text-sm ${isLight ? "text-slate-600" : "text-white/75"}`}>
-              Cross-market spread monitoring and arbitrage signal workspace.
+              {t("botArbiDesc")}
             </p>
           </Link>
         </div>

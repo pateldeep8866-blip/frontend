@@ -1,4 +1,4 @@
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 import { checkYuniAuth } from "../../_lib/yuni-auth";
 import { getLatestWeight, getPerformanceStats } from "../../_lib/trade-db";
 import { ok, UNAUTHORIZED } from "../../_lib/response";

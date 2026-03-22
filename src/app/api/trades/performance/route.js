@@ -1,4 +1,4 @@
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 import { getPerformanceStats, getDbMeta } from "../../_lib/trade-db";
 import { checkAdminAuth } from "../../_lib/admin-auth";
 import { ok, fail, UNAUTHORIZED } from "../../_lib/response";

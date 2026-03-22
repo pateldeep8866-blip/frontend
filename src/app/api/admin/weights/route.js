@@ -1,4 +1,4 @@
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 import { checkAdminAuth } from "../../_lib/admin-auth";
 import { getWeightHistory, getLatestWeight } from "../../_lib/trade-db";
 import { ok, UNAUTHORIZED } from "../../_lib/response";

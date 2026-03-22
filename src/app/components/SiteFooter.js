@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 function openCookieSettings() {
   if (typeof window !== "undefined") {
@@ -9,23 +10,24 @@ function openCookieSettings() {
 }
 
 export default function SiteFooter() {
+  const { t } = useLanguage();
   return (
     <footer className="border-t border-slate-300/60 bg-white/90 text-slate-700">
       <div className="mx-auto max-w-6xl px-4 py-4 text-xs flex flex-wrap items-center justify-center gap-2">
         <Link href="/terms" className="hover:underline">
-          Terms of Service
+          {t("footerTerms")}
         </Link>
         <span>|</span>
         <Link href="/privacy" className="hover:underline">
-          Privacy Policy
+          {t("footerPrivacy")}
         </Link>
         <span>|</span>
         <Link href="/cookies" className="hover:underline">
-          Cookie Policy
+          {t("footerCookies")}
         </Link>
         <span>|</span>
         <Link href="/disclaimer" className="hover:underline">
-          Disclaimer
+          {t("footerDisclaimer")}
         </Link>
         <span>|</span>
         <button
@@ -33,7 +35,7 @@ export default function SiteFooter() {
           onClick={openCookieSettings}
           className="underline hover:text-slate-900"
         >
-          Cookie Settings
+          {t("footerCookieSettings")}
         </button>
       </div>
     </footer>

@@ -7,6 +7,7 @@ import { getSupabaseClient } from "@/app/api/_lib/supabaseClient";
 import geopoliticalRelations from "@/data/geopolitical-relations.json";
 import AzulaThemeBackground from "@/components/AzulaThemeBackground";
 import SakuraThemeBackground from "@/components/SakuraThemeBackground";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 
 function Badge({ value, light = false }) {
@@ -566,164 +567,8 @@ function localizeAiPayloadView(view, language, cache) {
   };
 }
 
-const UI_TEXT = {
-  en: {
-    theme: "Theme",
-    menu: "Menu",
-    language: "Language",
-    dark: "Dark",
-    light: "Light",
-    sakura: "Sakura",
-    azula: "Azula",
-    alerik: "Alerik",
-    lylah: "Lylah",
-    home: "Home",
-    learn: "Learn",
-    marketSchool: "Market School",
-    simulator: "Bots",
-    portfolio: "Portfolio",
-    about: "About",
-    terms: "Terms of Service",
-    privacy: "Privacy Policy",
-    cookies: "Cookie Policy",
-    disclaimer: "Disclaimer",
-    help: "Help",
-    loginSignup: "Login / Signup",
-    supportEmail: "Support Email",
-    copyEmail: "Copy email",
-    analyticalInformation: "Analytical Information",
-    clarityLine: "Clarity in Every Market.",
-    founder: "Founder",
-    coFounder: "Co-founder",
-    stock: "Stocks/ETF/MF",
-    crypto: "Crypto",
-    metals: "Metals",
-    fx: "FX",
-    news: "News",
-    geoPolitics: "Geo Politics",
-    globalMarket: "Global Market",
-    warRoom: "War Room",
-    briefing: "Briefing",
-    goalPlanner: "Goal Planner",
-  },
-  es: {
-    theme: "Tema",
-    menu: "Menu",
-    language: "Idioma",
-    dark: "Oscuro",
-    light: "Claro",
-    sakura: "Sakura",
-    azula: "Azula",
-    alerik: "Alerik",
-    lylah: "Lylah",
-    home: "Inicio",
-    learn: "Aprender",
-    marketSchool: "Market School",
-    simulator: "Bots",
-    portfolio: "Portafolio",
-    about: "Acerca de",
-    terms: "Terminos de servicio",
-    privacy: "Politica de privacidad",
-    cookies: "Politica de cookies",
-    disclaimer: "Descargo de responsabilidad",
-    help: "Ayuda",
-    loginSignup: "Iniciar sesion / Registro",
-    supportEmail: "Correo de soporte",
-    copyEmail: "Copiar correo",
-    analyticalInformation: "Informacion Analitica",
-    clarityLine: "Claridad en cada mercado.",
-    founder: "Fundador",
-    coFounder: "Cofundador",
-    stock: "Acciones/ETF/FI",
-    crypto: "Cripto",
-    metals: "Metales",
-    fx: "FX",
-    news: "Noticias",
-    geoPolitics: "Geopolitica",
-    globalMarket: "Mercado Global",
-    warRoom: "War Room",
-    briefing: "Briefing",
-    goalPlanner: "Planificador",
-  },
-  fr: {
-    theme: "Theme",
-    menu: "Menu",
-    language: "Langue",
-    dark: "Sombre",
-    light: "Clair",
-    sakura: "Sakura",
-    azula: "Azula",
-    alerik: "Alerik",
-    lylah: "Lylah",
-    home: "Accueil",
-    learn: "Learn",
-    marketSchool: "Market School",
-    simulator: "Bots",
-    portfolio: "Portefeuille",
-    about: "A propos",
-    terms: "Conditions d'utilisation",
-    privacy: "Politique de confidentialite",
-    cookies: "Politique de cookies",
-    disclaimer: "Avertissement",
-    help: "Aide",
-    loginSignup: "Connexion / Inscription",
-    supportEmail: "Email de support",
-    copyEmail: "Copier l'email",
-    analyticalInformation: "Information Analytique",
-    clarityLine: "Clarte sur chaque marche.",
-    founder: "Fondateur",
-    coFounder: "Cofondateur",
-    stock: "Actions/ETF/FCP",
-    crypto: "Crypto",
-    metals: "Metaux",
-    fx: "FX",
-    news: "Actualites",
-    geoPolitics: "Geopolitique",
-    globalMarket: "Marche Global",
-    warRoom: "War Room",
-    briefing: "Briefing",
-    goalPlanner: "Planificateur",
-  },
-  hi: {
-    theme: "थीम",
-    menu: "मेन्यू",
-    language: "भाषा",
-    dark: "डार्क",
-    light: "लाइट",
-    sakura: "सकुरा",
-    azula: "अज़ूला",
-    alerik: "Alerik",
-    lylah: "Lylah",
-    home: "होम",
-    learn: "लर्न",
-    marketSchool: "मार्केट स्कूल",
-    simulator: "बॉट्स",
-    portfolio: "पोर्टफोलियो",
-    about: "अबाउट",
-    terms: "सेवा की शर्तें",
-    privacy: "प्राइवेसी पॉलिसी",
-    cookies: "कुकी नीति",
-    disclaimer: "डिस्क्लेमर",
-    help: "मदद",
-    loginSignup: "लॉगिन / साइनअप",
-    supportEmail: "सपोर्ट ईमेल",
-    copyEmail: "ईमेल कॉपी करें",
-    analyticalInformation: "विश्लेषणात्मक जानकारी",
-    clarityLine: "हर बाजार में स्पष्टता।",
-    founder: "संस्थापक",
-    coFounder: "सह-संस्थापक",
-    stock: "स्टॉक्स/ETF/MF",
-    crypto: "क्रिप्टो",
-    metals: "मेटल्स",
-    fx: "एफएक्स",
-    news: "समाचार",
-    geoPolitics: "जियो पॉलिटिक्स",
-    globalMarket: "ग्लोबल मार्केट",
-    warRoom: "वार रूम",
-    briefing: "ब्रीफिंग",
-    goalPlanner: "गोल प्लानर",
-  },
-};
+// UI_TEXT removed — static translations now live in src/lib/i18n/translations.js
+// and are served via the useLanguage() hook (t() function).
 
 
 function normalizeQuizAnswers(value) {
@@ -1203,7 +1048,7 @@ export default function Home() {
   const [suppressSuggestions, setSuppressSuggestions] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [theme, setTheme] = useState("dark");
-  const [language, setLanguage] = useState("en");
+  const { language, setLanguage, t } = useLanguage();
   const [analysisViewMode, setAnalysisViewMode] = useState("short");
   const [stockSubTab, setStockSubTab] = useState("overview");
   const [cryptoSubTab, setCryptoSubTab] = useState("overview");
@@ -1407,10 +1252,7 @@ export default function Home() {
       const t = localStorage.getItem("theme_mode");
       if (t === "light" || t === "dark" || t === "cherry" || t === "azula" || t === "alerik" || t === "lylah") setTheme(t);
     } catch {}
-    try {
-      const l = localStorage.getItem("site_language");
-      if (LANGUAGE_OPTIONS.some((x) => x.code === l)) setLanguage(l);
-    } catch {}
+    // language init handled by LanguageProvider in layout
     try {
       const params = new URLSearchParams(window.location.search);
       const modeFromQuery = String(params.get("mode") || "").toLowerCase().trim();
@@ -1536,9 +1378,7 @@ export default function Home() {
     localStorage.setItem("theme_mode", theme);
   }, [theme]);
 
-  useEffect(() => {
-    localStorage.setItem("site_language", language);
-  }, [language]);
+  // language persistence handled by LanguageProvider in layout
 
   useEffect(() => {
     try {
@@ -4460,7 +4300,7 @@ export default function Home() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stockSubTab, assetMode]);
 
-  const t = (key) => UI_TEXT[language]?.[key] || UI_TEXT.en[key] || key;
+  // t() is provided by useLanguage() above
   const tx = (text) => resolveLocalizedText(text, language, headlineTranslationCacheRef.current);
   const closeParentDropdown = (event) => {
     event?.currentTarget?.closest("details")?.removeAttribute("open");

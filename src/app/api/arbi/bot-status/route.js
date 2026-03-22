@@ -1,4 +1,4 @@
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 
 // src/app/api/arbi/bot-status/route.js
 // Priority:
